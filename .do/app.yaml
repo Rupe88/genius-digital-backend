@@ -3,7 +3,7 @@ services:
 - name: api
   source_dir: /
   github:
-    repo: Rupe88/vaastu-backend
+    repo: Digital-Pathshala/vaastu-backend
     branch: main
     deploy_on_push: true
   run_command: npm run start
