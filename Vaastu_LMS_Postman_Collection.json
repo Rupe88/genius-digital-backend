@@ -610,6 +610,135 @@
       ]
     },
     {
+      "name": "eSewa Payment Integration",
+      "item": [
+        {
+          "name": "Initiate Course Payment (eSewa)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 99.99,\n  \"paymentMethod\": \"ESEWA\",\n  \"courseId\": \"course-uuid-here\",\n  \"successUrl\": \"{{baseUrl}}/api/payments/success\",\n  \"failureUrl\": \"{{baseUrl}}/api/payments/failure\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/initiate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "initiate"]
+            },
+            "description": "Initiate payment for course purchase using eSewa. Returns eSewa payment form data."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Payment Status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentId\": \"payment-uuid-from-initiate-response\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "verify"]
+            },
+            "description": "Verify payment status after eSewa callback"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/history?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "history"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get user's payment history"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Available Payment Gateways",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/gateways",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "gateways"]
+            },
+            "description": "Get list of available payment methods"
+          },
+          "response": []
+        },
+        {
+          "name": "Test eSewa Form Generation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 10.00,\n  \"paymentMethod\": \"ESEWA\",\n  \"successUrl\": \"{{baseUrl}}/api/payments/success\",\n  \"failureUrl\": \"{{baseUrl}}/api/payments/failure\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/initiate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "initiate"]
+            },
+            "description": "**TEST PAYMENT** - Use NPR 10 for testing. Returns eSewa form data for manual testing."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Payments",
       "item": [
         {
