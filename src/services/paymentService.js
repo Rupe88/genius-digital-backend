@@ -424,7 +424,12 @@ export const verifyPayment = async (params) => {
 
       // Auto-enroll in course if payment is for a course (only if not already enrolled)
       if (payment.courseId) {
-        const enrollment = await enrollUserInCourse(payment.userId, payment.courseId, payment.finalAmount);
+        const enrollment = await enrollUserInCourse(
+          payment.userId,
+          payment.courseId,
+          payment.finalAmount,
+          payment.metadata?.referralClickId
+        );
         
         // Get course to find instructor
         const course = await prisma.course.findUnique({
@@ -546,7 +551,7 @@ export const verifyPayment = async (params) => {
 /**
  * Helper: Enroll user in course
  */
-const enrollUserInCourse = async (userId, courseId, amount = null) => {
+const enrollUserInCourse = async (userId, courseId, amount = null, referralClickId = null) => {
   // Check if already enrolled
   const existingEnrollment = await prisma.enrollment.findUnique({
     where: {
@@ -622,6 +627,17 @@ const enrollUserInCourse = async (userId, courseId, amount = null) => {
       },
     },
   });
+
+  // Process referral conversion if referral click ID is provided
+  if (referralClickId) {
+    try {
+      const { processReferralConversion } = await import('../services/referralService.js');
+      await processReferralConversion(userId, courseId, enrollment.id, referralClickId);
+    } catch (error) {
+      console.error('Error processing referral conversion:', error);
+      // Don't fail enrollment if referral processing fails
+    }
+  }
 
   return enrollment;
 };

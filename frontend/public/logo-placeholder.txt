@@ -1,0 +1,9 @@
+Please add the Sanskar Academy logo here as logo.png
+
+The logo should be:
+- Circular design with dark blue, red, and white colors
+- Contains "Sanskar Academy" text
+- Includes the slogan "Unlock your hidden potential to become your best version"
+- Features a graduation cap and stylized head with gears
+- Recommended size: 150x50px or similar aspect ratio
+

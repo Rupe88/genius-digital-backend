@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import { config } from './config/env.js';
 import authRoutes from './routes/authRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
@@ -31,12 +32,14 @@ import liveClassRoutes from './routes/liveClassRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
 import blogRoutes from './routes/blogRoutes.js';
 import affiliateRoutes from './routes/affiliateRoutes.js';
+import referralRoutes from './routes/referralRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import faqRoutes from './routes/faqRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
 import newsletterRoutes from './routes/newsletterRoutes.js';
 import wishlistRoutes from './routes/wishlistRoutes.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { useragentMiddleware } from './middleware/useragent.js';
 
 const app = express();
 
@@ -75,6 +78,12 @@ app.use(cors(corsOptions));
 // Body parser
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// User agent parsing
+app.use(useragentMiddleware);
+
+// Cookie parser
+app.use(cookieParser());
 
 // Rate limiting
 const limiter = rateLimit({
@@ -155,6 +164,7 @@ app.use('/api/live-classes', liveClassRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/blogs', blogRoutes);
 app.use('/api/affiliates', affiliateRoutes);
+app.use('/api/referrals', referralRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/faqs', faqRoutes);
 app.use('/api/contact', contactRoutes);

@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { validationResult } from 'express-validator';
+import * as referralService from '../services/referralService.js';
 
 const prisma = new PrismaClient();
 
@@ -48,7 +49,7 @@ export const enrollInCourse = async (req, res, next) => {
       });
     }
 
-    // Check affiliate if provided
+    // Check affiliate if provided (legacy affiliate system)
     let affiliateId = null;
     if (affiliateCode) {
       const affiliate = await prisma.affiliate.findUnique({
@@ -76,6 +77,27 @@ export const enrollInCourse = async (req, res, next) => {
         },
       },
     });
+
+    // Check for referral cookie and process conversion
+    const referralClickId = req.cookies.referral_click_id;
+    if (referralClickId) {
+      try {
+        if (course.isFree && enrollment.status === 'ACTIVE') {
+          // Process referral conversion immediately for free courses
+          await referralService.processReferralConversion(userId, courseId, enrollment.id, referralClickId);
+          // Clear the cookie after processing
+          res.clearCookie('referral_click_id');
+        } else if (!course.isFree && enrollment.status === 'PENDING') {
+          // For paid courses, store referral info in enrollment metadata or separate tracking
+          // The actual conversion processing will happen in payment service when payment succeeds
+          // We'll pass the referralClickId through payment metadata
+          console.log(`Referral click ${referralClickId} stored for pending enrollment ${enrollment.id}`);
+        }
+      } catch (error) {
+        console.error('Error processing referral conversion:', error);
+        // Don't fail enrollment if referral processing fails
+      }
+    }
 
     // Update course enrollment count
     await prisma.course.update({

@@ -180,6 +180,7 @@ enum TransactionCategory {
   PRODUCT_SALE
   INSTRUCTOR_COMMISSION
   AFFILIATE_COMMISSION
+  REFERRAL_COMMISSION
   MARKETING
   OPERATIONAL
   INFRASTRUCTURE
@@ -229,6 +230,11 @@ model User {
   couponUsages         CouponUsage[]          @relation("UserCouponUsage")
   auditLogs            AuditLog[]             @relation("UserAuditLogs")
   wishlistItems        WishlistItem[]         @relation("UserWishlist")
+
+  // Referral system relations
+  referralLinks      ReferralLink[]       @relation("ReferralLinks")
+  referralClicks     ReferralClick[]      @relation("ReferralClicks")
+  referralConversions ReferralConversion[] @relation("ReferralConversions")
 
   @@index([email])
   @@map("users")
@@ -360,6 +366,10 @@ model Course {
   expenses          Expense[]
   instructorEarnings InstructorEarning[]
 
+  // Referral system relations
+  referralLinks      ReferralLink[]
+  referralConversions ReferralConversion[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -447,6 +457,9 @@ model Enrollment {
 
   affiliateEarnings AffiliateEarning[]
   instructorEarnings InstructorEarning[]
+
+  // Referral system relations
+  referralConversions ReferralConversion[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1427,4 +1440,100 @@ model Transaction {
   @@index([expenseId])
   @@index([instructorEarningId])
   @@map("transactions")
+}
+
+// SOCIAL SHARING REFERRAL SYSTEM
+model ReferralLink {
+  id          String   @id @default(uuid())
+  referralCode String  @unique @db.VarChar(50)
+  userId      String   // User who shared the link
+  user        User     @relation("ReferralLinks", fields: [userId], references: [id], onDelete: Cascade)
+  courseId    String   // Course being shared
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  // Tracking
+  totalClicks    Int @default(0)
+  totalConversions Int @default(0)
+  isActive       Boolean @default(true)
+
+  // Relations
+  clicks      ReferralClick[]
+  conversions ReferralConversion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([courseId])
+  @@index([referralCode])
+  @@index([isActive])
+  @@map("referral_links")
+}
+
+model ReferralClick {
+  id             String   @id @default(uuid())
+  referralLinkId String
+  referralLink   ReferralLink @relation(fields: [referralLinkId], references: [id], onDelete: Cascade)
+
+  // Click tracking
+  ipAddress      String?  @db.VarChar(45)  // IPv4/IPv6
+  userAgent      String?  @db.Text
+  referrer       String?  @db.VarChar(500) // Where they came from
+  deviceInfo     Json?    // Browser, OS, device type
+
+  // User tracking (if logged in)
+  clickedById    String?
+  clickedBy      User?    @relation("ReferralClicks", fields: [clickedById], references: [id], onDelete: SetNull)
+
+  // Fraud prevention
+  sessionId      String?  @db.VarChar(100) // Track session to prevent fake clicks
+  isValid        Boolean  @default(true)   // Flag suspicious clicks
+
+  // Relations
+  conversions ReferralConversion[]
+
+  clickedAt DateTime @default(now())
+
+  @@index([referralLinkId])
+  @@index([clickedById])
+  @@index([clickedAt])
+  @@index([isValid])
+  @@map("referral_clicks")
+}
+
+model ReferralConversion {
+  id             String   @id @default(uuid())
+  referralLinkId String
+  referralLink   ReferralLink @relation(fields: [referralLinkId], references: [id], onDelete: Cascade)
+  clickId        String
+  click          ReferralClick @relation(fields: [clickId], references: [id], onDelete: Cascade)
+
+  // Conversion details
+  convertedById  String   // User who enrolled
+  convertedBy    User     @relation("ReferralConversions", fields: [convertedById], references: [id], onDelete: Cascade)
+  enrollmentId   String   @unique
+  enrollment     Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  courseId       String
+  course         Course    @relation(fields: [courseId], references: [id])
+
+  // Commission details
+  commissionAmount Decimal  @db.Decimal(10, 2)
+  commissionRate   Decimal  @db.Decimal(5, 2) @default(10.00) // Default 10%
+  status           String   @default("PENDING") // PENDING, PAID, CANCELLED
+
+  // Fraud prevention
+  isFraudulent    Boolean  @default(false)
+  fraudReason     String?  @db.VarChar(255)
+
+  paidAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([clickId, enrollmentId])
+  @@index([referralLinkId])
+  @@index([convertedById])
+  @@index([enrollmentId])
+  @@index([status])
+  @@index([isFraudulent])
+  @@map("referral_conversions")
 }
