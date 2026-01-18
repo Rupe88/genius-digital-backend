@@ -55,10 +55,12 @@ export const API_ENDPOINTS = {
   },
   // Enrollments
   ENROLLMENTS: {
-    LIST: '/enrollments',
-    CREATE: '/enrollments',
-    BY_ID: (id: string) => `/enrollments/${id}`,
-    PROGRESS: (id: string) => `/enrollments/${id}/progress`,
+    LIST: '/enrollments', // Admin: get all enrollments
+    MY_ENROLLMENTS: '/enrollments/my-enrollments', // User: get my enrollments
+    CREATE: '/enrollments', // User: enroll in course
+    BY_ID: (id: string) => `/enrollments/${id}`, // Get enrollment by ID
+    PROGRESS: (id: string) => `/enrollments/${id}/progress`, // Get progress for enrollment
+    UNENROLL: (courseId: string) => `/enrollments/course/${courseId}`, // User: unenroll from course
   },
   // Payments
   PAYMENTS: {
@@ -92,6 +94,21 @@ export const API_ENDPOINTS = {
   CATEGORIES: {
     LIST: '/categories',
     BY_ID: (id: string) => `/categories/${id}`,
+  },
+  // Chapters
+  CHAPTERS: {
+    LIST: '/chapters',
+    BY_COURSE: (courseId: string) => `/chapters/course/${courseId}`,
+    BY_ID: (id: string) => `/chapters/${id}`,
+    REORDER: (id: string) => `/chapters/${id}/reorder`,
+    TOGGLE_LOCK: (id: string) => `/chapters/${id}/toggle-lock`,
+    TOGGLE_PREVIEW: (id: string) => `/chapters/${id}/toggle-preview`,
+  },
+  // Lessons
+  LESSONS: {
+    LIST: '/lessons',
+    BY_COURSE: (courseId: string) => `/lessons/course/${courseId}`,
+    BY_ID: (id: string) => `/lessons/${id}`,
   },
   // Instructors
   INSTRUCTORS: {
@@ -171,21 +188,6 @@ export const API_ENDPOINTS = {
   PROGRESS: {
     LIST: '/progress',
     BY_ID: (id: string) => `/progress/${id}`,
-  },
-  // Lessons
-  LESSONS: {
-    LIST: '/lessons',
-    BY_ID: (id: string) => `/lessons/${id}`,
-    BY_COURSE: (courseId: string) => `/lessons/course/${courseId}`,
-  },
-  // Chapters
-  CHAPTERS: {
-    LIST: '/chapters',
-    BY_ID: (id: string) => `/chapters/${id}`,
-    BY_COURSE: (courseId: string) => `/chapters/course/${courseId}`,
-    REORDER: (id: string) => `/chapters/${id}/reorder`,
-    TOGGLE_LOCK: (id: string) => `/chapters/${id}/toggle-lock`,
-    TOGGLE_PREVIEW: (id: string) => `/chapters/${id}/toggle-preview`,
   },
   // Quizzes
   QUIZZES: {

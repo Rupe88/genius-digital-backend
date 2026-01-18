@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -56,9 +57,9 @@ export default function AdminCoursesPage() {
       const response: PaginatedResponse<Course> = await courseApi.getAllCourses(params);
       setCourses(response.data || []);
       setPagination(response.pagination || pagination);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching courses:', error);
-      showError(error.message || 'Failed to load courses');
+      showError(Object(error).message || 'An error occurred' || 'Failed to load courses');
       setCourses([]);
     } finally {
       setLoading(false);
@@ -92,8 +93,8 @@ export default function AdminCoursesPage() {
       await courseApi.deleteCourse(courseId);
       showSuccess('Course deleted successfully');
       fetchCourses();
-    } catch (error: any) {
-      showError(error.message || 'Failed to delete course');
+    } catch (error) {
+      showError(Object(error).message || 'An error occurred' || 'Failed to delete course');
     }
   };
 

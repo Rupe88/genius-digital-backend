@@ -67,7 +67,7 @@ export default function AdminLoginPage() {
       }, 100);
     } catch (err: any) {
       // Handle rate limiting or other errors
-      const errorMessage = err.message || 'Login failed. Please try again.';
+      const errorMessage = (err instanceof Error ? err.message : 'An error occurred') || 'Login failed. Please try again.';
       if (errorMessage.includes('Too many')) {
         setError('Too many login attempts. Please wait a few minutes and try again.');
       } else {

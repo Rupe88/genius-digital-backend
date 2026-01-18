@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -42,9 +43,9 @@ export default function AdminInstructorsPage() {
       }));
 
       setInstructors(processedInstructors);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching instructors:', error);
-      showError(error.message || 'Failed to load instructors');
+      showError(Object(error).message || 'An error occurred' || 'Failed to load instructors');
       setInstructors([]);
     } finally {
       setLoading(false);
@@ -60,8 +61,8 @@ export default function AdminInstructorsPage() {
       await instructorApi.deleteInstructor(instructorId);
       showSuccess('Instructor deleted successfully');
       fetchInstructors();
-    } catch (error: any) {
-      showError(error.message || 'Failed to delete instructor');
+    } catch (error) {
+      showError(Object(error).message || 'An error occurred' || 'Failed to delete instructor');
     }
   };
 

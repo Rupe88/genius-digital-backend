@@ -1,5 +1,6 @@
-import { apiClient } from './axios';
-import { API_ENDPOINTS } from '../utils/constants';
+import { apiClient, handleApiResponse, handleApiError } from './axios';
+import { API_ENDPOINTS } from '@/lib/utils/constants';
+import { ApiResponse } from '@/lib/types/api';
 
 export interface Event {
   id: string;
@@ -56,85 +57,123 @@ export interface UpdateEventRequest {
   tags?: string[];
 }
 
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  message: string;
-}
+/**
+ * Get all events
+ */
+export const getAllEvents = async (): Promise<Event[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Event[]>>(API_ENDPOINTS.EVENTS.LIST);
+    return handleApiResponse<Event[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
 /**
- * Events API
+ * Get featured events
  */
+export const getFeaturedEvents = async (): Promise<Event[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Event[]>>(`${API_ENDPOINTS.EVENTS.LIST}/featured`);
+    return handleApiResponse<Event[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Get upcoming events
+ */
+export const getUpcomingEvents = async (): Promise<Event[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Event[]>>(`${API_ENDPOINTS.EVENTS.LIST}/upcoming`);
+    return handleApiResponse<Event[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Get event by ID
+ */
+export const getEventById = async (id: string): Promise<Event> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Event>>(API_ENDPOINTS.EVENTS.BY_ID(id));
+    return handleApiResponse<Event>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Create new event (admin only)
+ */
+export const createEvent = async (data: CreateEventRequest): Promise<Event> => {
+  try {
+    const response = await apiClient.post<ApiResponse<Event>>(API_ENDPOINTS.EVENTS.LIST, data);
+    return handleApiResponse<Event>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Update event (admin only)
+ */
+export const updateEvent = async (id: string, data: UpdateEventRequest): Promise<Event> => {
+  try {
+    const response = await apiClient.put<ApiResponse<Event>>(API_ENDPOINTS.EVENTS.BY_ID(id), data);
+    return handleApiResponse<Event>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Delete event (admin only)
+ */
+export const deleteEvent = async (id: string): Promise<void> => {
+  try {
+    const response = await apiClient.delete<ApiResponse<void>>(API_ENDPOINTS.EVENTS.BY_ID(id));
+    handleApiResponse<void>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Register for event
+ */
+export const registerForEvent = async (id: string): Promise<void> => {
+  try {
+    const response = await apiClient.post<ApiResponse<void>>(`${API_ENDPOINTS.EVENTS.BY_ID(id)}/register`);
+    handleApiResponse<void>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Unregister from event
+ */
+export const unregisterFromEvent = async (id: string): Promise<void> => {
+  try {
+    const response = await apiClient.post<ApiResponse<void>>(`${API_ENDPOINTS.EVENTS.BY_ID(id)}/unregister`);
+    handleApiResponse<void>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+// For backward compatibility
 export const eventsApi = {
-  /**
-   * Get all events
-   */
-  getAll: async (): Promise<ApiResponse<Event[]>> => {
-    const response = await apiClient.get(API_ENDPOINTS.EVENTS.LIST);
-    return response.data;
-  },
-
-  /**
-   * Get featured events
-   */
-  getFeatured: async (): Promise<ApiResponse<Event[]>> => {
-    const response = await apiClient.get(`${API_ENDPOINTS.EVENTS.LIST}/featured`);
-    return response.data;
-  },
-
-  /**
-   * Get upcoming events
-   */
-  getUpcoming: async (): Promise<ApiResponse<Event[]>> => {
-    const response = await apiClient.get(`${API_ENDPOINTS.EVENTS.LIST}/upcoming`);
-    return response.data;
-  },
-
-  /**
-   * Get event by ID
-   */
-  getById: async (id: string): Promise<ApiResponse<Event>> => {
-    const response = await apiClient.get(API_ENDPOINTS.EVENTS.BY_ID(id));
-    return response.data;
-  },
-
-  /**
-   * Create new event (admin only)
-   */
-  create: async (data: CreateEventRequest): Promise<ApiResponse<Event>> => {
-    const response = await apiClient.post(API_ENDPOINTS.EVENTS.LIST, data);
-    return response.data;
-  },
-
-  /**
-   * Update event (admin only)
-   */
-  update: async (id: string, data: UpdateEventRequest): Promise<ApiResponse<Event>> => {
-    const response = await apiClient.put(API_ENDPOINTS.EVENTS.BY_ID(id), data);
-    return response.data;
-  },
-
-  /**
-   * Delete event (admin only)
-   */
-  delete: async (id: string): Promise<ApiResponse> => {
-    const response = await apiClient.delete(API_ENDPOINTS.EVENTS.BY_ID(id));
-    return response.data;
-  },
-
-  /**
-   * Register for event
-   */
-  register: async (id: string): Promise<ApiResponse> => {
-    const response = await apiClient.post(`${API_ENDPOINTS.EVENTS.BY_ID(id)}/register`);
-    return response.data;
-  },
-
-  /**
-   * Unregister from event
-   */
-  unregister: async (id: string): Promise<ApiResponse> => {
-    const response = await apiClient.post(`${API_ENDPOINTS.EVENTS.BY_ID(id)}/unregister`);
-    return response.data;
-  },
+  getAll: getAllEvents,
+  getFeatured: getFeaturedEvents,
+  getUpcoming: getUpcomingEvents,
+  getById: getEventById,
+  create: createEvent,
+  update: updateEvent,
+  delete: deleteEvent,
+  register: registerForEvent,
+  unregister: unregisterFromEvent,
 };

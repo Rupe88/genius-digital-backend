@@ -98,14 +98,30 @@ export const Navbar: React.FC = () => {
                         <HiCog className="inline mr-2" />
                         Dashboard
                       </Link>
+                      <Link
+                        href="/dashboard/referrals"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        💰 My Referrals
+                      </Link>
                       {user?.role === 'ADMIN' && (
-                        <Link
-                          href={ROUTES.ADMIN}
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                          onClick={() => setIsUserMenuOpen(false)}
-                        >
-                          Admin Panel
-                        </Link>
+                        <>
+                          <Link
+                            href={ROUTES.ADMIN}
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            Admin Panel
+                          </Link>
+                          <Link
+                            href="/admin/referrals"
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            📊 Referral Admin
+                          </Link>
+                        </>
                       )}
                       <button
                         onClick={handleLogout}

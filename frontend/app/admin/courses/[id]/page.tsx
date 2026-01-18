@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -30,9 +31,9 @@ export default function CourseDetailPage() {
       setLoading(true);
       const data = await courseApi.getCourseById(courseId);
       setCourse(data);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching course:', error);
-      showError(error.message || 'Failed to load course');
+      showError(Object(error).message || 'An error occurred' || 'Failed to load course');
       router.push('/admin/courses');
     } finally {
       setLoading(false);
@@ -50,8 +51,8 @@ export default function CourseDetailPage() {
       await courseApi.deleteCourse(courseId);
       showSuccess('Course deleted successfully');
       router.push('/admin/courses');
-    } catch (error: any) {
-      showError(error.message || 'Failed to delete course');
+    } catch (error) {
+      showError(Object(error).message || 'An error occurred' || 'Failed to delete course');
     }
   };
 

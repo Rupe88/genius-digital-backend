@@ -40,7 +40,7 @@ export default function ContactPage() {
       setSuccess(true);
       reset();
     } catch (err: any) {
-      setError(err.message || 'Failed to send message');
+      setError((err instanceof Error ? err.message : 'An error occurred') || 'Failed to send message');
     } finally {
       setIsLoading(false);
     }

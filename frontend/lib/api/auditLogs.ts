@@ -1,5 +1,6 @@
-import { apiClient } from './axios';
-import { API_ENDPOINTS } from '../utils/constants';
+import { apiClient, handleApiResponse, handleApiError } from './axios';
+import { API_ENDPOINTS } from '@/lib/utils/constants';
+import { ApiResponse, PaginatedResponse } from '@/lib/types/api';
 
 export interface AuditLog {
   id: string;
@@ -7,7 +8,7 @@ export interface AuditLog {
   action: string;
   resource: string;
   resourceId?: string;
-  details?: any;
+  details?: unknown;
   ipAddress: string;
   userAgent: string;
   timestamp: string;
@@ -27,26 +28,11 @@ export interface AuditLogFilters {
   limit?: number;
 }
 
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  message: string;
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-  };
-}
-
 /**
- * Audit Logs API
+ * Get all audit logs (admin only)
  */
-export const auditLogsApi = {
-  /**
-   * Get all audit logs (admin only)
-   */
-  getAll: async (filters?: AuditLogFilters): Promise<ApiResponse<AuditLog[]>> => {
+export const getAllAuditLogs = async (filters?: AuditLogFilters): Promise<PaginatedResponse<AuditLog>> => {
+  try {
     const params = new URLSearchParams();
 
     if (filters) {
@@ -58,22 +44,33 @@ export const auditLogsApi = {
     }
 
     const url = `${API_ENDPOINTS.AUDIT_LOGS.LIST}${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await apiClient.get(url);
-    return response.data;
-  },
+    const response = await apiClient.get<ApiResponse<PaginatedResponse<AuditLog>>>(url);
+    return handleApiResponse<PaginatedResponse<AuditLog>>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
-  /**
-   * Get audit log by ID (admin only)
-   */
-  getById: async (id: string): Promise<ApiResponse<AuditLog>> => {
-    const response = await apiClient.get(`${API_ENDPOINTS.AUDIT_LOGS.LIST}/${id}`);
-    return response.data;
-  },
+/**
+ * Get audit log by ID (admin only)
+ */
+export const getAuditLogById = async (id: string): Promise<AuditLog> => {
+  try {
+    const response = await apiClient.get<ApiResponse<AuditLog>>(`${API_ENDPOINTS.AUDIT_LOGS.LIST}/${id}`);
+    return handleApiResponse<AuditLog>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
-  /**
-   * Get audit logs for specific user (admin only)
-   */
-  getByUser: async (userId: string, filters?: Omit<AuditLogFilters, 'userId'>): Promise<ApiResponse<AuditLog[]>> => {
+/**
+ * Get audit logs for specific user (admin only)
+ */
+export const getAuditLogsByUser = async (
+  userId: string,
+  filters?: Omit<AuditLogFilters, 'userId'>
+): Promise<PaginatedResponse<AuditLog>> => {
+  try {
     const params = new URLSearchParams();
 
     if (filters) {
@@ -85,7 +82,16 @@ export const auditLogsApi = {
     }
 
     const url = `${API_ENDPOINTS.AUDIT_LOGS.LIST}/user/${userId}${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await apiClient.get(url);
-    return response.data;
-  },
+    const response = await apiClient.get<ApiResponse<PaginatedResponse<AuditLog>>>(url);
+    return handleApiResponse<PaginatedResponse<AuditLog>>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+// For backward compatibility while components are updated
+export const auditLogsApi = {
+  getAll: getAllAuditLogs,
+  getById: getAuditLogById,
+  getByUser: getAuditLogsByUser,
 };

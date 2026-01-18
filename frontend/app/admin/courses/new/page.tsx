@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -31,9 +32,9 @@ export default function CreateCoursePage() {
       ]);
       setCategories(categoriesData || []);
       setInstructors(instructorsResponse.data || []);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching data:', error);
-      showError(error.message || 'Failed to load data');
+      showError(Object(error).message || 'An error occurred' || 'Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -45,9 +46,9 @@ export default function CreateCoursePage() {
       await courseApi.createCourse(data);
       showSuccess('Course created successfully!');
       router.push('/admin/courses');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating course:', error);
-      showError(error.message || 'Failed to create course');
+      showError(Object(error).message || 'An error occurred' || 'Failed to create course');
     } finally {
       setSubmitting(false);
     }

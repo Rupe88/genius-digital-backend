@@ -18,7 +18,7 @@ export default function MyCoursesPage() {
 
   const fetchEnrollments = async () => {
     try {
-      const data = await enrollmentApi.getEnrollments();
+      const data = await enrollmentApi.getUserEnrollments();
       setEnrollments(data.data);
     } catch (error) {
       console.error('Error fetching enrollments:', error);
@@ -64,11 +64,10 @@ export default function MyCoursesPage() {
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className={`text-sm px-2 py-1 rounded ${
-                    enrollment.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                    enrollment.status === 'ACTIVE' ? 'bg-blue-100 text-blue-700' :
-                    'bg-gray-100 text-gray-700'
-                  }`}>
+                  <span className={`text-sm px-2 py-1 rounded ${enrollment.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                      enrollment.status === 'ACTIVE' ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-700'
+                    }`}>
                     {enrollment.status}
                   </span>
                   <Link href={`/courses/${enrollment.courseId}`}>

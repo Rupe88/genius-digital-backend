@@ -10,6 +10,7 @@ import {
   RefreshTokenRequest,
   User,
 } from '@/lib/types/auth';
+import { ApiResponse } from '@/lib/types/api';
 
 export const register = async (data: RegisterRequest): Promise<void> => {
   try {
@@ -21,8 +22,8 @@ export const register = async (data: RegisterRequest): Promise<void> => {
 
 export const verifyOtp = async (data: VerifyOtpRequest): Promise<AuthResponse['data']> => {
   try {
-    const response = await apiClient.post(API_ENDPOINTS.AUTH.VERIFY_OTP, data);
-    return handleApiResponse<AuthResponse['data']>(response as any);
+    const response = await apiClient.post<ApiResponse<AuthResponse['data']>>(API_ENDPOINTS.AUTH.VERIFY_OTP, data);
+    return handleApiResponse<AuthResponse['data']>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -38,8 +39,8 @@ export const resendOtp = async (email: string): Promise<void> => {
 
 export const login = async (credentials: LoginRequest): Promise<AuthResponse['data']> => {
   try {
-    const response = await apiClient.post(API_ENDPOINTS.AUTH.LOGIN, credentials);
-    return handleApiResponse<AuthResponse['data']>(response as any);
+    const response = await apiClient.post<ApiResponse<AuthResponse['data']>>(API_ENDPOINTS.AUTH.LOGIN, credentials);
+    return handleApiResponse<AuthResponse['data']>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -55,8 +56,8 @@ export const logout = async (): Promise<void> => {
 
 export const refreshToken = async (data: RefreshTokenRequest): Promise<{ accessToken: string; refreshToken: string }> => {
   try {
-    const response = await apiClient.post(API_ENDPOINTS.AUTH.REFRESH_TOKEN, data);
-    return handleApiResponse<{ accessToken: string; refreshToken: string }>(response as any);
+    const response = await apiClient.post<ApiResponse<{ accessToken: string; refreshToken: string }>>(API_ENDPOINTS.AUTH.REFRESH_TOKEN, data);
+    return handleApiResponse<{ accessToken: string; refreshToken: string }>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -80,8 +81,8 @@ export const resetPassword = async (data: ResetPasswordRequest): Promise<void> =
 
 export const getMe = async (): Promise<User> => {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.AUTH.ME);
-    const data = handleApiResponse<{ user: User }>(response as any);
+    const response = await apiClient.get<ApiResponse<{ user: User }>>(API_ENDPOINTS.AUTH.ME);
+    const data = handleApiResponse<{ user: User }>(response);
     return data.user;
   } catch (error) {
     throw new Error(handleApiError(error));
@@ -90,8 +91,8 @@ export const getMe = async (): Promise<User> => {
 
 export const getProfile = async (): Promise<User> => {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.AUTH.PROFILE);
-    const data = handleApiResponse<{ user: User }>(response as any);
+    const response = await apiClient.get<ApiResponse<{ user: User }>>(API_ENDPOINTS.AUTH.PROFILE);
+    const data = handleApiResponse<{ user: User }>(response);
     return data.user;
   } catch (error) {
     throw new Error(handleApiError(error));

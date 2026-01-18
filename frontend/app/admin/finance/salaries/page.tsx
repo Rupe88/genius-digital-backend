@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -7,7 +8,7 @@ import { InstructorEarning } from '@/lib/api/admin';
 
 export default function SalaryManagementPage() {
   const [earnings, setEarnings] = useState<InstructorEarning[]>([]);
-  const [salarySummary, setSalarySummary] = useState<any>(null);
+  const [salarySummary, setSalarySummary] = useState<adminApi.SalarySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     status: 'PENDING',
@@ -34,13 +35,13 @@ export default function SalaryManagementPage() {
       const response = await adminApi.getInstructorEarnings(filters);
       setEarnings(response.data || []);
       setPagination(response.pagination || pagination);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching earnings:', error);
-      // Show user-friendly error message
-      if (error.message?.includes('Too many')) {
+      // Show user-friendly Object(error).message || 'An error occurred'
+      if (Object(error).message || 'An error occurred'?.includes('Too many')) {
         alert('Too many requests. Please wait a moment and try again.');
       } else {
-        alert(`Failed to load earnings: ${error.message || 'Unknown error'}`);
+        alert(`Failed to load earnings: ${Object(error).message || 'An error occurred' || 'Unknown error'}`);
       }
     } finally {
       setLoading(false);
@@ -50,7 +51,7 @@ export default function SalaryManagementPage() {
   const fetchSalarySummary = async () => {
     try {
       const data = await adminApi.getSalarySummary();
-      setSalarySummary(data.data);
+      setSalarySummary(data);
     } catch (error) {
       console.error('Error fetching salary summary:', error);
     }
@@ -217,13 +218,12 @@ export default function SalaryManagementPage() {
                     <td className="py-3 px-4">{earning.commissionRate}%</td>
                     <td className="py-3 px-4">
                       <span
-                        className={`px-2 py-1 rounded text-xs ${
-                          earning.status === 'PAID'
+                        className={`px-2 py-1 rounded text-xs ${earning.status === 'PAID'
                             ? 'bg-green-100 text-green-800'
                             : earning.status === 'PENDING'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}
                       >
                         {earning.status}
                       </span>

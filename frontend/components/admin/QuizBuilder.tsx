@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
-import { Quiz, QuizQuestion } from '@/lib/api/quizzes';
+import { Quiz, QuizQuestion, QuestionType } from '@/lib/types/course';
 import { HiPlus, HiTrash, HiDocument, HiCheckCircle, HiXCircle, HiPencil, HiArrowPath } from 'react-icons/hi2';
 
 interface QuizBuilderProps {
@@ -14,8 +14,6 @@ interface QuizBuilderProps {
   onSave: (quiz: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   onCancel?: () => void;
 }
-
-type QuestionType = 'multiple_choice' | 'single_choice' | 'true_false' | 'open_ended' | 'short_answer' | 'matching';
 
 const QUESTION_TYPE_ICONS: Record<QuestionType, React.ReactNode> = {
   multiple_choice: <HiCheckCircle className="w-5 h-5 text-green-600" />,
@@ -91,9 +89,10 @@ export const QuizBuilder: React.FC<QuizBuilderProps> = ({
         passingScore: passingScore ? parseInt(passingScore) : 70,
         questions: questions.map((q, i) => ({ ...q, order: i })),
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving quiz:', error);
-      alert(error.message || 'Failed to save quiz');
+      const message = error instanceof Error ? error.message : 'Failed to save quiz';
+      alert(message);
     }
   };
 
@@ -187,11 +186,10 @@ export const QuizBuilder: React.FC<QuizBuilderProps> = ({
                   <div
                     key={index}
                     onClick={() => setSelectedQuestionIndex(index)}
-                    className={`p-3 rounded-lg cursor-pointer transition-colors border ${
-                      selectedQuestionIndex === index
-                        ? 'bg-green-50 border-green-300'
-                        : 'bg-[var(--muted)] border-[var(--border)] hover:border-[var(--primary-300)]'
-                    }`}
+                    className={`p-3 rounded-lg cursor-pointer transition-colors border ${selectedQuestionIndex === index
+                      ? 'bg-green-50 border-green-300'
+                      : 'bg-[var(--muted)] border-[var(--border)] hover:border-[var(--primary-300)]'
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex-shrink-0">
@@ -357,8 +355,8 @@ const QuestionOptionsEditor: React.FC<{
   const correctAnswers = Array.isArray(question.correctAnswer)
     ? question.correctAnswer
     : question.correctAnswer
-    ? [question.correctAnswer]
-    : [];
+      ? [question.correctAnswer]
+      : [];
 
   const updateOptions = (newOptions: string[]) => {
     onUpdate({ options: newOptions });
@@ -408,20 +406,18 @@ const QuestionOptionsEditor: React.FC<{
         {options.map((option, index) => (
           <div
             key={index}
-            className={`flex items-center gap-2 p-3 rounded-lg border ${
-              (multiple ? correctAnswers.includes(option) : correctAnswers[0] === option)
-                ? 'bg-green-50 border-green-300'
-                : 'bg-[var(--muted)] border-[var(--border)]'
-            }`}
+            className={`flex items-center gap-2 p-3 rounded-lg border ${(multiple ? correctAnswers.includes(option) : correctAnswers[0] === option)
+              ? 'bg-green-50 border-green-300'
+              : 'bg-[var(--muted)] border-[var(--border)]'
+              }`}
           >
             <button
               type="button"
               onClick={() => toggleCorrectAnswer(option)}
-              className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center ${
-                (multiple ? correctAnswers.includes(option) : correctAnswers[0] === option)
-                  ? 'bg-green-500 border-green-600'
-                  : 'border-[var(--border)]'
-              }`}
+              className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center ${(multiple ? correctAnswers.includes(option) : correctAnswers[0] === option)
+                ? 'bg-green-500 border-green-600'
+                : 'border-[var(--border)]'
+                }`}
             >
               {(multiple ? correctAnswers.includes(option) : correctAnswers[0] === option) && (
                 <HiCheckCircle className="w-4 h-4 text-white" />
@@ -474,16 +470,14 @@ const TrueFalseEditor: React.FC<{
             <div
               key={value}
               onClick={() => onUpdate({ correctAnswer: value })}
-              className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer ${
-                isSelected
-                  ? 'bg-green-50 border-green-300'
-                  : 'bg-[var(--muted)] border-[var(--border)] hover:border-[var(--primary-300)]'
-              }`}
+              className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer ${isSelected
+                ? 'bg-green-50 border-green-300'
+                : 'bg-[var(--muted)] border-[var(--border)] hover:border-[var(--primary-300)]'
+                }`}
             >
               <div
-                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                  isSelected ? 'border-green-600 bg-green-500' : 'border-[var(--border)]'
-                }`}
+                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-green-600 bg-green-500' : 'border-[var(--border)]'
+                  }`}
               >
                 {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
               </div>

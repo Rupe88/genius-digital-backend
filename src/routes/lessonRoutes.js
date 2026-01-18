@@ -8,7 +8,7 @@ import {
 } from '../controllers/lessonController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
-import { singleUpload, processVideoUpload, processDocumentUpload } from '../middleware/cloudinaryUpload.js';
+import { fieldsUpload, processLessonFiles } from '../middleware/cloudinaryUpload.js';
 import { body, param } from 'express-validator';
 
 const router = express.Router();
@@ -22,8 +22,11 @@ router.post(
   '/',
   authenticate,
   requireAdmin,
-  singleUpload('video'),
-  processVideoUpload,
+  fieldsUpload([
+    { name: 'video', maxCount: 1 },
+    { name: 'attachment', maxCount: 1 },
+  ]),
+  processLessonFiles,
   [
     body('courseId').notEmpty().isUUID(),
     body('chapterId').optional().isUUID(),
@@ -47,8 +50,11 @@ router.put(
   '/:id',
   authenticate,
   requireAdmin,
-  singleUpload('video'),
-  processVideoUpload,
+  fieldsUpload([
+    { name: 'video', maxCount: 1 },
+    { name: 'attachment', maxCount: 1 },
+  ]),
+  processLessonFiles,
   [
     param('id').isUUID(),
     body('chapterId').optional().isUUID(),

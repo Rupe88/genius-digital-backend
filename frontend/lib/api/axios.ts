@@ -1,8 +1,9 @@
+
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { ApiError, ApiResponse } from '@/lib/types/api';
 import { shouldRefreshToken, isTokenExpired } from '@/lib/utils/tokenUtils';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://goldfish-app-d9t4j.ondigitalocean.app/api';
 
 // Flag to prevent multiple simultaneous refresh requests
 let isRefreshing = false;
@@ -27,18 +28,18 @@ export const apiClient: AxiosInstance = axios.create({
   timeout: 30000, // 30 seconds timeout
 });
 
-// Request interceptor - Add auth token and proactively refresh if needed
+// Request interceptor - Add auth token
 apiClient.interceptors.request.use(
-  async (config: InternalAxiosRequestConfig) => {
+  (config: InternalAxiosRequestConfig) => {
     if (typeof window !== 'undefined') {
-      // Skip token refresh for auth endpoints (they don't need tokens)
+      // Skip token for auth endpoints (they don't need tokens)
       const isAuthEndpoint = config.url?.includes('/auth/register') ||
-                            config.url?.includes('/auth/login') ||
-                            config.url?.includes('/auth/verify-otp') ||
-                            config.url?.includes('/auth/resend-otp') ||
-                            config.url?.includes('/auth/forgot-password') ||
-                            config.url?.includes('/auth/reset-password') ||
-                            config.url?.includes('/auth/refresh-token');
+        config.url?.includes('/auth/login') ||
+        config.url?.includes('/auth/verify-otp') ||
+        config.url?.includes('/auth/resend-otp') ||
+        config.url?.includes('/auth/forgot-password') ||
+        config.url?.includes('/auth/reset-password') ||
+        config.url?.includes('/auth/refresh-token');
 
       const token = localStorage.getItem('accessToken');
 
@@ -48,59 +49,6 @@ apiClient.interceptors.request.use(
           config.headers.Authorization = `Bearer ${token}`;
         }
       }
-
-      // Temporarily disable proactive token refresh to test
-      // TODO: Re-enable token refresh logic after fixing the hanging issue
-      // const refreshTokenValue = localStorage.getItem('refreshToken');
-
-      // Proactively refresh token if it's about to expire (within 2 minutes)
-      // But skip on auth endpoints and if already refreshing
-      // if (!isAuthEndpoint && token && refreshTokenValue && shouldRefreshToken(token) && !isRefreshing) {
-      //   try {
-      //     isRefreshing = true;
-      //     const response = await apiClient.post<ApiResponse<{ accessToken: string; refreshToken: string }>>(
-      //       `${API_URL}/auth/refresh-token`,
-      //       { refreshToken: refreshTokenValue }
-      //     );
-
-      //     if (response.data.success && response.data.data) {
-      //       const newAccessToken = response.data.data.accessToken;
-      //       const newRefreshToken = response.data.data.refreshToken || refreshTokenValue;
-
-      //       localStorage.setItem('accessToken', newAccessToken);
-      //       if (newRefreshToken) {
-      //         localStorage.setItem('refreshToken', newRefreshToken);
-      //       }
-
-      //       // Notify all waiting requests
-      //       onTokenRefreshed(newAccessToken);
-
-      //       // Use new token for this request
-      //       if (config.headers) {
-      //         config.headers.Authorization = `Bearer ${newAccessToken}`;
-      //       }
-      //     }
-      //   } catch (error) {
-      //     // Refresh failed, but continue with original request
-      //     // It will fail with 401 and trigger the response interceptor
-      //     console.error('Token refresh failed:', error);
-      //   } finally {
-      //     isRefreshing = false;
-      //   }
-      // } else if (token && config.headers) {
-      //   // If refresh is in progress, wait for it
-      //   if (isRefreshing) {
-      //     return new Promise((resolve) => {
-      //       addRefreshSubscriber((newToken: string) => {
-      //         if (config.headers) {
-      //           config.headers.Authorization = `Bearer ${newToken}`;
-      //         }
-      //         resolve(config);
-      //       });
-      //     });
-      //   }
-      //   config.headers.Authorization = `Bearer ${token}`;
-      // }
     }
     return config;
   },
@@ -109,110 +57,32 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor - Handle errors and token refresh
+// Response interceptor - Handle errors
 apiClient.interceptors.response.use(
   (response) => {
     return response;
   },
-  async (error: AxiosError<ApiError>) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+  (error: AxiosError<ApiError>) => {
+    // Handle 401 Unauthorized - Token expired or invalid
+    if (error.response?.status === 401) {
+      // Clear tokens and redirect to login
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
 
-    // Skip token refresh for auth endpoints
-    const isAuthEndpoint = originalRequest.url?.includes('/auth/register') ||
-                          originalRequest.url?.includes('/auth/login') ||
-                          originalRequest.url?.includes('/auth/verify-otp') ||
-                          originalRequest.url?.includes('/auth/resend-otp') ||
-                          originalRequest.url?.includes('/auth/forgot-password') ||
-                          originalRequest.url?.includes('/auth/reset-password') ||
-                          originalRequest.url?.includes('/auth/refresh-token');
+        // Only redirect if not already on a login page (prevent loop)
+        const pathname = window.location.pathname;
+        const isAuthPage =
+          pathname.includes('/login') ||
+          pathname.includes('/register') ||
+          pathname.includes('/verify-otp') ||
+          pathname.includes('/forgot-password') ||
+          pathname.includes('/reset-password');
 
-    // Handle 401 Unauthorized - Token expired or invalid (skip for auth endpoints)
-    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
-      const refreshTokenValue = localStorage.getItem('refreshToken');
-
-      // If already refreshing, wait for it
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          addRefreshSubscriber((newToken: string) => {
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            }
-            resolve(apiClient(originalRequest));
-          });
-        });
-      }
-
-      originalRequest._retry = true;
-
-      if (refreshTokenValue) {
-        try {
-          isRefreshing = true;
-          const response = await apiClient.post<ApiResponse<{ accessToken: string; refreshToken: string }>>(
-            `${API_URL}/auth/refresh-token`,
-            { refreshToken: refreshTokenValue }
-          );
-
-          if (response.data.success && response.data.data) {
-            const newAccessToken = response.data.data.accessToken;
-            const newRefreshToken = response.data.data.refreshToken || refreshTokenValue;
-
-            localStorage.setItem('accessToken', newAccessToken);
-            if (newRefreshToken) {
-              localStorage.setItem('refreshToken', newRefreshToken);
-            }
-
-            // Notify all waiting requests
-            onTokenRefreshed(newAccessToken);
-
-            // Retry original request with new token
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-            }
-            isRefreshing = false;
-            return apiClient(originalRequest);
-          }
-        } catch (refreshError) {
-          isRefreshing = false;
-          // Refresh failed - logout user
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            // Only redirect if not already on a login page (prevent loop)
-            const pathname = window.location.pathname;
-            const isAuthPage = 
-              pathname.includes('/login') || 
-              pathname.includes('/register') || 
-              pathname.includes('/verify-otp') || 
-              pathname.includes('/forgot-password') || 
-              pathname.includes('/reset-password');
-            
-            if (!isAuthPage) {
-              const isAdminRoute = pathname.startsWith('/admin');
-              window.location.href = isAdminRoute ? '/admin/login' : '/login';
-            }
-          }
-          return Promise.reject(refreshError);
+        if (!isAuthPage) {
+          const isAdminRoute = pathname.startsWith('/admin');
+          window.location.href = isAdminRoute ? '/admin/login' : '/login';
         }
-      } else {
-        // No refresh token - logout user
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          // Only redirect if not already on a login page (prevent loop)
-          const pathname = window.location.pathname;
-          const isAuthPage = 
-            pathname.includes('/login') || 
-            pathname.includes('/register') || 
-            pathname.includes('/verify-otp') || 
-            pathname.includes('/forgot-password') || 
-            pathname.includes('/reset-password');
-          
-          if (!isAuthPage) {
-            const isAdminRoute = pathname.startsWith('/admin');
-            window.location.href = isAdminRoute ? '/admin/login' : '/login';
-          }
-        }
-        return Promise.reject(error);
       }
     }
 
@@ -225,7 +95,7 @@ apiClient.interceptors.response.use(
     // Handle other errors
     const apiError: ApiError = {
       success: false,
-      message: error.response?.data?.message || error.message || 'An error occurred',
+      message: error.response?.data?.message || (Object(error).message || 'An error occurred'),
       errors: error.response?.data?.errors,
     };
 
@@ -234,7 +104,7 @@ apiClient.interceptors.response.use(
 );
 
 // Helper function to handle API responses
-export const handleApiResponse = <T>(response: { data: any }): T => {
+export const handleApiResponse = <T>(response: { data: unknown }): T => {
   const payload = response.data as ApiResponse<T>;
   if (payload.success && payload.data) {
     return payload.data;
@@ -248,9 +118,6 @@ export const handleApiError = (error: unknown): string => {
     const apiError = error.response?.data as ApiError;
     if (apiError?.message) {
       return apiError.message;
-    }
-    if (error.response?.data?.message) {
-      return error.response.data.message;
     }
     if (error.message) {
       return error.message;

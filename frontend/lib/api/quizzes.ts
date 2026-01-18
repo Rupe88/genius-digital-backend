@@ -1,28 +1,7 @@
 import { apiClient, handleApiResponse, handleApiError } from './axios';
 import { API_ENDPOINTS } from '@/lib/utils/constants';
-
-export interface QuizQuestion {
-  id?: string;
-  question: string;
-  questionType: 'multiple_choice' | 'single_choice' | 'true_false' | 'open_ended' | 'short_answer' | 'matching';
-  description?: string;
-  options?: any;
-  correctAnswer: string | string[];
-  points: number;
-  order: number;
-}
-
-export interface Quiz {
-  id: string;
-  lessonId: string;
-  title: string;
-  description?: string;
-  timeLimit?: number;
-  passingScore: number;
-  questions: QuizQuestion[];
-  createdAt: string;
-  updatedAt: string;
-}
+import { Quiz, QuizQuestion } from '@/lib/types/course';
+import { ApiResponse } from '@/lib/types/api';
 
 export interface CreateQuizData {
   lessonId: string;
@@ -42,8 +21,8 @@ export interface UpdateQuizData {
 
 export const getQuizByLesson = async (lessonId: string): Promise<Quiz> => {
   try {
-    const response = await apiClient.get(`${API_ENDPOINTS.QUIZZES.LIST}/lesson/${lessonId}`);
-    const responseData = response.data as any;
+    const response = await apiClient.get<ApiResponse<Quiz>>(`${API_ENDPOINTS.QUIZZES.LIST}/lesson/${lessonId}`);
+    const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
     }
@@ -55,8 +34,8 @@ export const getQuizByLesson = async (lessonId: string): Promise<Quiz> => {
 
 export const createQuiz = async (data: CreateQuizData): Promise<Quiz> => {
   try {
-    const response = await apiClient.post(API_ENDPOINTS.QUIZZES.LIST, data);
-    const responseData = response.data as any;
+    const response = await apiClient.post<ApiResponse<Quiz>>(API_ENDPOINTS.QUIZZES.LIST, data);
+    const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
     }
@@ -68,8 +47,8 @@ export const createQuiz = async (data: CreateQuizData): Promise<Quiz> => {
 
 export const updateQuiz = async (id: string, data: UpdateQuizData): Promise<Quiz> => {
   try {
-    const response = await apiClient.put(API_ENDPOINTS.QUIZZES.BY_ID(id), data);
-    const responseData = response.data as any;
+    const response = await apiClient.put<ApiResponse<Quiz>>(API_ENDPOINTS.QUIZZES.BY_ID(id), data);
+    const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
     }
@@ -81,8 +60,8 @@ export const updateQuiz = async (id: string, data: UpdateQuizData): Promise<Quiz
 
 export const deleteQuiz = async (id: string): Promise<void> => {
   try {
-    const response = await apiClient.delete(API_ENDPOINTS.QUIZZES.BY_ID(id));
-    const responseData = response.data as any;
+    const response = await apiClient.delete<ApiResponse>(API_ENDPOINTS.QUIZZES.BY_ID(id));
+    const responseData = response.data;
     if (!responseData.success) {
       throw new Error(responseData.message || 'Failed to delete quiz');
     }

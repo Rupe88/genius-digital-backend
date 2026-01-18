@@ -320,4 +320,45 @@ export const getAllEnrollments = async (req, res, next) => {
   }
 };
 
+/**
+ * Delete enrollment (Admin only)
+ */
+export const deleteEnrollment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { id },
+    });
+
+    if (!enrollment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Enrollment not found',
+      });
+    }
+
+    await prisma.enrollment.delete({
+      where: { id },
+    });
+
+    // Update course enrollment count
+    await prisma.course.update({
+      where: { id: enrollment.courseId },
+      data: {
+        totalEnrollments: {
+          decrement: 1,
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Enrollment deleted successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 

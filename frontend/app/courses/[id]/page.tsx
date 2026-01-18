@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -15,14 +16,15 @@ import { useAuth } from '@/lib/context/AuthContext';
 import { ROUTES } from '@/lib/utils/constants';
 import { showSuccess, showError } from '@/lib/utils/toast';
 import { HiCheck, HiHeart, HiClock, HiUsers, HiPlay, HiDocument, HiClipboardCheck } from 'react-icons/hi';
-import { 
-  FaFacebook, 
-  FaTwitter, 
-  FaLinkedin, 
+import {
+  FaFacebook,
+  FaTwitter,
+  FaLinkedin,
   FaWhatsapp,
   FaChevronDown,
   FaChevronUp
 } from 'react-icons/fa';
+import { ShareButton } from '@/components/referrals/ShareButton';
 
 type TabType = 'overview' | 'chapters' | 'instructors' | 'reviews';
 
@@ -84,8 +86,8 @@ export default function CourseDetailPage() {
       await enrollmentApi.enrollInCourse(course.id);
       showSuccess('Successfully enrolled in course!');
       router.push(ROUTES.DASHBOARD);
-    } catch (error: any) {
-      showError(error.message || 'Enrollment failed');
+    } catch (error) {
+      showError(Object(error).message || 'An error occurred' || 'Enrollment failed');
     } finally {
       setEnrolling(false);
     }
@@ -554,38 +556,60 @@ export default function CourseDetailPage() {
                   {saved ? 'Saved' : 'Save This Course'}
                 </Button>
 
-                {/* Share Course */}
-                <div className="mb-6">
-                  <p className="text-sm font-medium text-[var(--foreground)] mb-3">
-                    Share Course :
-                  </p>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => handleShare('facebook')}
-                      className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors"
-                    >
-                      <FaFacebook />
-                    </button>
-                    <button
-                      onClick={() => handleShare('twitter')}
-                      className="w-10 h-10 rounded-full bg-blue-400 text-white flex items-center justify-center hover:bg-blue-500 transition-colors"
-                    >
-                      <FaTwitter />
-                    </button>
-                    <button
-                      onClick={() => handleShare('linkedin')}
-                      className="w-10 h-10 rounded-full bg-blue-700 text-white flex items-center justify-center hover:bg-blue-800 transition-colors"
-                    >
-                      <FaLinkedin />
-                    </button>
-                    <button
-                      onClick={() => handleShare('whatsapp')}
-                      className="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600 transition-colors"
-                    >
-                      <FaWhatsapp />
-                    </button>
+                {/* Share Course with Referral */}
+                {isAuthenticated && (
+                  <div className="mb-6">
+                    <ShareButton
+                      courseId={course.id}
+                      course={{
+                        id: course.id,
+                        title: course.title,
+                        thumbnail: course.thumbnail
+                      }}
+                      variant="outline"
+                      size="lg"
+                      className="w-full"
+                    />
                   </div>
-                </div>
+                )}
+
+                {/* Legacy Share Buttons (for non-authenticated users) */}
+                {!isAuthenticated && (
+                  <div className="mb-6">
+                    <p className="text-sm font-medium text-[var(--foreground)] mb-3">
+                      Share Course :
+                    </p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => handleShare('facebook')}
+                        className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors"
+                      >
+                        <FaFacebook />
+                      </button>
+                      <button
+                        onClick={() => handleShare('twitter')}
+                        className="w-10 h-10 rounded-full bg-blue-400 text-white flex items-center justify-center hover:bg-blue-500 transition-colors"
+                      >
+                        <FaTwitter />
+                      </button>
+                      <button
+                        onClick={() => handleShare('linkedin')}
+                        className="w-10 h-10 rounded-full bg-blue-700 text-white flex items-center justify-center hover:bg-blue-800 transition-colors"
+                      >
+                        <FaLinkedin />
+                      </button>
+                      <button
+                        onClick={() => handleShare('whatsapp')}
+                        className="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600 transition-colors"
+                      >
+                        <FaWhatsapp />
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Login to share and earn commissions!
+                    </p>
+                  </div>
+                )}
 
                 {/* Course Overview Stats */}
                 <div className="border-t border-[var(--border)] pt-6">

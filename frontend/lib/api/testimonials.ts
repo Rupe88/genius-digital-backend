@@ -10,6 +10,7 @@ export interface Testimonial {
   courseName?: string;
   isApproved: boolean;
   isFeatured: boolean;
+  avatar?: string;
   createdAt: string;
 }
 

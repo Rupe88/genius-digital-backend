@@ -1,5 +1,6 @@
-import { apiClient } from './axios';
-import { API_ENDPOINTS } from '../utils/constants';
+import { apiClient, handleApiResponse, handleApiError } from './axios';
+import { API_ENDPOINTS } from '@/lib/utils/constants';
+import { ApiResponse } from '@/lib/types/api';
 
 export interface Coupon {
   id: string;
@@ -55,69 +56,97 @@ export interface ValidateCouponResponse {
   message: string;
 }
 
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  message: string;
-}
+/**
+ * Get all coupons (admin only)
+ */
+export const getAllCoupons = async (): Promise<Coupon[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Coupon[]>>(API_ENDPOINTS.COUPONS.LIST);
+    return handleApiResponse<Coupon[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
 /**
- * Coupon API
+ * Get coupon by ID (admin only)
  */
+export const getCouponById = async (id: string): Promise<Coupon> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Coupon>>(API_ENDPOINTS.COUPONS.BY_ID(id));
+    return handleApiResponse<Coupon>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Create new coupon (admin only)
+ */
+export const createCoupon = async (data: CreateCouponRequest): Promise<Coupon> => {
+  try {
+    const response = await apiClient.post<ApiResponse<Coupon>>(API_ENDPOINTS.COUPONS.LIST, data);
+    return handleApiResponse<Coupon>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Update coupon (admin only)
+ */
+export const updateCoupon = async (id: string, data: UpdateCouponRequest): Promise<Coupon> => {
+  try {
+    const response = await apiClient.put<ApiResponse<Coupon>>(API_ENDPOINTS.COUPONS.BY_ID(id), data);
+    return handleApiResponse<Coupon>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Delete coupon (admin only)
+ */
+export const deleteCoupon = async (id: string): Promise<void> => {
+  try {
+    const response = await apiClient.delete<ApiResponse<void>>(API_ENDPOINTS.COUPONS.BY_ID(id));
+    handleApiResponse<void>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Get active coupons
+ */
+export const getActiveCoupons = async (): Promise<Coupon[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Coupon[]>>(API_ENDPOINTS.COUPONS.ACTIVE);
+    return handleApiResponse<Coupon[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Validate coupon
+ */
+export const validateCoupon = async (data: ValidateCouponRequest): Promise<ValidateCouponResponse> => {
+  try {
+    const response = await apiClient.post<ApiResponse<ValidateCouponResponse>>(API_ENDPOINTS.COUPONS.VALIDATE, data);
+    return handleApiResponse<ValidateCouponResponse>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+// For backward compatibility
 export const couponApi = {
-  /**
-   * Get all coupons (admin only)
-   */
-  getAll: async (): Promise<ApiResponse<Coupon[]>> => {
-    const response = await apiClient.get(API_ENDPOINTS.COUPONS.LIST);
-    return response.data;
-  },
-
-  /**
-   * Get coupon by ID (admin only)
-   */
-  getById: async (id: string): Promise<ApiResponse<Coupon>> => {
-    const response = await apiClient.get(API_ENDPOINTS.COUPONS.BY_ID(id));
-    return response.data;
-  },
-
-  /**
-   * Create new coupon (admin only)
-   */
-  create: async (data: CreateCouponRequest): Promise<ApiResponse<Coupon>> => {
-    const response = await apiClient.post(API_ENDPOINTS.COUPONS.LIST, data);
-    return response.data;
-  },
-
-  /**
-   * Update coupon (admin only)
-   */
-  update: async (id: string, data: UpdateCouponRequest): Promise<ApiResponse<Coupon>> => {
-    const response = await apiClient.put(API_ENDPOINTS.COUPONS.BY_ID(id), data);
-    return response.data;
-  },
-
-  /**
-   * Delete coupon (admin only)
-   */
-  delete: async (id: string): Promise<ApiResponse> => {
-    const response = await apiClient.delete(API_ENDPOINTS.COUPONS.BY_ID(id));
-    return response.data;
-  },
-
-  /**
-   * Get active coupons
-   */
-  getActive: async (): Promise<ApiResponse<Coupon[]>> => {
-    const response = await apiClient.get(API_ENDPOINTS.COUPONS.ACTIVE);
-    return response.data;
-  },
-
-  /**
-   * Validate coupon
-   */
-  validate: async (data: ValidateCouponRequest): Promise<ApiResponse<ValidateCouponResponse>> => {
-    const response = await apiClient.post(API_ENDPOINTS.COUPONS.VALIDATE, data);
-    return response.data;
-  },
+  getAll: getAllCoupons,
+  getById: getCouponById,
+  create: createCoupon,
+  update: updateCoupon,
+  delete: deleteCoupon,
+  getActive: getActiveCoupons,
+  validate: validateCoupon,
 };

@@ -1,7 +1,7 @@
 import { apiClient, handleApiResponse, handleApiError } from './axios';
 import { API_ENDPOINTS } from '@/lib/utils/constants';
 import { Course } from '@/lib/types/course';
-import { PaginatedResponse } from '@/lib/types/api';
+import { PaginatedResponse, ApiResponse, Pagination } from '@/lib/types/api';
 
 export const getAllCourses = async (params?: {
   page?: number;
@@ -13,12 +13,11 @@ export const getAllCourses = async (params?: {
   status?: string;
 }): Promise<PaginatedResponse<Course>> => {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.COURSES.LIST, {
+    const response = await apiClient.get<ApiResponse<Course[]> & { pagination: Pagination }>(API_ENDPOINTS.COURSES.LIST, {
       params,
     });
-    
-    // Backend returns: { success: true, data: Course[], pagination: {...} }
-    const payload = response.data as { success: boolean; data: Course[]; pagination: any };
+
+    const payload = response.data;
     if (payload.success && payload.data) {
       return {
         data: payload.data,
@@ -49,12 +48,11 @@ export const filterCourses = async (filters: {
   limit?: number;
 }): Promise<PaginatedResponse<Course>> => {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.COURSES.FILTER, {
+    const response = await apiClient.get<ApiResponse<Course[]> & { pagination: Pagination }>(API_ENDPOINTS.COURSES.FILTER, {
       params: filters,
     });
-    
-    // Backend returns: { success: true, data: Course[], pagination: {...} }
-    const payload = response.data as { success: boolean; data: Course[]; pagination: any };
+
+    const payload = response.data;
     if (payload.success && payload.data) {
       return {
         data: payload.data,
@@ -74,8 +72,8 @@ export const filterCourses = async (filters: {
 
 export const getOngoingCourses = async (): Promise<Course[]> => {
   try {
-    const response = await apiClient.get<{ data: Course[] }>(API_ENDPOINTS.COURSES.ONGOING);
-    return handleApiResponse(response);
+    const response = await apiClient.get<ApiResponse<Course[]>>(API_ENDPOINTS.COURSES.ONGOING);
+    return handleApiResponse<Course[]>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -83,13 +81,11 @@ export const getOngoingCourses = async (): Promise<Course[]> => {
 
 export const getCourseById = async (id: string): Promise<Course> => {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.COURSES.BY_ID(id));
-    // Backend returns: { success: true, data: Course }
-    const responseData = response.data as any;
+    const response = await apiClient.get<ApiResponse<Course>>(API_ENDPOINTS.COURSES.BY_ID(id));
+    const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
     }
-    // Fallback to handleApiResponse
     return handleApiResponse<Course>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
@@ -157,12 +153,12 @@ export const createCourse = async (data: CreateCourseData): Promise<Course> => {
       formData.append('thumbnail', data.thumbnailFile);
     }
 
-    const response = await apiClient.post<{ data: Course }>(API_ENDPOINTS.COURSES.LIST, formData, {
+    const response = await apiClient.post<ApiResponse<Course>>(API_ENDPOINTS.COURSES.LIST, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return handleApiResponse(response);
+    return handleApiResponse<Course>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -190,7 +186,7 @@ export const updateCourse = async (id: string, data: Partial<CreateCourseData>):
     if (data.startDate) formData.append('startDate', data.startDate);
     if (data.endDate) formData.append('endDate', data.endDate);
     if (data.tags !== undefined) formData.append('tags', data.tags);
-    
+
     // Handle learningOutcomes - send as JSON string if array, empty string if undefined/null
     if (data.learningOutcomes !== undefined) {
       if (Array.isArray(data.learningOutcomes) && data.learningOutcomes.length > 0) {
@@ -199,7 +195,7 @@ export const updateCourse = async (id: string, data: Partial<CreateCourseData>):
         formData.append('learningOutcomes', '');
       }
     }
-    
+
     // Handle skills - send as JSON string if array, empty string if undefined/null
     if (data.skills !== undefined) {
       if (Array.isArray(data.skills) && data.skills.length > 0) {
@@ -208,7 +204,7 @@ export const updateCourse = async (id: string, data: Partial<CreateCourseData>):
         formData.append('skills', '');
       }
     }
-    
+
     if (data.instructorId) formData.append('instructorId', data.instructorId);
     if (data.categoryId !== undefined) formData.append('categoryId', data.categoryId || '');
 
@@ -217,12 +213,12 @@ export const updateCourse = async (id: string, data: Partial<CreateCourseData>):
       formData.append('thumbnail', data.thumbnailFile);
     }
 
-    const response = await apiClient.put<{ data: Course }>(API_ENDPOINTS.COURSES.BY_ID(id), formData, {
+    const response = await apiClient.put<ApiResponse<Course>>(API_ENDPOINTS.COURSES.BY_ID(id), formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return handleApiResponse(response);
+    return handleApiResponse<Course>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }

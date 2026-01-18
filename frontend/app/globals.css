@@ -5,50 +5,87 @@
 @tailwind utilities;
 
 :root {
-  /* Primary Colors - Red (Brand Color) */
-  --primary-50: #fff5f6;
+  /* Font Families */
+  --font-sans: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading: var(--font-roboto), 'Roboto', sans-serif;
+
+  /* Primary Colors - Premium Crimson Red */
+  --primary-50: #fff1f2;
   --primary-100: #ffe4e6;
-  --primary-200: #fde8ea;
-  --primary-300: #fecdd3;
-  --primary-400: #fda4af;
-  --primary-500: #f87188;
-  --primary-600: #c01e2e;
-  --primary-700: #991b1b;
-  --primary-800: #7f1d1d;
-  --primary-900: #5f1a1a;
-  
-  /* Secondary Colors - Red */
-  --secondary-50: #ffebee;
-  --secondary-100: #ffcdd2;
-  --secondary-200: #ef9a9a;
-  --secondary-300: #e57373;
-  --secondary-400: #ef5350;
-  --secondary-500: #f44336;
-  --secondary-600: #e53935;
-  --secondary-700: #d32f2f;
-  --secondary-800: #c62828;
-  --secondary-900: #b71c1c;
-  
-  /* Neutral Colors */
+  --primary-200: #fecdd3;
+  --primary-300: #fda4af;
+  --primary-400: #fb7185;
+  --primary-500: #f43f5e;
+  --primary-600: #e11d48;
+  --primary-700: #be123c;
+  --primary-800: #9f1239;
+  --primary-900: #881337;
+
+  /* Secondary Colors - Dynamic Rose */
+  --secondary-50: #fff5f6;
+  --secondary-100: #fde2e4;
+  --secondary-200: #fbc4c9;
+  --secondary-300: #f8a1ac;
+  --secondary-400: #f4798a;
+  --secondary-500: #ee4b6d;
+  --secondary-600: #db2c5b;
+  --secondary-700: #b91c49;
+  --secondary-800: #9b1c41;
+  --secondary-900: #811d3a;
+
+  /* Neutral Palette - Clean & Modern */
   --background: #ffffff;
-  --foreground: #1a1a1a;
-  --muted: #f5f5f5;
-  --muted-foreground: #6b7280;
-  --border: #e5e7eb;
+  --foreground: #0f172a;
+  --muted: #f8fafc;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
   --input: #ffffff;
-  --ring: #1976d2;
-  
-  /* Status Colors */
+  --ring: #f43f5e;
+
+  /* Status Colors with Vibrancy */
   --success: #10b981;
+  --success-light: #ecfdf5;
   --warning: #f59e0b;
+  --warning-light: #fffbeb;
   --error: #ef4444;
+  --error-light: #fef2f2;
   --info: #3b82f6;
+  --info-light: #eff6ff;
+
+  /* Accent Colors */
+  --accent-violet: #8b5cf6;
+  --accent-violet-light: #f5f3ff;
+  --accent-emerald: #10b981;
+  --accent-emerald-light: #ecfdf5;
+
+  /* Premium UI Tokens */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-blur: 8px;
+}
+
+[data-theme='dark'] {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --border: #334155;
+  --input: #1e293b;
+  --glass-bg: rgba(15, 23, 42, 0.7);
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -58,28 +95,71 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.025em;
 }
 
-button {
-  font-family: inherit;
+/* Custom Selection Color */
+::selection {
+  background-color: var(--primary-100);
+  color: var(--primary-900);
 }
 
-input, textarea, select {
-  font-family: inherit;
+/* Premium Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
+::-webkit-scrollbar-track {
+  background: var(--muted);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* Premium Utilities */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--border);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--primary-600), var(--secondary-500));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
 
-/* Hide scrollbar for IE, Edge and Firefox */
 .hide-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -29,12 +30,12 @@ export default function AdminUsersPage() {
       });
       setUsers(data?.data || []);
       setPagination(data?.pagination || { page: 1, limit: 10, total: 0, pages: 0 });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching users:', error);
       // Set empty array on error to prevent undefined errors
       setUsers([]);
       setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
-      alert(`Failed to load users: ${error.message || 'Unknown error'}`);
+      alert(`Failed to load users: ${Object(error).message || 'An error occurred' || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -48,8 +49,8 @@ export default function AdminUsersPage() {
         await adminApi.unblockUser(userId);
       }
       fetchUsers();
-    } catch (error: any) {
-      alert(error.message || 'Operation failed');
+    } catch (error) {
+      alert(Object(error).message || 'An error occurred' || 'Operation failed');
     }
   };
 

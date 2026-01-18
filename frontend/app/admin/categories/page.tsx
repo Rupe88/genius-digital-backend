@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -31,9 +32,9 @@ export default function AdminCategoriesPage() {
       const params = filterType ? { type: filterType } : undefined;
       const data = await categoryApi.getAllCategories(params);
       setCategories(data);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching categories:', error);
-      showError(error.message || 'Failed to load categories');
+      showError(Object(error).message || 'An error occurred' || 'Failed to load categories');
     } finally {
       setLoading(false);
     }
@@ -49,9 +50,9 @@ export default function AdminCategoriesPage() {
       await categoryApi.deleteCategory(category.id);
       showSuccess('Category deleted successfully!');
       fetchCategories();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting category:', error);
-      showError(error.message || 'Failed to delete category');
+      showError(Object(error).message || 'An error occurred' || 'Failed to delete category');
     } finally {
       setDeletingId(null);
     }
@@ -59,7 +60,7 @@ export default function AdminCategoriesPage() {
 
   const filteredCategories = categories.filter((category) => {
     const matchesSearch = category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         category.slug.toLowerCase().includes(searchQuery.toLowerCase());
+      category.slug.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
 
@@ -91,7 +92,7 @@ export default function AdminCategoriesPage() {
           />
           <Select
             value={filterType}
-            onChange={(e) => setFilterType(e.target.value as any)}
+            onChange={(e) => setFilterType(e.target.value as 'COURSE' | 'BLOG' | 'PRODUCT' | '')}
             options={[
               { value: '', label: 'All Types' },
               { value: 'COURSE', label: 'Course' },

@@ -5,6 +5,7 @@ import {
   getEnrollmentById,
   unenrollFromCourse,
   getAllEnrollments,
+  deleteEnrollment,
 } from '../controllers/enrollmentController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
@@ -61,6 +62,14 @@ router.get(
     query('limit').optional().isInt({ min: 1, max: 100 }),
   ],
   getAllEnrollments
+);
+
+router.delete(
+  '/:id',
+  authenticate,
+  requireAdmin,
+  [param('id').isUUID()],
+  deleteEnrollment
 );
 
 export default router;

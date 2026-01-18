@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card';
 import * as adminApi from '@/lib/api/admin';
 
 export default function IncomeTrackingPage() {
-  const [incomeData, setIncomeData] = useState<any>(null);
+  const [incomeData, setIncomeData] = useState<adminApi.IncomeBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(() => {
     const date = new Date();
@@ -24,7 +24,7 @@ export default function IncomeTrackingPage() {
     try {
       setLoading(true);
       const data = await adminApi.getIncomeBreakdown({ startDate, endDate });
-      setIncomeData(data.data);
+      setIncomeData(data);
     } catch (error) {
       console.error('Error fetching income data:', error);
     } finally {

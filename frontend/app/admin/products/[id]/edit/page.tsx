@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -97,9 +98,9 @@ export default function EditProductPage() {
           price: product.price,
           originalPrice: product.originalPrice || undefined,
           stockQuantity: product.stockQuantity,
-          productType: (product.productType as any) || 'VASTU_ITEM',
+          productType: (product.productType as 'VASTU_ITEM' | 'CONSULTATION_PACKAGE' | 'DIGITAL_PRODUCT' | 'PHYSICAL_PRODUCT') || 'VASTU_ITEM',
           vastuPurpose: product.vastuPurpose || '',
-          energyType: (product.energyType as any) || 'POSITIVE',
+          energyType: (product.energyType as 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL' | 'BALANCED') || 'POSITIVE',
           material: product.material || '',
           dimensions: product.dimensions || { length: 0, width: 0, height: 0 },
           category: product.category || '',
@@ -142,8 +143,8 @@ export default function EditProductPage() {
       } else {
         toast.error(response.message || 'Failed to update product');
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update product');
+    } catch (error) {
+      toast.error(Object(error).message || 'An error occurred' || 'Failed to update product');
     } finally {
       setLoading(false);
     }

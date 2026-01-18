@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -104,8 +105,8 @@ export default function NewProductPage() {
       } else {
         toast.error(response.message || 'Failed to create product');
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create product');
+    } catch (error) {
+      toast.error(Object(error).message || 'An error occurred' || 'Failed to create product');
     } finally {
       setLoading(false);
     }

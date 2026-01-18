@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -25,9 +26,9 @@ export default function EditInstructorPage() {
       setLoading(true);
       const data = await instructorApi.getInstructorById(instructorId);
       setInstructor(data);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching instructor:', error);
-      showError(error.message || 'Failed to load instructor data');
+      showError(Object(error).message || 'An error occurred' || 'Failed to load instructor data');
       router.push('/admin/instructors');
     } finally {
       setLoading(false);
@@ -40,9 +41,9 @@ export default function EditInstructorPage() {
       await instructorApi.updateInstructor(instructorId, data);
       showSuccess('Instructor updated successfully!');
       router.push('/admin/instructors');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating instructor:', error);
-      showError(error.message || 'Failed to update instructor');
+      showError(Object(error).message || 'An error occurred' || 'Failed to update instructor');
     } finally {
       setSubmitting(false);
     }

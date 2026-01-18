@@ -45,7 +45,7 @@ export default function LoginPage() {
       router.push(ROUTES.DASHBOARD);
     } catch (err: any) {
       console.error('Login failed:', err);
-      setError(err.message || 'Login failed. Please try again.');
+      setError((err instanceof Error ? err.message : 'An error occurred') || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

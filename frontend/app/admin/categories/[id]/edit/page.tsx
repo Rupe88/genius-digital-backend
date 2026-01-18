@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -23,9 +24,9 @@ export default function EditCategoryPage() {
         setLoading(true);
         const data = await categoryApi.getCategoryById(id);
         setCategory(data);
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error fetching category:', error);
-        showError(error.message || 'Failed to load category');
+        showError(Object(error).message || 'An error occurred' || 'Failed to load category');
         router.push('/admin/categories');
       } finally {
         setLoading(false);
@@ -43,9 +44,9 @@ export default function EditCategoryPage() {
       await categoryApi.updateCategory(id, data);
       showSuccess('Category updated successfully!');
       router.push('/admin/categories');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating category:', error);
-      showError(error.message || 'Failed to update category');
+      showError(Object(error).message || 'An error occurred' || 'Failed to update category');
     } finally {
       setSubmitting(false);
     }

@@ -1,5 +1,6 @@
-import { apiClient } from './axios';
-import { API_ENDPOINTS } from '../utils/constants';
+import { apiClient, handleApiResponse, handleApiError } from './axios';
+import { API_ENDPOINTS } from '@/lib/utils/constants';
+import { ApiResponse } from '@/lib/types/api';
 
 export interface FAQ {
   id: string;
@@ -31,77 +32,110 @@ export interface UpdateFAQRequest {
   order?: number;
 }
 
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  message: string;
-}
+/**
+ * Get all FAQs
+ */
+export const getAllFAQs = async (): Promise<FAQ[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<FAQ[]>>(API_ENDPOINTS.FAQS.LIST);
+    return handleApiResponse<FAQ[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
 /**
- * FAQ API
+ * Get FAQs by category
  */
+export const getFAQsByCategory = async (category: string): Promise<FAQ[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<FAQ[]>>(`${API_ENDPOINTS.FAQS.LIST}/category/${category}`);
+    return handleApiResponse<FAQ[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Get featured FAQs
+ */
+export const getFeaturedFAQs = async (): Promise<FAQ[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<FAQ[]>>(`${API_ENDPOINTS.FAQS.LIST}/featured`);
+    return handleApiResponse<FAQ[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Get FAQ by ID
+ */
+export const getFAQById = async (id: string): Promise<FAQ> => {
+  try {
+    const response = await apiClient.get<ApiResponse<FAQ>>(API_ENDPOINTS.FAQS.BY_ID(id));
+    return handleApiResponse<FAQ>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Create new FAQ (admin only)
+ */
+export const createFAQ = async (data: CreateFAQRequest): Promise<FAQ> => {
+  try {
+    const response = await apiClient.post<ApiResponse<FAQ>>(API_ENDPOINTS.FAQS.LIST, data);
+    return handleApiResponse<FAQ>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Update FAQ (admin only)
+ */
+export const updateFAQ = async (id: string, data: UpdateFAQRequest): Promise<FAQ> => {
+  try {
+    const response = await apiClient.put<ApiResponse<FAQ>>(API_ENDPOINTS.FAQS.BY_ID(id), data);
+    return handleApiResponse<FAQ>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Delete FAQ (admin only)
+ */
+export const deleteFAQ = async (id: string): Promise<void> => {
+  try {
+    const response = await apiClient.delete<ApiResponse<void>>(API_ENDPOINTS.FAQS.BY_ID(id));
+    handleApiResponse<void>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Reorder FAQs (admin only)
+ */
+export const reorderFAQs = async (faqs: { id: string; order: number }[]): Promise<void> => {
+  try {
+    const response = await apiClient.post<ApiResponse<void>>(`${API_ENDPOINTS.FAQS.LIST}/reorder`, { faqs });
+    handleApiResponse<void>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+// For backward compatibility
 export const faqApi = {
-  /**
-   * Get all FAQs
-   */
-  getAll: async (): Promise<ApiResponse<FAQ[]>> => {
-    const response = await apiClient.get(API_ENDPOINTS.FAQS.LIST);
-    return response.data;
-  },
-
-  /**
-   * Get FAQs by category
-   */
-  getByCategory: async (category: string): Promise<ApiResponse<FAQ[]>> => {
-    const response = await apiClient.get(`${API_ENDPOINTS.FAQS.LIST}/category/${category}`);
-    return response.data;
-  },
-
-  /**
-   * Get featured FAQs
-   */
-  getFeatured: async (): Promise<ApiResponse<FAQ[]>> => {
-    const response = await apiClient.get(`${API_ENDPOINTS.FAQS.LIST}/featured`);
-    return response.data;
-  },
-
-  /**
-   * Get FAQ by ID
-   */
-  getById: async (id: string): Promise<ApiResponse<FAQ>> => {
-    const response = await apiClient.get(API_ENDPOINTS.FAQS.BY_ID(id));
-    return response.data;
-  },
-
-  /**
-   * Create new FAQ (admin only)
-   */
-  create: async (data: CreateFAQRequest): Promise<ApiResponse<FAQ>> => {
-    const response = await apiClient.post(API_ENDPOINTS.FAQS.LIST, data);
-    return response.data;
-  },
-
-  /**
-   * Update FAQ (admin only)
-   */
-  update: async (id: string, data: UpdateFAQRequest): Promise<ApiResponse<FAQ>> => {
-    const response = await apiClient.put(API_ENDPOINTS.FAQS.BY_ID(id), data);
-    return response.data;
-  },
-
-  /**
-   * Delete FAQ (admin only)
-   */
-  delete: async (id: string): Promise<ApiResponse> => {
-    const response = await apiClient.delete(API_ENDPOINTS.FAQS.BY_ID(id));
-    return response.data;
-  },
-
-  /**
-   * Reorder FAQs (admin only)
-   */
-  reorder: async (faqs: { id: string; order: number }[]): Promise<ApiResponse> => {
-    const response = await apiClient.post(`${API_ENDPOINTS.FAQS.LIST}/reorder`, { faqs });
-    return response.data;
-  },
+  getAll: getAllFAQs,
+  getByCategory: getFAQsByCategory,
+  getFeatured: getFeaturedFAQs,
+  getById: getFAQById,
+  create: createFAQ,
+  update: updateFAQ,
+  delete: deleteFAQ,
+  reorder: reorderFAQs,
 };

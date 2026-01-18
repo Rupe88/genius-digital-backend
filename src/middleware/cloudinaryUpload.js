@@ -85,22 +85,24 @@ export const processImageUpload = async (req, res, next) => {
     });
 
     req.cloudinary = {
+      ...(req.cloudinary || {}),
       url: result.secure_url,
       publicId: result.public_id,
       width: result.width,
       height: result.height,
       format: result.format,
+      type: 'image',
     };
 
     console.log(`✓ Image uploaded successfully: ${result.secure_url}`);
     next();
   } catch (error) {
     console.error('Image upload middleware error:', error);
-    
+
     // Provide user-friendly error messages
     let errorMessage = 'Image upload failed';
     let statusCode = 400;
-    
+
     if (error.message?.includes('authentication failed') || error.message?.includes('Invalid Signature')) {
       errorMessage = 'Cloudinary authentication failed. Please check your API credentials in .env file.';
       statusCode = 500;
@@ -110,7 +112,7 @@ export const processImageUpload = async (req, res, next) => {
     } else {
       errorMessage = error.message || 'Image upload failed';
     }
-    
+
     // Return proper error response
     return res.status(statusCode).json({
       success: false,
@@ -155,10 +157,12 @@ export const processVideoUpload = async (req, res, next) => {
     });
 
     req.cloudinary = {
+      ...(req.cloudinary || {}),
       url: result.secure_url,
       publicId: result.public_id,
       duration: result.duration,
       format: result.format,
+      type: 'video',
     };
 
     console.log(`✓ Video uploaded successfully: ${result.secure_url}`);
@@ -204,14 +208,59 @@ export const processDocumentUpload = async (req, res, next) => {
     });
 
     req.cloudinary = {
+      ...(req.cloudinary || {}),
       url: result.secure_url,
       publicId: result.public_id,
+      type: 'document',
     };
 
     console.log(`✓ Document uploaded successfully: ${result.secure_url}`);
     next();
   } catch (error) {
     console.error('Document upload middleware error:', error);
+    next(error);
+  }
+};
+
+/**
+ * Specific middleware for Lesson uploads (video and attachment)
+ */
+export const processLessonFiles = async (req, res, next) => {
+  try {
+    if (!req.files) {
+      return next();
+    }
+
+    // Handle video upload
+    if (req.files.video && req.files.video[0]) {
+      const videoFile = req.files.video[0];
+      console.log(`Uploading lesson video: ${videoFile.originalname}`);
+      const result = await uploadVideo(videoFile.buffer, {
+        folder: req.body.folder || 'lms/videos',
+      });
+      req.cloudinary = {
+        ...(req.cloudinary || {}),
+        videoUrl: result.secure_url,
+        videoDuration: result.duration,
+      };
+    }
+
+    // Handle attachment upload
+    if (req.files.attachment && req.files.attachment[0]) {
+      const docFile = req.files.attachment[0];
+      console.log(`Uploading lesson attachment: ${docFile.originalname}`);
+      const result = await uploadDocument(docFile.buffer, {
+        folder: req.body.folder || 'lms/documents',
+      });
+      req.cloudinary = {
+        ...(req.cloudinary || {}),
+        attachmentUrl: result.secure_url,
+      };
+    }
+
+    next();
+  } catch (error) {
+    console.error('Lesson files upload error:', error);
     next(error);
   }
 };

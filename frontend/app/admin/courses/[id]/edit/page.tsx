@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -38,9 +39,9 @@ export default function EditCoursePage() {
       setCourse(courseData);
       setCategories(categoriesData || []);
       setInstructors(instructorsResponse.data || []);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching data:', error);
-      showError(error.message || 'Failed to load course data');
+      showError(Object(error).message || 'An error occurred' || 'Failed to load course data');
       router.push('/admin/courses');
     } finally {
       setLoading(false);
@@ -53,9 +54,9 @@ export default function EditCoursePage() {
       await courseApi.updateCourse(courseId, data);
       showSuccess('Course updated successfully!');
       router.push('/admin/courses');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating course:', error);
-      showError(error.message || 'Failed to update course');
+      showError(Object(error).message || 'An error occurred' || 'Failed to update course');
     } finally {
       setSubmitting(false);
     }

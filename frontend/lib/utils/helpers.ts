@@ -41,7 +41,7 @@ export const classNames = (...classes: (string | undefined | null | false)[]): s
   return classes.filter(Boolean).join(' ');
 };
 
-export const debounce = <T extends (...args: any[]) => any>(
+export const debounce = <T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) => {
@@ -86,18 +86,25 @@ export const formatPrice = (price: number, isFree: boolean = false): string => {
  */
 export const formatDuration = (minutes: number | null | undefined): string => {
   if (!minutes) return 'Not specified';
-  
+
   if (minutes < 60) {
     return `${minutes} min${minutes !== 1 ? 's' : ''}`;
   }
-  
+
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
-  
+
   if (mins === 0) {
     return `${hours} hr${hours !== 1 ? 's' : ''}`;
   }
-  
+
   return `${hours} hr${hours !== 1 ? 's' : ''} ${mins} min${mins !== 1 ? 's' : ''}`;
+};
+
+/**
+ * Common error message extractor
+ */
+export const handleError = (error: unknown): string => {
+  return Object(error).message || 'An error occurred';
 };
 

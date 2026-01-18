@@ -108,9 +108,8 @@ function SortableLesson({ lesson, onEdit, onDelete, onToggleLock, onTogglePrevie
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 p-3 rounded-lg border bg-[var(--background)] ${
-        isDragging ? 'shadow-lg' : 'border-[var(--border)]'
-      }`}
+      className={`flex items-center gap-3 p-3 rounded-lg border bg-[var(--background)] ${isDragging ? 'shadow-lg' : 'border-[var(--border)]'
+        }`}
     >
       <div
         {...attributes}
@@ -207,9 +206,8 @@ function SortableChapter({
     <div
       ref={setNodeRef}
       style={style}
-      className={`border rounded-lg bg-[var(--background)] ${
-        isDragging ? 'shadow-lg' : 'border-[var(--border)]'
-      }`}
+      className={`border rounded-lg bg-[var(--background)] ${isDragging ? 'shadow-lg' : 'border-[var(--border)]'
+        }`}
     >
       <div className="flex items-center gap-3 p-4">
         <div
@@ -272,34 +270,41 @@ function SortableChapter({
       </div>
       {isExpanded && (
         <div className="px-4 pb-4 space-y-2">
-          {chapter.lessons?.map((lesson) => (
-            <SortableLesson
-              key={lesson.id}
-              lesson={lesson}
-              onEdit={() => onEditLesson(lesson)}
-              onDelete={() => onDeleteLesson(lesson.id)}
-              onToggleLock={async () => {
-                try {
-                  await lessonApi.updateLesson(lesson.id, {
-                    isLocked: !lesson.isLocked,
-                  });
-                  onRefresh();
-                } catch (error: any) {
-                  showError(error.message || 'Failed to toggle lock');
-                }
-              }}
-              onTogglePreview={async () => {
-                try {
-                  await lessonApi.updateLesson(lesson.id, {
-                    isPreview: !lesson.isPreview,
-                  });
-                  onRefresh();
-                } catch (error: any) {
-                  showError(error.message || 'Failed to toggle preview');
-                }
-              }}
-            />
-          ))}
+          <SortableContext
+            items={chapter.lessons?.map((l) => l.id) || []}
+            strategy={verticalListSortingStrategy}
+          >
+            {chapter.lessons?.map((lesson) => (
+              <SortableLesson
+                key={lesson.id}
+                lesson={lesson}
+                onEdit={() => onEditLesson(lesson)}
+                onDelete={() => onDeleteLesson(lesson.id)}
+                onToggleLock={async () => {
+                  try {
+                    await lessonApi.updateLesson(lesson.id, {
+                      isLocked: !lesson.isLocked,
+                    });
+                    onRefresh();
+                  } catch (error) {
+                    const message = error instanceof Error ? error.message : 'Failed to toggle lock';
+                    showError(message);
+                  }
+                }}
+                onTogglePreview={async () => {
+                  try {
+                    await lessonApi.updateLesson(lesson.id, {
+                      isPreview: !lesson.isPreview,
+                    });
+                    onRefresh();
+                  } catch (error) {
+                    const message = error instanceof Error ? error.message : 'Failed to toggle preview';
+                    showError(message);
+                  }
+                }}
+              />
+            ))}
+          </SortableContext>
           <Button
             variant="outline"
             size="sm"
@@ -351,8 +356,9 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
       setLessons(lessonsData);
       // Expand all chapters by default
       setExpandedChapters(new Set(chaptersData.map((ch) => ch.id)));
-    } catch (error: any) {
-      showError(error.message || 'Failed to load curriculum');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load curriculum';
+      showError(message);
     }
   };
 
@@ -374,8 +380,40 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
         )
       );
       showSuccess('Chapters reordered successfully');
-    } catch (error: any) {
-      showError(error.message || 'Failed to reorder chapters');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to reorder chapters';
+      showError(message);
+      loadCurriculum(); // Revert on error
+    }
+  };
+
+  const handleLessonDragEnd = async (event: DragEndEvent, chapterId: string) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const chapterLessons = lessons.filter(l => l.chapterId === chapterId);
+    const oldIndex = chapterLessons.findIndex((l) => l.id === active.id);
+    const newIndex = chapterLessons.findIndex((l) => l.id === over.id);
+
+    const reorderedInChapter = arrayMove(chapterLessons, oldIndex, newIndex);
+
+    // Create new full lessons list
+    const otherLessons = lessons.filter(l => l.chapterId !== chapterId);
+    const newAllLessons = [...otherLessons, ...reorderedInChapter];
+
+    setLessons(newAllLessons);
+
+    // Update order in backend
+    try {
+      await Promise.all(
+        reorderedInChapter.map((l, index) =>
+          lessonApi.updateLesson(l.id, { order: index }).catch(console.error)
+        )
+      );
+      showSuccess('Lessons reordered successfully');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to reorder lessons';
+      showError(message);
       loadCurriculum(); // Revert on error
     }
   };
@@ -409,8 +447,9 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
       setIsCreatingChapter(false);
       setSelectedChapter(null);
       loadCurriculum();
-    } catch (error: any) {
-      showError(error.message || 'Failed to create chapter');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create chapter';
+      showError(message);
     }
   };
 
@@ -420,8 +459,9 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
       showSuccess('Chapter updated successfully');
       setSelectedChapter(null);
       loadCurriculum();
-    } catch (error: any) {
-      showError(error.message || 'Failed to update chapter');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update chapter';
+      showError(message);
     }
   };
 
@@ -433,8 +473,9 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
       await chapterApi.deleteChapter(id);
       showSuccess('Chapter deleted successfully');
       loadCurriculum();
-    } catch (error: any) {
-      showError(error.message || 'Failed to delete chapter');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete chapter';
+      showError(message);
     }
   };
 
@@ -445,8 +486,9 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
       setIsCreatingLesson(false);
       setSelectedLesson(null);
       loadCurriculum();
-    } catch (error: any) {
-      showError(error.message || 'Failed to create lesson');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create lesson';
+      showError(message);
     }
   };
 
@@ -456,8 +498,9 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
       showSuccess('Lesson updated successfully');
       setSelectedLesson(null);
       loadCurriculum();
-    } catch (error: any) {
-      showError(error.message || 'Failed to update lesson');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update lesson';
+      showError(message);
     }
   };
 
@@ -469,8 +512,9 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
       await lessonApi.deleteLesson(id);
       showSuccess('Lesson deleted successfully');
       loadCurriculum();
-    } catch (error: any) {
-      showError(error.message || 'Failed to delete lesson');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete lesson';
+      showError(message);
     }
   };
 
@@ -572,8 +616,9 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
                   showSuccess('Quiz created successfully');
                   setShowQuizBuilder(false);
                   setSelectedLesson(null);
-                } catch (error: any) {
-                  showError(error.message || 'Failed to create quiz');
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : 'Failed to create quiz';
+                  showError(message);
                 }
               }}
               onCancel={() => {
@@ -589,13 +634,32 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
-        onDragEnd={handleChapterDragEnd}
+        onDragEnd={(event) => {
+          const { active, over } = event;
+          if (!over || active.id === over.id) return;
+
+          // Check if dragging a chapter or a lesson
+          const isActiveChapter = chapters.some((ch) => ch.id === active.id);
+          const isOverChapter = chapters.some((ch) => ch.id === over.id);
+
+          if (isActiveChapter && isOverChapter) {
+            handleChapterDragEnd(event);
+          } else if (!isActiveChapter && !isOverChapter) {
+            // Find which chapter this lesson belongs to
+            const activeLesson = lessons.find(l => l.id === active.id);
+            const overLesson = lessons.find(l => l.id === over.id);
+
+            if (activeLesson && overLesson && activeLesson.chapterId === overLesson.chapterId) {
+              handleLessonDragEnd(event, activeLesson.chapterId!);
+            }
+          }
+        }}
       >
-        <SortableContext
-          items={[...chapters.map((ch) => ch.id), ...lessons.map((l) => l.id)]}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="space-y-4">
+        <div className="space-y-4">
+          <SortableContext
+            items={chapters.map((ch) => ch.id)}
+            strategy={verticalListSortingStrategy}
+          >
             {chaptersWithLessons.map((chapter) => (
               <SortableChapter
                 key={chapter.id}
@@ -609,16 +673,18 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
                   try {
                     await chapterApi.toggleChapterLock(id, isLocked);
                     loadCurriculum();
-                  } catch (error: any) {
-                    showError(error.message || 'Failed to toggle lock');
+                  } catch (error) {
+                    const message = error instanceof Error ? error.message : 'Failed to toggle lock';
+                    showError(message);
                   }
                 }}
                 onTogglePreview={async (id, isPreview) => {
                   try {
                     await chapterApi.toggleChapterPreview(id, isPreview);
                     loadCurriculum();
-                  } catch (error: any) {
-                    showError(error.message || 'Failed to toggle preview');
+                  } catch (error) {
+                    const message = error instanceof Error ? error.message : 'Failed to toggle preview';
+                    showError(message);
                   }
                 }}
                 onAddLesson={(chapterId) => {
@@ -635,8 +701,8 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
                 onToggleExpand={() => toggleChapterExpand(chapter.id)}
               />
             ))}
-          </div>
-        </SortableContext>
+          </SortableContext>
+        </div>
       </DndContext>
 
       {/* Uncategorized Lessons */}

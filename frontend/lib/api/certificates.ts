@@ -1,5 +1,6 @@
-import { apiClient } from './axios';
-import { API_ENDPOINTS } from '../utils/constants';
+import { apiClient, handleApiResponse, handleApiError } from './axios';
+import { API_ENDPOINTS } from '@/lib/utils/constants';
+import { ApiResponse } from '@/lib/types/api';
 
 export interface Certificate {
   id: string;
@@ -27,63 +28,86 @@ export interface CreateCertificateRequest {
   courseId: string;
 }
 
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  message: string;
-}
+/**
+ * Get all certificates (admin only)
+ */
+export const getAllCertificates = async (): Promise<Certificate[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Certificate[]>>(API_ENDPOINTS.CERTIFICATES.LIST);
+    return handleApiResponse<Certificate[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
 /**
- * Certificates API
+ * Get user's certificates
  */
-export const certificatesApi = {
-  /**
-   * Get all certificates (admin only)
-   */
-  getAll: async (): Promise<ApiResponse<Certificate[]>> => {
-    const response = await apiClient.get(API_ENDPOINTS.CERTIFICATES.LIST);
-    return response.data;
-  },
+export const getUserCertificates = async (): Promise<Certificate[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Certificate[]>>(`${API_ENDPOINTS.CERTIFICATES.LIST}/user`);
+    return handleApiResponse<Certificate[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
-  /**
-   * Get user's certificates
-   */
-  getUserCertificates: async (): Promise<ApiResponse<Certificate[]>> => {
-    const response = await apiClient.get(`${API_ENDPOINTS.CERTIFICATES.LIST}/user`);
-    return response.data;
-  },
+/**
+ * Get certificate by ID
+ */
+export const getCertificateById = async (id: string): Promise<Certificate> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Certificate>>(API_ENDPOINTS.CERTIFICATES.BY_ID(id));
+    return handleApiResponse<Certificate>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
-  /**
-   * Get certificate by ID
-   */
-  getById: async (id: string): Promise<ApiResponse<Certificate>> => {
-    const response = await apiClient.get(API_ENDPOINTS.CERTIFICATES.BY_ID(id));
-    return response.data;
-  },
+/**
+ * Issue certificate (admin only)
+ */
+export const issueCertificate = async (data: CreateCertificateRequest): Promise<Certificate> => {
+  try {
+    const response = await apiClient.post<ApiResponse<Certificate>>(API_ENDPOINTS.CERTIFICATES.LIST, data);
+    return handleApiResponse<Certificate>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
-  /**
-   * Issue certificate (admin only)
-   */
-  issue: async (data: CreateCertificateRequest): Promise<ApiResponse<Certificate>> => {
-    const response = await apiClient.post(API_ENDPOINTS.CERTIFICATES.LIST, data);
-    return response.data;
-  },
-
-  /**
-   * Download certificate
-   */
-  download: async (id: string): Promise<Blob> => {
+/**
+ * Download certificate
+ */
+export const downloadCertificate = async (id: string): Promise<Blob> => {
+  try {
     const response = await apiClient.get(`${API_ENDPOINTS.CERTIFICATES.BY_ID(id)}/download`, {
       responseType: 'blob',
     });
     return response.data;
-  },
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
-  /**
-   * Delete certificate (admin only)
-   */
-  delete: async (id: string): Promise<ApiResponse> => {
-    const response = await apiClient.delete(API_ENDPOINTS.CERTIFICATES.BY_ID(id));
-    return response.data;
-  },
+/**
+ * Delete certificate (admin only)
+ */
+export const deleteCertificate = async (id: string): Promise<void> => {
+  try {
+    const response = await apiClient.delete<ApiResponse<void>>(API_ENDPOINTS.CERTIFICATES.BY_ID(id));
+    handleApiResponse<void>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+// For backward compatibility
+export const certificatesApi = {
+  getAll: getAllCertificates,
+  getUserCertificates,
+  getById: getCertificateById,
+  issue: issueCertificate,
+  download: downloadCertificate,
+  delete: deleteCertificate,
 };

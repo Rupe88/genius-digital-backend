@@ -13,7 +13,7 @@ export interface Payment {
   orderId?: string;
   courseId?: string;
   productIds?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }

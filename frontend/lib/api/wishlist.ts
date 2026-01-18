@@ -1,5 +1,6 @@
-import { apiClient } from './axios';
-import { API_ENDPOINTS } from '../utils/constants';
+import { apiClient, handleApiResponse, handleApiError } from './axios';
+import { API_ENDPOINTS } from '@/lib/utils/constants';
+import { ApiResponse } from '@/lib/types/api';
 
 export interface WishlistItem {
   id: string;
@@ -33,51 +34,66 @@ export interface AddToWishlistRequest {
   productId?: string;
 }
 
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  message: string;
-}
+/**
+ * Get user's wishlist
+ */
+export const getWishlist = async (): Promise<WishlistItem[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<WishlistItem[]>>(API_ENDPOINTS.WISHLIST.LIST);
+    return handleApiResponse<WishlistItem[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
 /**
- * Wishlist API
+ * Add item to wishlist
  */
-export const wishlistApi = {
-  /**
-   * Get user's wishlist
-   */
-  getWishlist: async (): Promise<ApiResponse<WishlistItem[]>> => {
-    const response = await apiClient.get(API_ENDPOINTS.WISHLIST.LIST);
-    return response.data;
-  },
+export const addToWishlist = async (data: AddToWishlistRequest): Promise<WishlistItem> => {
+  try {
+    const response = await apiClient.post<ApiResponse<WishlistItem>>(API_ENDPOINTS.WISHLIST.ADD, data);
+    return handleApiResponse<WishlistItem>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
-  /**
-   * Add item to wishlist
-   */
-  addToWishlist: async (data: AddToWishlistRequest): Promise<ApiResponse<WishlistItem>> => {
-    const response = await apiClient.post(API_ENDPOINTS.WISHLIST.ADD, data);
-    return response.data;
-  },
+/**
+ * Remove item from wishlist
+ */
+export const removeFromWishlist = async (id: string): Promise<void> => {
+  try {
+    const response = await apiClient.delete<ApiResponse<void>>(API_ENDPOINTS.WISHLIST.REMOVE(id));
+    handleApiResponse<void>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
-  /**
-   * Remove item from wishlist
-   */
-  removeFromWishlist: async (id: string): Promise<ApiResponse> => {
-    const response = await apiClient.delete(API_ENDPOINTS.WISHLIST.REMOVE(id));
-    return response.data;
-  },
-
-
-  /**
-   * Check if item is in wishlist
-   */
-  checkInWishlist: async (courseId?: string, productId?: string): Promise<ApiResponse<{ inWishlist: boolean; wishlistItem?: WishlistItem }>> => {
+/**
+ * Check if item is in wishlist
+ */
+export const checkInWishlist = async (
+  courseId?: string,
+  productId?: string
+): Promise<{ inWishlist: boolean; wishlistItem?: WishlistItem }> => {
+  try {
     const params = new URLSearchParams();
     if (courseId) params.append('courseId', courseId);
     if (productId) params.append('productId', productId);
 
     const url = `${API_ENDPOINTS.WISHLIST.LIST}/check${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await apiClient.get(url);
-    return response.data;
-  },
+    const response = await apiClient.get<ApiResponse<{ inWishlist: boolean; wishlistItem?: WishlistItem }>>(url);
+    return handleApiResponse<{ inWishlist: boolean; wishlistItem?: WishlistItem }>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+// For backward compatibility
+export const wishlistApi = {
+  getWishlist: getWishlist,
+  addToWishlist: addToWishlist,
+  removeFromWishlist: removeFromWishlist,
+  checkInWishlist: checkInWishlist,
 };

@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { useAuth } from '@/lib/context/AuthContext';
 import * as enrollmentApi from '@/lib/api/enrollments';
-import { HiBookOpen, HiCheckCircle, HiAcademicCap } from 'react-icons/hi';
+import { ReferralDashboard, ShareButton } from '@/components/referrals';
+import { HiBookOpen, HiCheckCircle, HiAcademicCap, HiShare } from 'react-icons/hi';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -14,6 +15,7 @@ export default function DashboardPage() {
     certificates: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     fetchStats();
@@ -21,7 +23,7 @@ export default function DashboardPage() {
 
   const fetchStats = async () => {
     try {
-      const enrollments = await enrollmentApi.getEnrollments();
+      const enrollments = await enrollmentApi.getUserEnrollments();
       const enrolled = enrollments.data.length;
       const completed = enrollments.data.filter((e: any) => e.status === 'COMPLETED').length;
       setStats({
@@ -36,6 +38,11 @@ export default function DashboardPage() {
     }
   };
 
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: HiBookOpen },
+    { id: 'referrals', label: 'Referrals', icon: HiShare },
+  ];
+
   return (
     <div>
       <div className="mb-8">
@@ -47,49 +54,76 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card padding="lg">
-          <div className="flex items-center">
-            <div className="p-3 bg-[var(--primary-100)] rounded-lg mr-4">
-              <HiBookOpen className="h-6 w-6 text-[var(--primary-700)]" />
-            </div>
-            <div>
-              <p className="text-sm text-[var(--muted-foreground)]">Enrolled Courses</p>
-              <p className="text-2xl font-bold text-[var(--foreground)]">
-                {loading ? '...' : stats.enrolledCourses}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card padding="lg">
-          <div className="flex items-center">
-            <div className="p-3 bg-green-100 rounded-lg mr-4">
-              <HiCheckCircle className="h-6 w-6 text-green-700" />
-            </div>
-            <div>
-              <p className="text-sm text-[var(--muted-foreground)]">Completed</p>
-              <p className="text-2xl font-bold text-[var(--foreground)]">
-                {loading ? '...' : stats.completedCourses}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card padding="lg">
-          <div className="flex items-center">
-            <div className="p-3 bg-yellow-100 rounded-lg mr-4">
-              <HiAcademicCap className="h-6 w-6 text-yellow-700" />
-            </div>
-            <div>
-              <p className="text-sm text-[var(--muted-foreground)]">Certificates</p>
-              <p className="text-2xl font-bold text-[var(--foreground)]">
-                {loading ? '...' : stats.certificates}
-              </p>
-            </div>
-          </div>
-        </Card>
+      {/* Tabs */}
+      <div className="mb-6">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                <tab.icon className="w-4 h-4 inline mr-2" />
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
       </div>
+
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card padding="lg">
+            <div className="flex items-center">
+              <div className="p-3 bg-[var(--primary-100)] rounded-lg mr-4">
+                <HiBookOpen className="h-6 w-6 text-[var(--primary-700)]" />
+              </div>
+              <div>
+                <p className="text-sm text-[var(--muted-foreground)]">Enrolled Courses</p>
+                <p className="text-2xl font-bold text-[var(--foreground)]">
+                  {loading ? '...' : stats.enrolledCourses}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card padding="lg">
+            <div className="flex items-center">
+              <div className="p-3 bg-green-100 rounded-lg mr-4">
+                <HiCheckCircle className="h-6 w-6 text-green-700" />
+              </div>
+              <div>
+                <p className="text-sm text-[var(--muted-foreground)]">Completed</p>
+                <p className="text-2xl font-bold text-[var(--foreground)]">
+                  {loading ? '...' : stats.completedCourses}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card padding="lg">
+            <div className="flex items-center">
+              <div className="p-3 bg-yellow-100 rounded-lg mr-4">
+                <HiAcademicCap className="h-6 w-6 text-yellow-700" />
+              </div>
+              <div>
+                <p className="text-sm text-[var(--muted-foreground)]">Certificates</p>
+                <p className="text-2xl font-bold text-[var(--foreground)]">
+                  {loading ? '...' : stats.certificates}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === 'referrals' && (
+        <ReferralDashboard />
+      )}
     </div>
   );
 }

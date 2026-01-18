@@ -144,22 +144,22 @@ export default function HomePage() {
   const ongoingCourses: SimpleCourse[] =
     featuredCourses.length > 0
       ? featuredCourses.slice(0, 6).map((course) => ({
-          id: course.id,
-          title: course.title,
-          thumbnail: (course as any).thumbnail || '/hero1.png',
-          price: course.isFree ? 'Free' : `Rs. ${course.price}`,
-          oldPrice: course.originalPrice ? `Rs. ${course.originalPrice}` : undefined,
-        }))
+        id: course.id,
+        title: course.title,
+        thumbnail: course.thumbnail || '/hero1.png',
+        price: course.isFree ? 'Free' : `Rs. ${course.price}`,
+        oldPrice: course.originalPrice ? `Rs. ${course.originalPrice}` : undefined,
+      }))
       : dummyOngoingCourses;
 
   const popularCourses: SimpleCourse[] =
     featuredCourses.length > 0
       ? featuredCourses.slice(0, 6).map((course) => ({
-          id: course.id,
-          title: course.title,
-          thumbnail: (course as any).thumbnail || '/hero1.png',
-          price: course.isFree ? 'Free' : `Rs. ${course.price}`,
-        }))
+        id: course.id,
+        title: course.title,
+        thumbnail: course.thumbnail || '/hero1.png',
+        price: course.isFree ? 'Free' : `Rs. ${course.price}`,
+      }))
       : dummyPopularCourses;
 
 
@@ -199,7 +199,7 @@ export default function HomePage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const fallbackTestimonials: any[] = [
+  const fallbackTestimonials: Testimonial[] = [
     {
       id: 'fallback-1',
       studentName: 'Sushil Shrestha',
@@ -209,6 +209,9 @@ export default function HomePage() {
       rating: 4,
       avatar:
         'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&auto=format&fit=crop&q=80',
+      isApproved: true,
+      isFeatured: true,
+      createdAt: new Date().toISOString(),
     },
     {
       id: 'fallback-2',
@@ -219,6 +222,9 @@ export default function HomePage() {
       rating: 5,
       avatar:
         'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=200&auto=format&fit=crop&q=80',
+      isApproved: true,
+      isFeatured: true,
+      createdAt: new Date().toISOString(),
     },
     {
       id: 'fallback-3',
@@ -229,6 +235,9 @@ export default function HomePage() {
       rating: 4,
       avatar:
         'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80',
+      isApproved: true,
+      isFeatured: true,
+      createdAt: new Date().toISOString(),
     },
   ];
 
@@ -237,8 +246,8 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
-      {/* Hero Carousel Section */}
-      <section className="relative">
+      {/* Hero Carousel Section - Full Width */}
+      <section className="relative w-full">
         <HeroCarousel />
       </section>
 
@@ -368,7 +377,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {testimonialsToShow.map((testimonial: any) => (
+            {testimonialsToShow.map((testimonial: Testimonial) => (
               <div
                 key={testimonial.id}
                 className="bg-white border border-gray-200 shadow-lg px-6 py-5 flex flex-col justify-between"

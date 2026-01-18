@@ -46,9 +46,11 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
     Array.isArray(lesson?.unlockRequirement)
       ? lesson.unlockRequirement
       : lesson?.unlockRequirement
-      ? [lesson.unlockRequirement]
-      : []
+        ? [lesson.unlockRequirement]
+        : []
   );
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
   const handleTitleChange = (value: string) => {
     setTitle(value);
@@ -77,11 +79,14 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
         isLocked,
         videoUrl: videoUrl || undefined,
         attachmentUrl: attachmentUrl || undefined,
+        videoFile,
+        attachmentFile,
         unlockRequirement: unlockRequirement.length > 0 ? unlockRequirement : undefined,
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving lesson:', error);
-      alert(error.message || 'Failed to save lesson');
+      const message = error instanceof Error ? error.message : 'Failed to save lesson';
+      alert(message);
     }
   };
 
@@ -171,25 +176,153 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
 
         {lessonType === 'VIDEO' && (
           <div className="space-y-4">
-            <Input
-              label="Video URL (for preview)"
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
-              helperText="YouTube, Vimeo, or direct video URL for preview"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <Input
+                  label="Video URL *"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
+                  helperText="YouTube, Vimeo, or direct video URL"
+                />
+              </div>
+              <Input
+                label="Duration (seconds)"
+                type="number"
+                min="0"
+                value={lesson?.videoDuration?.toString() || ''}
+                onChange={(e) => {
+                  // Duration will be passed in save
+                }}
+                placeholder="e.g., 600 for 10 min"
+                helperText="Auto-detected if YouTube/Vimeo"
+              />
+            </div>
+
+            <div className="bg-[var(--muted)]/30 p-4 rounded-xl border border-[var(--border)] border-dashed">
+              <p className="text-sm font-medium text-[var(--foreground)] mb-3">Or Upload Video File</p>
+              <FileUpload
+                accept="video/*"
+                onChange={setVideoFile}
+                onRemove={() => setVideoFile(null)}
+                value={videoFile}
+                label="Select Video"
+                helperText="MP4, WebM, OGG (Max 100MB)"
+              />
+              {videoFile && (
+                <p className="mt-2 text-xs text-green-600 font-medium flex items-center gap-1">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  Ready to upload: {videoFile.name}
+                </p>
+              )}
+            </div>
+
+            {/* Video Preview */}
+            {videoUrl && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                  Video Preview
+                </label>
+                <div className="border border-[var(--border)] rounded-lg overflow-hidden bg-black aspect-video max-w-xl">
+                  {videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be') ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${videoUrl.includes('youtu.be')
+                        ? videoUrl.split('youtu.be/')[1]?.split('?')[0]
+                        : videoUrl.split('v=')[1]?.split('&')[0]
+                        }`}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : videoUrl.includes('vimeo.com') ? (
+                    <iframe
+                      src={`https://player.vimeo.com/video/${videoUrl.split('vimeo.com/')[1]?.split('?')[0]}`}
+                      className="w-full h-full"
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                      <div className="text-center">
+                        <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-sm">Direct video URL detected</p>
+                        <p className="text-xs">Preview available after save</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {lessonType === 'TEXT' && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+            <p className="text-sm text-blue-800">
+              <strong>Text Lesson:</strong> The content above will be displayed as the main lesson content.
+              You can use rich text formatting to make it engaging.
+            </p>
           </div>
         )}
 
         {(lessonType === 'PDF' || lessonType === 'ASSIGNMENT') && (
           <div className="space-y-4">
             <Input
-              label="Attachment URL (for preview)"
+              label="Attachment URL"
               value={attachmentUrl}
               onChange={(e) => setAttachmentUrl(e.target.value)}
               placeholder="https://example.com/document.pdf"
-              helperText="Direct link to PDF or document for preview"
+              helperText="Direct link to PDF or downloadable document"
             />
+
+            <div className="bg-[var(--muted)]/30 p-4 rounded-xl border border-[var(--border)] border-dashed">
+              <p className="text-sm font-medium text-[var(--foreground)] mb-3">Or Upload Document</p>
+              <FileUpload
+                accept=".pdf,.doc,.docx,.txt"
+                onChange={setAttachmentFile}
+                onRemove={() => setAttachmentFile(null)}
+                value={attachmentFile}
+                label="Select Document"
+                helperText="PDF, Word, TXT (Max 50MB)"
+              />
+              {attachmentFile && (
+                <p className="mt-2 text-xs text-green-600 font-medium flex items-center gap-1">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  Ready to upload: {attachmentFile.name}
+                </p>
+              )}
+            </div>
+            {attachmentUrl && (
+              <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">Attached Document</p>
+                  <p className="text-xs text-gray-500 truncate">{attachmentUrl}</p>
+                </div>
+                <a
+                  href={attachmentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  Preview →
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+
+        {lessonType === 'QUIZ' && (
+          <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+            <p className="text-sm text-purple-800">
+              <strong>Quiz Lesson:</strong> After creating this lesson, you can add quiz questions
+              using the Quiz Builder. The quiz will be automatically linked to this lesson.
+            </p>
           </div>
         )}
 

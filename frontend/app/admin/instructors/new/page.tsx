@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -17,9 +18,9 @@ export default function CreateInstructorPage() {
       await instructorApi.createInstructor(data);
       showSuccess('Instructor created successfully!');
       router.push('/admin/instructors');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating instructor:', error);
-      showError(error.message || 'Failed to create instructor');
+      showError(Object(error).message || 'An error occurred' || 'Failed to create instructor');
     } finally {
       setSubmitting(false);
     }

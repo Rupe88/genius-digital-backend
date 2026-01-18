@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -25,9 +26,9 @@ export default function CategoryDetailPage() {
         setLoading(true);
         const data = await categoryApi.getCategoryById(id);
         setCategory(data);
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error fetching category:', error);
-        showError(error.message || 'Failed to load category');
+        showError(Object(error).message || 'An error occurred' || 'Failed to load category');
         router.push('/admin/categories');
       } finally {
         setLoading(false);
@@ -51,9 +52,9 @@ export default function CategoryDetailPage() {
       await categoryApi.deleteCategory(category.id);
       showSuccess('Category deleted successfully!');
       router.push('/admin/categories');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting category:', error);
-      showError(error.message || 'Failed to delete category');
+      showError(Object(error).message || 'An error occurred' || 'Failed to delete category');
     } finally {
       setDeleting(false);
     }

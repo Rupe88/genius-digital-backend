@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -17,9 +18,9 @@ export default function CreateCategoryPage() {
       await categoryApi.createCategory(data);
       showSuccess('Category created successfully!');
       router.push('/admin/categories');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating category:', error);
-      showError(error.message || 'Failed to create category');
+      showError(Object(error).message || 'An error occurred' || 'Failed to create category');
     } finally {
       setSubmitting(false);
     }

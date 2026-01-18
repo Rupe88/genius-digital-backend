@@ -13,7 +13,7 @@ interface DecodedToken {
 export const decodeToken = (token: string): DecodedToken | null => {
   try {
     return jwtDecode<DecodedToken>(token);
-  } catch (error) {
+  } catch {
     return null;
   }
 };

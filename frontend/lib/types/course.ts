@@ -18,6 +18,15 @@ export interface Category {
   updatedAt: string;
 }
 
+export interface SocialLinks {
+  facebook?: string;
+  twitter?: string;
+  linkedin?: string;
+  youtube?: string;
+  instagram?: string;
+  whatsapp?: string;
+}
+
 export interface Instructor {
   id: string;
   name: string;
@@ -28,9 +37,31 @@ export interface Instructor {
   specialization?: string;
   email?: string;
   phone?: string;
-  socialLinks?: any;
+  socialLinks?: SocialLinks;
   featured: boolean;
   order: number;
+  commissionRate?: number;
+  bankName?: string;
+  accountNumber?: string;
+  ifscCode?: string;
+  panNumber?: string;
+  totalEarnings?: number;
+  paidEarnings?: number;
+  pendingEarnings?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Chapter {
+  id: string;
+  courseId: string;
+  title: string;
+  slug: string;
+  description?: string;
+  order: number;
+  isLocked: boolean;
+  isPreview: boolean;
+  lessons?: Lesson[];
   createdAt: string;
   updatedAt: string;
 }
@@ -63,7 +94,7 @@ export interface Course {
   rating?: number;
   totalRatings?: number;
   totalEnrollments?: number;
-  chapters?: any[];
+  chapters?: Chapter[];
   lessons?: Lesson[];
   reviews?: Review[];
   createdAt: string;
@@ -74,11 +105,21 @@ export interface Enrollment {
   id: string;
   userId: string;
   courseId: string;
-  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  status: 'ACTIVE' | 'PENDING' | 'COMPLETED' | 'CANCELLED';
   progress: number;
   enrolledAt: string;
   completedAt?: string;
   course?: Course;
+  user?: {
+    id: string;
+    fullName: string;
+    email: string;
+    profileImage?: string;
+  };
+  pricePaid: number;
+  paymentStatus?: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+  paymentMethod?: string;
+  createdAt?: string;
 }
 
 export interface Lesson {
@@ -96,35 +137,39 @@ export interface Lesson {
   order: number;
   isPreview: boolean;
   isLocked?: boolean;
-  unlockRequirement?: string[] | any;
+  unlockRequirement?: string[];
   createdAt: string;
   updatedAt: string;
-  chapter?: any;
+  chapter?: Chapter;
   progress?: { isCompleted: boolean; watchTime: number }[];
-  quiz?: any;
+  quiz?: Quiz;
+}
+
+export type QuestionType = 'multiple_choice' | 'single_choice' | 'true_false' | 'open_ended' | 'short_answer' | 'matching';
+
+export interface QuizQuestion {
+  id?: string;
+  quizId?: string;
+  question: string;
+  questionType: QuestionType;
+  description?: string;
+  options?: string[] | unknown;
+  correctAnswer: string | string[];
+  points: number;
+  order: number;
+  createdAt?: string;
 }
 
 export interface Quiz {
   id: string;
-  courseId: string;
-  lessonId?: string;
+  lessonId: string;
   title: string;
   description?: string;
-  questions: QuizQuestion[];
   timeLimit?: number;
-  maxAttempts?: number;
-  passingScore?: number;
+  passingScore: number;
+  questions: QuizQuestion[];
   createdAt: string;
   updatedAt: string;
-}
-
-export interface QuizQuestion {
-  id: string;
-  question: string;
-  type: 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'SHORT_ANSWER';
-  options?: string[];
-  correctAnswer: string | string[];
-  points: number;
 }
 
 export interface Assignment {

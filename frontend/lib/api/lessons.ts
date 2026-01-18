@@ -1,31 +1,14 @@
 import { apiClient, handleApiResponse, handleApiError } from './axios';
 import { API_ENDPOINTS } from '@/lib/utils/constants';
+import { Lesson, Chapter } from '@/lib/types/course';
+export type { Lesson, Chapter };
+import { ApiResponse } from '@/lib/types/api';
 
-export interface Lesson {
-  id: string;
-  title: string;
-  slug: string;
-  description?: string;
-  content?: string;
-  videoUrl?: string;
-  videoDuration?: number;
-  attachmentUrl?: string;
-  lessonType: 'VIDEO' | 'TEXT' | 'PDF' | 'QUIZ' | 'ASSIGNMENT';
-  order: number;
-  isPreview: boolean;
-  isLocked?: boolean;
-  unlockRequirement?: string[] | any;
-  courseId: string;
-  chapterId?: string;
-  chapter?: any;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export const getCourseLessons = async (courseId: string): Promise<Lesson[]> => {
   try {
-    const response = await apiClient.get(`${API_ENDPOINTS.LESSONS.LIST}/course/${courseId}`);
-    const responseData = response.data as any;
+    const response = await apiClient.get<ApiResponse<{ lessons: Lesson[] }>>(`${API_ENDPOINTS.LESSONS.LIST}/course/${courseId}`);
+    const responseData = response.data;
     if (responseData.success && responseData.data?.lessons) {
       return responseData.data.lessons;
     }
@@ -37,8 +20,8 @@ export const getCourseLessons = async (courseId: string): Promise<Lesson[]> => {
 
 export const getLessonById = async (id: string): Promise<Lesson> => {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.LESSONS.BY_ID(id));
-    const responseData = response.data as any;
+    const response = await apiClient.get<ApiResponse<Lesson>>(API_ENDPOINTS.LESSONS.BY_ID(id));
+    const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
     }
@@ -62,7 +45,9 @@ export interface CreateLessonData {
   order?: number;
   isPreview?: boolean;
   isLocked?: boolean;
-  unlockRequirement?: string[] | any;
+  unlockRequirement?: string[];
+  videoFile?: File | null;
+  attachmentFile?: File | null;
 }
 
 export const createLesson = async (data: CreateLessonData): Promise<Lesson> => {
@@ -84,22 +69,24 @@ export const createLesson = async (data: CreateLessonData): Promise<Lesson> => {
     if (data.unlockRequirement) {
       formData.append('unlockRequirement', JSON.stringify(data.unlockRequirement));
     }
+    if (data.videoFile) formData.append('video', data.videoFile);
+    if (data.attachmentFile) formData.append('attachment', data.attachmentFile);
 
-    const response = await apiClient.post(API_ENDPOINTS.LESSONS.LIST, formData, {
+    const response = await apiClient.post<ApiResponse<Lesson>>(API_ENDPOINTS.LESSONS.LIST, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    
-    const responseData = response.data as any;
+
+    const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
     }
-    
+
     if (!responseData.success) {
       throw new Error(responseData.message || 'Failed to create lesson');
     }
-    
+
     return handleApiResponse<Lesson>(response);
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof Error) {
       throw error;
     }
@@ -126,22 +113,24 @@ export const updateLesson = async (id: string, data: Partial<CreateLessonData>):
     if (data.unlockRequirement !== undefined) {
       formData.append('unlockRequirement', JSON.stringify(data.unlockRequirement));
     }
+    if (data.videoFile) formData.append('video', data.videoFile);
+    if (data.attachmentFile) formData.append('attachment', data.attachmentFile);
 
-    const response = await apiClient.put(API_ENDPOINTS.LESSONS.BY_ID(id), formData, {
+    const response = await apiClient.put<ApiResponse<Lesson>>(API_ENDPOINTS.LESSONS.BY_ID(id), formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    
-    const responseData = response.data as any;
+
+    const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
     }
-    
+
     if (!responseData.success) {
       throw new Error(responseData.message || 'Failed to update lesson');
     }
-    
+
     return handleApiResponse<Lesson>(response);
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof Error) {
       throw error;
     }

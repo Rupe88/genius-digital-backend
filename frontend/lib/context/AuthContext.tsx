@@ -36,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const userData = await authApi.getMe();
       setUser(userData);
-    } catch (error) {
+    } catch {
       setUser(null);
       if (typeof window !== 'undefined') {
         localStorage.removeItem('accessToken');
@@ -52,13 +52,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Skip token refresh if we're on auth pages (login, register, verify-otp, etc.)
     const pathname = window.location.pathname;
-    const isAuthPage = 
-      pathname.includes('/login') || 
-      pathname.includes('/register') || 
-      pathname.includes('/verify-otp') || 
-      pathname.includes('/forgot-password') || 
+    const isAuthPage =
+      pathname.includes('/login') ||
+      pathname.includes('/register') ||
+      pathname.includes('/verify-otp') ||
+      pathname.includes('/forgot-password') ||
       pathname.includes('/reset-password');
-    
+
     if (isAuthPage) {
       return; // Don't refresh tokens on auth pages
     }
@@ -101,13 +101,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Check if we're on an auth page
     const pathname = window.location.pathname;
-    const isAuthPage = 
-      pathname.includes('/login') || 
-      pathname.includes('/register') || 
-      pathname.includes('/verify-otp') || 
-      pathname.includes('/forgot-password') || 
+    const isAuthPage =
+      pathname.includes('/login') ||
+      pathname.includes('/register') ||
+      pathname.includes('/verify-otp') ||
+      pathname.includes('/forgot-password') ||
       pathname.includes('/reset-password');
-    
+
     // Don't set up token refresh on auth pages
     if (isAuthPage) {
       // Clear any existing interval if we navigate to auth page
@@ -172,13 +172,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Check if we're on an auth page - skip initialization on auth pages
       const pathname = window.location.pathname;
-      const isAuthPage = 
-        pathname.includes('/login') || 
-        pathname.includes('/register') || 
-        pathname.includes('/verify-otp') || 
-        pathname.includes('/forgot-password') || 
+      const isAuthPage =
+        pathname.includes('/login') ||
+        pathname.includes('/register') ||
+        pathname.includes('/verify-otp') ||
+        pathname.includes('/forgot-password') ||
         pathname.includes('/reset-password');
-      
+
       // On auth pages, just set loading to false without checking tokens
       if (isAuthPage) {
         setLoading(false);
@@ -189,7 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (token) {
         try {
           await refreshUser();
-        } catch (error) {
+        } catch {
           // Token is invalid, clear it silently (don't redirect if on auth page)
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
@@ -235,7 +235,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       await authApi.logout();
-    } catch (error) {
+    } catch {
       // Continue with logout even if API call fails
     } finally {
       // Clear refresh interval

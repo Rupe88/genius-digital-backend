@@ -1,5 +1,6 @@
-import { apiClient } from './axios';
-import { API_ENDPOINTS } from '../utils/constants';
+import { apiClient, handleApiResponse, handleApiError } from './axios';
+import { API_ENDPOINTS } from '@/lib/utils/constants';
+import { ApiResponse } from '@/lib/types/api';
 
 export interface Assignment {
   id: string;
@@ -63,85 +64,130 @@ export interface GradeAssignmentRequest {
   feedback?: string;
 }
 
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  message: string;
-}
+/**
+ * Get all assignments (admin only)
+ */
+export const getAllAssignments = async (): Promise<Assignment[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Assignment[]>>(API_ENDPOINTS.ASSIGNMENTS.LIST);
+    return handleApiResponse<Assignment[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
 /**
- * Assignments API
+ * Get assignments for a specific course
  */
+export const getAssignmentsByCourse = async (courseId: string): Promise<Assignment[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Assignment[]>>(`${API_ENDPOINTS.ASSIGNMENTS.LIST}/course/${courseId}`);
+    return handleApiResponse<Assignment[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Get assignment by ID
+ */
+export const getAssignmentById = async (id: string): Promise<Assignment> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Assignment>>(API_ENDPOINTS.ASSIGNMENTS.BY_ID(id));
+    return handleApiResponse<Assignment>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Create new assignment (admin only)
+ */
+export const createAssignment = async (data: CreateAssignmentRequest): Promise<Assignment> => {
+  try {
+    const response = await apiClient.post<ApiResponse<Assignment>>(API_ENDPOINTS.ASSIGNMENTS.LIST, data);
+    return handleApiResponse<Assignment>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Update assignment (admin only)
+ */
+export const updateAssignment = async (id: string, data: UpdateAssignmentRequest): Promise<Assignment> => {
+  try {
+    const response = await apiClient.put<ApiResponse<Assignment>>(API_ENDPOINTS.ASSIGNMENTS.BY_ID(id), data);
+    return handleApiResponse<Assignment>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Delete assignment (admin only)
+ */
+export const deleteAssignment = async (id: string): Promise<void> => {
+  try {
+    const response = await apiClient.delete<ApiResponse<void>>(API_ENDPOINTS.ASSIGNMENTS.BY_ID(id));
+    handleApiResponse<void>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Submit assignment
+ */
+export const submitAssignment = async (id: string, data: SubmitAssignmentRequest): Promise<AssignmentSubmission> => {
+  try {
+    const response = await apiClient.post<ApiResponse<AssignmentSubmission>>(API_ENDPOINTS.ASSIGNMENTS.SUBMIT(id), data);
+    return handleApiResponse<AssignmentSubmission>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Grade assignment submission (admin only)
+ */
+export const gradeAssignmentSubmission = async (
+  assignmentId: string,
+  submissionId: string,
+  data: GradeAssignmentRequest
+): Promise<AssignmentSubmission> => {
+  try {
+    const response = await apiClient.post<ApiResponse<AssignmentSubmission>>(
+      `${API_ENDPOINTS.ASSIGNMENTS.BY_ID(assignmentId)}/grade/${submissionId}`,
+      data
+    );
+    return handleApiResponse<AssignmentSubmission>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Get assignment submissions (admin only)
+ */
+export const getAssignmentSubmissions = async (id: string): Promise<AssignmentSubmission[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<AssignmentSubmission[]>>(`${API_ENDPOINTS.ASSIGNMENTS.BY_ID(id)}/submissions`);
+    return handleApiResponse<AssignmentSubmission[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+// For backward compatibility while components are updated
 export const assignmentsApi = {
-  /**
-   * Get all assignments (admin only)
-   */
-  getAll: async (): Promise<ApiResponse<Assignment[]>> => {
-    const response = await apiClient.get(API_ENDPOINTS.ASSIGNMENTS.LIST);
-    return response.data;
-  },
-
-  /**
-   * Get assignments for a specific course
-   */
-  getByCourse: async (courseId: string): Promise<ApiResponse<Assignment[]>> => {
-    const response = await apiClient.get(`${API_ENDPOINTS.ASSIGNMENTS.LIST}/course/${courseId}`);
-    return response.data;
-  },
-
-  /**
-   * Get assignment by ID
-   */
-  getById: async (id: string): Promise<ApiResponse<Assignment>> => {
-    const response = await apiClient.get(API_ENDPOINTS.ASSIGNMENTS.BY_ID(id));
-    return response.data;
-  },
-
-  /**
-   * Create new assignment (admin only)
-   */
-  create: async (data: CreateAssignmentRequest): Promise<ApiResponse<Assignment>> => {
-    const response = await apiClient.post(API_ENDPOINTS.ASSIGNMENTS.LIST, data);
-    return response.data;
-  },
-
-  /**
-   * Update assignment (admin only)
-   */
-  update: async (id: string, data: UpdateAssignmentRequest): Promise<ApiResponse<Assignment>> => {
-    const response = await apiClient.put(API_ENDPOINTS.ASSIGNMENTS.BY_ID(id), data);
-    return response.data;
-  },
-
-  /**
-   * Delete assignment (admin only)
-   */
-  delete: async (id: string): Promise<ApiResponse> => {
-    const response = await apiClient.delete(API_ENDPOINTS.ASSIGNMENTS.BY_ID(id));
-    return response.data;
-  },
-
-  /**
-   * Submit assignment
-   */
-  submit: async (id: string, data: SubmitAssignmentRequest): Promise<ApiResponse<AssignmentSubmission>> => {
-    const response = await apiClient.post(API_ENDPOINTS.ASSIGNMENTS.SUBMIT(id), data);
-    return response.data;
-  },
-
-  /**
-   * Grade assignment submission (admin only)
-   */
-  grade: async (assignmentId: string, submissionId: string, data: GradeAssignmentRequest): Promise<ApiResponse<AssignmentSubmission>> => {
-    const response = await apiClient.post(`${API_ENDPOINTS.ASSIGNMENTS.BY_ID(assignmentId)}/grade/${submissionId}`, data);
-    return response.data;
-  },
-
-  /**
-   * Get assignment submissions (admin only)
-   */
-  getSubmissions: async (id: string): Promise<ApiResponse<AssignmentSubmission[]>> => {
-    const response = await apiClient.get(`${API_ENDPOINTS.ASSIGNMENTS.BY_ID(id)}/submissions`);
-    return response.data;
-  },
+  getAll: getAllAssignments,
+  getByCourse: getAssignmentsByCourse,
+  getById: getAssignmentById,
+  create: createAssignment,
+  update: updateAssignment,
+  delete: deleteAssignment,
+  submit: submitAssignment,
+  grade: gradeAssignmentSubmission,
+  getSubmissions: getAssignmentSubmissions,
 };

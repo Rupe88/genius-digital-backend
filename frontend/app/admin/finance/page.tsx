@@ -19,7 +19,7 @@ export default function AdminFinancePage() {
     try {
       setLoading(true);
       const data = await adminApi.getFinancialOverview();
-      setFinancialOverview(data.data);
+      setFinancialOverview(data);
     } catch (error) {
       console.error('Error fetching financial overview:', error);
     } finally {

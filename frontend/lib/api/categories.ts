@@ -1,6 +1,7 @@
 import { apiClient, handleApiResponse, handleApiError } from './axios';
 import { API_ENDPOINTS } from '@/lib/utils/constants';
 import { Category } from '@/lib/types/course';
+import { ApiResponse } from '@/lib/types/api';
 
 // Re-export Category type
 export type { Category };
@@ -9,10 +10,10 @@ export const getAllCategories = async (params?: {
   type?: 'COURSE' | 'BLOG' | 'PRODUCT';
 }): Promise<Category[]> => {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.CATEGORIES.LIST, {
+    const response = await apiClient.get<ApiResponse<Category[]>>(API_ENDPOINTS.CATEGORIES.LIST, {
       params,
     });
-    const responseData = response.data as any;
+    const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
     }
@@ -24,8 +25,8 @@ export const getAllCategories = async (params?: {
 
 export const getCategoryById = async (id: string): Promise<Category> => {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.CATEGORIES.BY_ID(id));
-    const responseData = response.data as any;
+    const response = await apiClient.get<ApiResponse<Category>>(API_ENDPOINTS.CATEGORIES.BY_ID(id));
+    const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
     }
@@ -56,21 +57,21 @@ export const createCategory = async (data: CreateCategoryData): Promise<Category
     if (data.image && !data.imageFile) formData.append('image', data.image);
     if (data.imageFile) formData.append('image', data.imageFile);
 
-    const response = await apiClient.post(API_ENDPOINTS.CATEGORIES.LIST, formData, {
+    const response = await apiClient.post<ApiResponse<Category>>(API_ENDPOINTS.CATEGORIES.LIST, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    
-    const responseData = response.data as any;
+
+    const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
     }
-    
+
     if (!responseData.success) {
       throw new Error(responseData.message || 'Failed to create category');
     }
-    
+
     return handleApiResponse<Category>(response);
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof Error) {
       throw error;
     }
@@ -89,21 +90,21 @@ export const updateCategory = async (id: string, data: Partial<CreateCategoryDat
     if (data.image && !data.imageFile) formData.append('image', data.image);
     if (data.imageFile) formData.append('image', data.imageFile);
 
-    const response = await apiClient.put(API_ENDPOINTS.CATEGORIES.BY_ID(id), formData, {
+    const response = await apiClient.put<ApiResponse<Category>>(API_ENDPOINTS.CATEGORIES.BY_ID(id), formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    
-    const responseData = response.data as any;
+
+    const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
     }
-    
+
     if (!responseData.success) {
       throw new Error(responseData.message || 'Failed to update category');
     }
-    
+
     return handleApiResponse<Category>(response);
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof Error) {
       throw error;
     }

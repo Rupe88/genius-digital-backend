@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Course } from '@/lib/types/course';
+import { Product } from '@/lib/api/products';
 import * as cartApi from '@/lib/api/cart';
 
 interface CartItem {
@@ -9,7 +10,7 @@ interface CartItem {
   courseId?: string;
   productId?: string;
   course?: Course;
-  product?: any;
+  product?: Product;
   quantity: number;
   price: number;
 }
@@ -44,7 +45,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       const cartData = await cartApi.getCart();
       setItems(cartData.items || []);
-    } catch (error) {
+    } catch {
       setItems([]);
     } finally {
       setLoading(false);

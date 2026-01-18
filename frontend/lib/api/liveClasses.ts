@@ -1,6 +1,6 @@
 import { apiClient, handleApiResponse, handleApiError } from './axios';
 import { API_ENDPOINTS } from '@/lib/utils/constants';
-import { PaginatedResponse } from '@/lib/types/api';
+import { PaginatedResponse, ApiResponse } from '@/lib/types/api';
 
 export interface LiveClass {
   id: string;
@@ -42,8 +42,8 @@ export const getAllLiveClasses = async (params?: {
   limit?: number;
 }): Promise<PaginatedResponse<LiveClass>> => {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.LIVE_CLASSES.LIST, { params });
-    return handleApiResponse<PaginatedResponse<LiveClass>>(response as any);
+    const response = await apiClient.get<ApiResponse<PaginatedResponse<LiveClass>>>(API_ENDPOINTS.LIVE_CLASSES.LIST, { params });
+    return handleApiResponse<PaginatedResponse<LiveClass>>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -51,9 +51,9 @@ export const getAllLiveClasses = async (params?: {
 
 export const getLiveClassById = async (id: string): Promise<LiveClass> => {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.LIVE_CLASSES.BY_ID(id));
-    const data = handleApiResponse<{ data: LiveClass }>(response as any);
-    return data.data;
+    const response = await apiClient.get<ApiResponse<LiveClass>>(API_ENDPOINTS.LIVE_CLASSES.BY_ID(id));
+    const data = handleApiResponse<LiveClass>(response);
+    return data;
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -61,9 +61,9 @@ export const getLiveClassById = async (id: string): Promise<LiveClass> => {
 
 export const createLiveClass = async (liveClassData: Partial<LiveClass>): Promise<LiveClass> => {
   try {
-    const response = await apiClient.post(API_ENDPOINTS.LIVE_CLASSES.LIST, liveClassData);
-    const data = handleApiResponse<{ data: LiveClass }>(response as any);
-    return data.data;
+    const response = await apiClient.post<ApiResponse<LiveClass>>(API_ENDPOINTS.LIVE_CLASSES.LIST, liveClassData);
+    const data = handleApiResponse<LiveClass>(response);
+    return data;
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -71,9 +71,9 @@ export const createLiveClass = async (liveClassData: Partial<LiveClass>): Promis
 
 export const updateLiveClass = async (id: string, liveClassData: Partial<LiveClass>): Promise<LiveClass> => {
   try {
-    const response = await apiClient.put(API_ENDPOINTS.LIVE_CLASSES.BY_ID(id), liveClassData);
-    const data = handleApiResponse<{ data: LiveClass }>(response as any);
-    return data.data;
+    const response = await apiClient.put<ApiResponse<LiveClass>>(API_ENDPOINTS.LIVE_CLASSES.BY_ID(id), liveClassData);
+    const data = handleApiResponse<LiveClass>(response);
+    return data;
   } catch (error) {
     throw new Error(handleApiError(error));
   }

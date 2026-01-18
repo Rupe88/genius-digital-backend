@@ -1,5 +1,6 @@
-import { apiClient } from './axios';
-import { API_ENDPOINTS } from '../utils/constants';
+import { apiClient, handleApiResponse, handleApiError } from './axios';
+import { API_ENDPOINTS } from '@/lib/utils/constants';
+import { ApiResponse } from '@/lib/types/api';
 
 export interface OrderItem {
   id: string;
@@ -76,61 +77,84 @@ export interface UpdateOrderStatusRequest {
   notes?: string;
 }
 
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  message: string;
-}
+/**
+ * Get user's orders
+ */
+export const getUserOrders = async (): Promise<Order[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Order[]>>(API_ENDPOINTS.ORDERS.LIST);
+    return handleApiResponse<Order[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
 /**
- * Orders API
+ * Get all orders (admin only)
  */
+export const getAllOrders = async (): Promise<Order[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Order[]>>(`${API_ENDPOINTS.ORDERS.LIST}/admin`);
+    return handleApiResponse<Order[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Get order by ID
+ */
+export const getOrderById = async (id: string): Promise<Order> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Order>>(API_ENDPOINTS.ORDERS.BY_ID(id));
+    return handleApiResponse<Order>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Create new order
+ */
+export const createOrder = async (data: CreateOrderRequest): Promise<Order> => {
+  try {
+    const response = await apiClient.post<ApiResponse<Order>>(API_ENDPOINTS.ORDERS.LIST, data);
+    return handleApiResponse<Order>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Update order status (admin only)
+ */
+export const updateOrderStatus = async (id: string, data: UpdateOrderStatusRequest): Promise<Order> => {
+  try {
+    const response = await apiClient.put<ApiResponse<Order>>(`${API_ENDPOINTS.ORDERS.BY_ID(id)}/status`, data);
+    return handleApiResponse<Order>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Cancel order
+ */
+export const cancelOrder = async (id: string): Promise<Order> => {
+  try {
+    const response = await apiClient.post<ApiResponse<Order>>(`${API_ENDPOINTS.ORDERS.BY_ID(id)}/cancel`);
+    return handleApiResponse<Order>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+// For backward compatibility
 export const ordersApi = {
-  /**
-   * Get user's orders
-   */
-  getUserOrders: async (): Promise<ApiResponse<Order[]>> => {
-    const response = await apiClient.get(API_ENDPOINTS.ORDERS.LIST);
-    return response.data;
-  },
-
-  /**
-   * Get all orders (admin only)
-   */
-  getAll: async (): Promise<ApiResponse<Order[]>> => {
-    const response = await apiClient.get(`${API_ENDPOINTS.ORDERS.LIST}/admin`);
-    return response.data;
-  },
-
-  /**
-   * Get order by ID
-   */
-  getById: async (id: string): Promise<ApiResponse<Order>> => {
-    const response = await apiClient.get(API_ENDPOINTS.ORDERS.BY_ID(id));
-    return response.data;
-  },
-
-  /**
-   * Create new order
-   */
-  create: async (data: CreateOrderRequest): Promise<ApiResponse<Order>> => {
-    const response = await apiClient.post(API_ENDPOINTS.ORDERS.LIST, data);
-    return response.data;
-  },
-
-  /**
-   * Update order status (admin only)
-   */
-  updateStatus: async (id: string, data: UpdateOrderStatusRequest): Promise<ApiResponse<Order>> => {
-    const response = await apiClient.put(`${API_ENDPOINTS.ORDERS.BY_ID(id)}/status`, data);
-    return response.data;
-  },
-
-  /**
-   * Cancel order
-   */
-  cancel: async (id: string): Promise<ApiResponse<Order>> => {
-    const response = await apiClient.post(`${API_ENDPOINTS.ORDERS.BY_ID(id)}/cancel`);
-    return response.data;
-  },
+  getUserOrders,
+  getAll: getAllOrders,
+  getById: getOrderById,
+  create: createOrder,
+  updateStatus: updateOrderStatus,
+  cancel: cancelOrder,
 };

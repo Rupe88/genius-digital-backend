@@ -1,42 +1,21 @@
+
 import { apiClient, handleApiResponse, handleApiError } from './axios';
 import { API_ENDPOINTS } from '@/lib/utils/constants';
-
-export interface Instructor {
-  id: string;
-  name: string;
-  slug: string;
-  image?: string;
-  bio?: string;
-  designation?: string;
-  specialization?: string;
-  email?: string;
-  phone?: string;
-  socialLinks?: any;
-  featured: boolean;
-  order: number;
-  commissionRate?: number;
-  totalEarnings?: number;
-  paidEarnings?: number;
-  pendingEarnings?: number;
-  bankName?: string;
-  accountNumber?: string;
-  ifscCode?: string;
-  panNumber?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { Instructor, SocialLinks } from '@/lib/types/course';
+export type { Instructor, SocialLinks };
+import { ApiResponse } from '@/lib/types/api';
 
 export const getAllInstructors = async (params?: {
   featured?: boolean;
   search?: string;
 }): Promise<{ data: Instructor[] }> => {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.INSTRUCTORS.LIST, { params });
-    const responseData = response.data as any;
+    const response = await apiClient.get<ApiResponse<Instructor[]>>(API_ENDPOINTS.INSTRUCTORS.LIST, { params });
+    const responseData = response.data;
     if (responseData.success && responseData.data) {
       return { data: responseData.data };
     }
-    return handleApiResponse<{ data: Instructor[] }>(response as any);
+    return handleApiResponse<{ data: Instructor[] }>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -44,13 +23,12 @@ export const getAllInstructors = async (params?: {
 
 export const getInstructorById = async (id: string): Promise<Instructor> => {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.INSTRUCTORS.BY_ID(id));
-    const responseData = response.data as any;
+    const response = await apiClient.get<ApiResponse<Instructor>>(API_ENDPOINTS.INSTRUCTORS.BY_ID(id));
+    const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
     }
-    const data = handleApiResponse<{ data: Instructor }>(response as any);
-    return data.data;
+    return handleApiResponse<Instructor>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -65,7 +43,7 @@ export interface CreateInstructorData {
   specialization?: string;
   email?: string;
   phone?: string;
-  socialLinks?: any;
+  socialLinks?: SocialLinks;
   featured?: boolean;
   order?: number;
   commissionRate?: number;
@@ -97,31 +75,31 @@ export const createInstructor = async (data: CreateInstructorData): Promise<Inst
     if (data.image && !data.imageFile) formData.append('image', data.image);
     if (data.imageFile) formData.append('image', data.imageFile);
 
-    const response = await apiClient.post(API_ENDPOINTS.INSTRUCTORS.LIST, formData, {
+    const response = await apiClient.post<ApiResponse<Instructor>>(API_ENDPOINTS.INSTRUCTORS.LIST, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    
-    const responseData = response.data as any;
-    
+
+    const responseData = response.data;
+
     // Handle successful response
     if (responseData.success && responseData.data) {
       return responseData.data;
     }
-    
+
     // Handle error response
     if (!responseData.success) {
       throw new Error(responseData.message || 'Failed to create instructor');
     }
-    
+
     // Fallback to handleApiResponse if structure is different
     return handleApiResponse<Instructor>(response);
-  } catch (error: any) {
+  } catch (error) {
     // Check if it's already an Error object
     if (error instanceof Error) {
       throw error;
     }
-    
-    // Otherwise, format the error message
+
+    // Otherwise, format the Object(error).message || 'An error occurred'
     const errorMessage = handleApiError(error);
     throw new Error(errorMessage);
   }
@@ -148,31 +126,31 @@ export const updateInstructor = async (id: string, data: Partial<CreateInstructo
     if (data.image && !data.imageFile) formData.append('image', data.image);
     if (data.imageFile) formData.append('image', data.imageFile);
 
-    const response = await apiClient.put(API_ENDPOINTS.INSTRUCTORS.BY_ID(id), formData, {
+    const response = await apiClient.put<ApiResponse<Instructor>>(API_ENDPOINTS.INSTRUCTORS.BY_ID(id), formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    
-    const responseData = response.data as any;
-    
+
+    const responseData = response.data;
+
     // Handle successful response
     if (responseData.success && responseData.data) {
       return responseData.data;
     }
-    
+
     // Handle error response
     if (!responseData.success) {
       throw new Error(responseData.message || 'Failed to update instructor');
     }
-    
+
     // Fallback to handleApiResponse if structure is different
     return handleApiResponse<Instructor>(response);
-  } catch (error: any) {
+  } catch (error) {
     // Check if it's already an Error object
     if (error instanceof Error) {
       throw error;
     }
-    
-    // Otherwise, format the error message
+
+    // Otherwise, format the Object(error).message || 'An error occurred'
     const errorMessage = handleApiError(error);
     throw new Error(errorMessage);
   }

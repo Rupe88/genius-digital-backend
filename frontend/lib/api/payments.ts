@@ -1,7 +1,7 @@
 import { apiClient, handleApiResponse, handleApiError } from './axios';
 import { API_ENDPOINTS } from '@/lib/utils/constants';
-import { Payment, PaymentAnalytics, PaymentTrend } from '@/lib/types/payment';
-import { PaginatedResponse } from '@/lib/types/api';
+import { Payment } from '@/lib/types/payment';
+import { PaginatedResponse, ApiResponse } from '@/lib/types/api';
 
 export const createPayment = async (data: {
   courseId?: string;
@@ -11,8 +11,8 @@ export const createPayment = async (data: {
   couponCode?: string;
 }): Promise<Payment> => {
   try {
-    const response = await apiClient.post<{ data: Payment }>(API_ENDPOINTS.PAYMENTS.CREATE, data);
-    return handleApiResponse(response);
+    const response = await apiClient.post<ApiResponse<Payment>>(API_ENDPOINTS.PAYMENTS.CREATE, data);
+    return handleApiResponse<Payment>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -20,11 +20,11 @@ export const createPayment = async (data: {
 
 export const verifyPayment = async (transactionId: string, paymentMethod: string): Promise<Payment> => {
   try {
-    const response = await apiClient.post<{ data: Payment }>(API_ENDPOINTS.PAYMENTS.VERIFY, {
+    const response = await apiClient.post<ApiResponse<Payment>>(API_ENDPOINTS.PAYMENTS.VERIFY, {
       transactionId,
       paymentMethod,
     });
-    return handleApiResponse(response);
+    return handleApiResponse<Payment>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -35,10 +35,10 @@ export const getPaymentHistory = async (params?: {
   limit?: number;
 }): Promise<PaginatedResponse<Payment>> => {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.PAYMENTS.HISTORY, {
+    const response = await apiClient.get<ApiResponse<PaginatedResponse<Payment>>>(API_ENDPOINTS.PAYMENTS.HISTORY, {
       params,
     });
-    return handleApiResponse<PaginatedResponse<Payment>>(response as any);
+    return handleApiResponse<PaginatedResponse<Payment>>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -46,8 +46,8 @@ export const getPaymentHistory = async (params?: {
 
 export const getPaymentById = async (id: string): Promise<Payment> => {
   try {
-    const response = await apiClient.get<{ data: Payment }>(API_ENDPOINTS.PAYMENTS.BY_ID(id));
-    return handleApiResponse(response);
+    const response = await apiClient.get<ApiResponse<Payment>>(API_ENDPOINTS.PAYMENTS.BY_ID(id));
+    return handleApiResponse<Payment>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }

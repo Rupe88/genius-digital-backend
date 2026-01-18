@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Toaster } from 'react-hot-toast';
-import { HiHome, HiUsers, HiBookOpen, HiFolder, HiUserGroup, HiCreditCard, HiTag, HiShoppingBag, HiDocumentText, HiPhotograph, HiChat, HiQuestionMarkCircle, HiCalendar, HiVideoCamera, HiClipboardList, HiAcademicCap, HiChartBar, HiBell, HiStar, HiMail, HiShieldCheck, HiCash, HiCurrencyDollar, HiTrendingUp, HiOfficeBuilding, HiChevronDown, HiChevronRight } from 'react-icons/hi';
+import { HiHome, HiUsers, HiBookOpen, HiFolder, HiUserGroup, HiCreditCard, HiTag, HiShoppingBag, HiDocumentText, HiPhotograph, HiChat, HiQuestionMarkCircle, HiCalendar, HiVideoCamera, HiClipboardList, HiAcademicCap, HiChartBar, HiBell, HiStar, HiMail, HiShieldCheck, HiCash, HiCurrencyDollar, HiTrendingUp, HiOfficeBuilding, HiChevronDown, HiChevronRight, HiShare } from 'react-icons/hi';
 import { ROUTES } from '@/lib/utils/constants';
 
 interface MenuItem {
@@ -95,6 +95,7 @@ const adminMenuCategories: MenuCategory[] = [
     icon: HiChartBar,
     items: [
       { href: `${ROUTES.ADMIN}/affiliates`, label: 'Affiliates', icon: HiChartBar },
+      { href: `${ROUTES.ADMIN}/referrals`, label: 'Referrals', icon: HiShare },
       { href: `${ROUTES.ADMIN}/student-success`, label: 'Student Success', icon: HiStar },
       { href: `${ROUTES.ADMIN}/audit-logs`, label: 'Audit Logs', icon: HiShieldCheck },
     ]

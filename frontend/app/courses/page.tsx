@@ -6,12 +6,15 @@ import Image from 'next/image';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { ShareButton } from '@/components/referrals/ShareButton';
 import * as courseApi from '@/lib/api/courses';
 import { Course } from '@/lib/types/course';
 import { PaginatedResponse } from '@/lib/types/api';
 import { formatCurrency } from '@/lib/utils/helpers';
+import { useAuth } from '@/lib/context/AuthContext';
 
 export default function CoursesPage() {
+  const { user } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -87,12 +90,30 @@ export default function CoursesPage() {
                       <p className="text-sm text-[var(--muted-foreground)] mb-4 line-clamp-2">
                         {course.shortDescription || course.description}
                       </p>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mb-3">
                         <span className="text-lg font-bold text-[var(--primary-700)]">
                           {course.isFree ? 'Free' : formatCurrency(course.price)}
                         </span>
-                        <Button variant="primary" size="sm">View Details</Button>
+                        <Link href={`/courses/${course.slug || course.id}`}>
+                          <Button variant="primary" size="sm">View Details</Button>
+                        </Link>
                       </div>
+
+                      {user && (
+                        <div className="flex gap-2">
+                          <ShareButton
+                            courseId={course.id}
+                            course={{
+                              id: course.id,
+                              title: course.title,
+                              thumbnail: course.thumbnail
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                          />
+                        </div>
+                      )}
                     </div>
                   </Link>
                 </Card>

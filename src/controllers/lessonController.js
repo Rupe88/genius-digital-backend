@@ -264,7 +264,7 @@ export const createLesson = async (req, res, next) => {
     let finalSlug = slug;
     if (!finalSlug && title) {
       finalSlug = generateSlug(title);
-      
+
       // Ensure slug is unique within the course
       let slugExists = await prisma.lesson.findFirst({
         where: {
@@ -272,7 +272,7 @@ export const createLesson = async (req, res, next) => {
           slug: finalSlug,
         },
       });
-      
+
       let counter = 1;
       while (slugExists) {
         finalSlug = `${generateSlug(title)}-${counter}`;
@@ -314,8 +314,8 @@ export const createLesson = async (req, res, next) => {
     let parsedUnlockRequirement = null;
     if (unlockRequirement) {
       try {
-        parsedUnlockRequirement = typeof unlockRequirement === 'string' 
-          ? JSON.parse(unlockRequirement) 
+        parsedUnlockRequirement = typeof unlockRequirement === 'string'
+          ? JSON.parse(unlockRequirement)
           : unlockRequirement;
       } catch (e) {
         parsedUnlockRequirement = unlockRequirement;
@@ -330,9 +330,9 @@ export const createLesson = async (req, res, next) => {
         slug: finalSlug,
         description: description || null,
         content: content || null,
-        videoUrl: req.cloudinary?.url || videoUrl || null,
-        videoDuration: videoDuration ? parseInt(videoDuration) : null,
-        attachmentUrl: attachmentUrl || null,
+        videoUrl: req.cloudinary?.videoUrl || videoUrl || null,
+        videoDuration: req.cloudinary?.videoDuration || (videoDuration ? parseInt(videoDuration) : null),
+        attachmentUrl: req.cloudinary?.attachmentUrl || attachmentUrl || null,
         lessonType: lessonType || 'VIDEO',
         order: finalOrder,
         isPreview: isPreview === true || isPreview === 'true',
@@ -400,7 +400,7 @@ export const updateLesson = async (req, res, next) => {
     let finalSlug = slug;
     if (!finalSlug && title && title !== existingLesson.title) {
       finalSlug = generateSlug(title);
-      
+
       // Ensure slug is unique within the course (excluding current lesson)
       let slugExists = await prisma.lesson.findFirst({
         where: {
@@ -409,7 +409,7 @@ export const updateLesson = async (req, res, next) => {
           NOT: { id },
         },
       });
-      
+
       let counter = 1;
       while (slugExists) {
         finalSlug = `${generateSlug(title)}-${counter}`;
@@ -444,8 +444,8 @@ export const updateLesson = async (req, res, next) => {
     if (unlockRequirement !== undefined) {
       if (unlockRequirement) {
         try {
-          parsedUnlockRequirement = typeof unlockRequirement === 'string' 
-            ? JSON.parse(unlockRequirement) 
+          parsedUnlockRequirement = typeof unlockRequirement === 'string'
+            ? JSON.parse(unlockRequirement)
             : unlockRequirement;
         } catch (e) {
           parsedUnlockRequirement = unlockRequirement;
@@ -459,13 +459,15 @@ export const updateLesson = async (req, res, next) => {
     if (chapterId !== undefined) updateData.chapterId = chapterId || null;
     if (description !== undefined) updateData.description = description || null;
     if (content !== undefined) updateData.content = content || null;
-    if (req.cloudinary?.url || videoUrl !== undefined) {
-      updateData.videoUrl = req.cloudinary?.url || videoUrl || null;
+    if (req.cloudinary?.videoUrl || videoUrl !== undefined) {
+      updateData.videoUrl = req.cloudinary?.videoUrl || videoUrl || null;
     }
-    if (videoDuration !== undefined) {
-      updateData.videoDuration = videoDuration ? parseInt(videoDuration) : null;
+    if (req.cloudinary?.videoDuration || videoDuration !== undefined) {
+      updateData.videoDuration = req.cloudinary?.videoDuration || (videoDuration ? parseInt(videoDuration) : null);
     }
-    if (attachmentUrl !== undefined) updateData.attachmentUrl = attachmentUrl || null;
+    if (req.cloudinary?.attachmentUrl || attachmentUrl !== undefined) {
+      updateData.attachmentUrl = req.cloudinary?.attachmentUrl || attachmentUrl || null;
+    }
     if (lessonType) updateData.lessonType = lessonType;
     if (order !== undefined) updateData.order = parseInt(order);
     if (isPreview !== undefined) {

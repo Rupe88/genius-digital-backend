@@ -1,6 +1,6 @@
 import { apiClient, handleApiResponse, handleApiError } from './axios';
 import { API_ENDPOINTS } from '@/lib/utils/constants';
-import { PaginatedResponse } from '@/lib/types/api';
+import { PaginatedResponse, ApiResponse } from '@/lib/types/api';
 
 export interface NewsletterSubscriber {
   id: string;
@@ -21,10 +21,10 @@ export const getAllSubscribers = async (params?: {
   limit?: number;
 }): Promise<PaginatedResponse<NewsletterSubscriber>> => {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.NEWSLETTER.LIST, {
+    const response = await apiClient.get<ApiResponse<PaginatedResponse<NewsletterSubscriber>>>(API_ENDPOINTS.NEWSLETTER.LIST, {
       params,
     });
-    return handleApiResponse<PaginatedResponse<NewsletterSubscriber>>(response as any);
+    return handleApiResponse<PaginatedResponse<NewsletterSubscriber>>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }

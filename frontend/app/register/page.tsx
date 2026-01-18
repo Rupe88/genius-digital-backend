@@ -71,7 +71,7 @@ export default function RegisterPage() {
       setRegisteredEmail(data.email);
       setShowOtpVerification(true);
     } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.');
+      setError((err instanceof Error ? err.message : 'An error occurred') || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +88,7 @@ export default function RegisterPage() {
       // After successful verification, redirect to login so the user can sign in.
       router.push(ROUTES.LOGIN);
     } catch (err: any) {
-      setError(err.message || 'OTP verification failed. Please try again.');
+      setError((err instanceof Error ? err.message : 'An error occurred') || 'OTP verification failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -180,7 +180,7 @@ export default function RegisterPage() {
                         await resendOtp(registeredEmail);
                         setResendMessage('A new OTP has been sent to your email.');
                       } catch (err: any) {
-                        setError(err.message || 'Failed to resend OTP. Please try again.');
+                        setError((err instanceof Error ? err.message : 'An error occurred') || 'Failed to resend OTP. Please try again.');
                       } finally {
                         setIsResending(false);
                       }
