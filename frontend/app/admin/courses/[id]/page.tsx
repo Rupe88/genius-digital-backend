@@ -239,7 +239,7 @@ export default function CourseDetailPage() {
                     Rating
                   </div>
                   <div className="text-[var(--foreground)]">
-                    {course.rating.toFixed(1)} ({course.totalRatings || 0} ratings)
+                    {(course.rating || 0).toFixed(1)} ({course.totalRatings || 0} ratings)
                   </div>
                 </div>
               )}

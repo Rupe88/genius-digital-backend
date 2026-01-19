@@ -318,7 +318,7 @@ export default function ViewProductPage() {
                   <span className="text-sm text-gray-600">Average Rating</span>
                   <div className="flex items-center">
                     <HiStar className="h-4 w-4 text-yellow-400 mr-1" />
-                    <span className="text-sm font-medium">{product.averageRating.toFixed(1)}</span>
+                    <span className="text-sm font-medium">{(product.averageRating || 0).toFixed(1)}</span>
                     <span className="text-xs text-gray-500 ml-1">({product.totalReviews})</span>
                   </div>
                 </div>

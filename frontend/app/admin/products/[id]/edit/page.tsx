@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -76,15 +76,12 @@ export default function EditProductPage() {
     formState: { errors },
   } = useForm<VastuProductFormData>({
     resolver: zodResolver(vastuProductSchema),
+    mode: 'onBlur', // Changed from default 'onChange' to 'onBlur' for better performance
   });
 
   const productType = watch('productType');
 
-  useEffect(() => {
-    fetchProduct();
-  }, [productId]);
-
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
     try {
       setFetchLoading(true);
       const response = await productsApi.getById(productId);
@@ -119,7 +116,13 @@ export default function EditProductPage() {
     } finally {
       setFetchLoading(false);
     }
-  };
+  }, [productId, reset, navigate]);
+
+  useEffect(() => {
+    if (productId) {
+      fetchProduct();
+    }
+  }, [productId, fetchProduct]);
 
   const onSubmit = async (data: VastuProductFormData) => {
     try {
@@ -150,19 +153,38 @@ export default function EditProductPage() {
     }
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
 
+    // Validate file sizes (max 5MB each)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const validFiles = Array.from(files).filter(file => {
+      if (file.size > maxSize) {
+        toast.error(`${file.name} is too large. Maximum size is 5MB.`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
     // In a real app, you would upload to cloud storage here
     // For now, we'll just create object URLs for preview
-    const newImages = Array.from(files).map(file => URL.createObjectURL(file));
+    const newImages = validFiles.map(file => URL.createObjectURL(file));
     setUploadedImages(prev => [...prev, ...newImages]);
-  };
+  }, []);
 
-  const removeImage = (index: number) => {
-    setUploadedImages(prev => prev.filter((_, i) => i !== index));
-  };
+  const removeImage = useCallback((index: number) => {
+    setUploadedImages(prev => {
+      // Clean up object URLs to prevent memory leaks
+      const imageToRemove = prev[index];
+      if (imageToRemove && imageToRemove.startsWith('blob:')) {
+        URL.revokeObjectURL(imageToRemove);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  }, []);
 
   const generateSlug = (name: string) => {
     return name
@@ -171,11 +193,11 @@ export default function EditProductPage() {
       .replace(/^-+|-+$/g, '');
   };
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
     const slug = generateSlug(name);
     setValue('slug', slug);
-  };
+  }, [setValue]);
 
   if (fetchLoading) {
     return (

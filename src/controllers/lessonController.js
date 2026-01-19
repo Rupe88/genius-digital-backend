@@ -12,50 +12,43 @@ export const getCourseLessons = async (req, res, next) => {
     const { courseId } = req.params;
     const userId = req.user?.id;
 
-    const course = await prisma.course.findUnique({
-      where: { id: courseId },
+    // Use findFirst to support both UUID id and slug
+    const course = await prisma.course.findFirst({
+      where: {
+        OR: [
+          ...(courseId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) ? [{ id: courseId }] : []),
+          { slug: courseId },
+        ],
+      },
       include: {
         instructor: true,
         chapters: {
           include: {
             lessons: {
-              orderBy: {
-                order: 'asc',
-              },
-              include: userId ? {
-                progress: {
-                  where: {
-                    userId,
-                  },
+              orderBy: { order: 'asc' },
+              ...(userId && {
+                include: {
+                  progress: { where: { userId } },
                 },
-              } : false,
+              }),
             },
           },
-          orderBy: {
-            order: 'asc',
-          },
+          orderBy: { order: 'asc' },
         },
         lessons: {
-          where: {
-            chapterId: null, // Lessons without chapters
-          },
-          orderBy: {
-            order: 'asc',
-          },
-          include: userId ? {
-            progress: {
-              where: {
-                userId,
-              },
+          where: { chapterId: null },
+          orderBy: { order: 'asc' },
+          ...(userId && {
+            include: {
+              progress: { where: { userId } },
             },
-          } : false,
+          }),
         },
-        enrollments: userId ? {
-          where: {
-            userId,
-            status: 'ACTIVE',
+        ...(userId && {
+          enrollments: {
+            where: { userId, status: 'ACTIVE' },
           },
-        } : false,
+        }),
       },
     });
 
@@ -66,92 +59,48 @@ export const getCourseLessons = async (req, res, next) => {
       });
     }
 
-    // Check if user has access (enrolled, preview, or is instructor/admin)
-    if (userId) {
-      const isEnrolled = course.enrollments && course.enrollments.length > 0;
-      const isInstructor = course.instructor?.id === userId;
+    const isEnrolled = !!(userId && course.enrollments && course.enrollments.length > 0);
+    const isInstructor = !!(userId && course.instructor?.id === userId);
+    // Assuming you have a way to check for admin, if not, we'll stick to instructor for now
+    const hasFullAccess = isInstructor;
 
-      // If user is instructor or admin, return all lessons
-      if (isInstructor) {
-        res.json({
-          success: true,
-          data: {
-            ...course,
-            chapters: course.chapters,
-            lessons: course.lessons,
-          },
-        });
-        return;
-      }
-
-      // Process chapters and their lessons for enrolled users
-      const processedChapters = course.chapters.map(chapter => ({
-        ...chapter,
-        lessons: chapter.lessons.map(lesson => {
-          if (!isEnrolled && !lesson.isPreview && !chapter.isPreview) {
-            return {
-              ...lesson,
-              videoUrl: null,
-              content: null,
-              attachmentUrl: null,
-            };
-          }
-          return lesson;
-        }),
-      }));
-
-      // Process lessons without chapters
-      const processedLessons = course.lessons.map(lesson => {
-        if (!isEnrolled && !lesson.isPreview) {
-          return {
-            ...lesson,
-            videoUrl: null,
-            content: null,
-            attachmentUrl: null,
-          };
-        }
-        return lesson;
-      });
-
-      res.json({
-        success: true,
-        data: {
-          ...course,
-          chapters: processedChapters,
-          lessons: processedLessons,
-        },
-      });
-    } else {
-      // Public view - only preview lessons
-      const processedChapters = course.chapters
-        .filter(chapter => chapter.isPreview)
-        .map(chapter => ({
-          ...chapter,
-          lessons: chapter.lessons
-            .filter(lesson => lesson.isPreview)
-            .map(lesson => ({
-              ...lesson,
-              progress: undefined,
-            })),
-        }));
-
-      const processedLessons = course.lessons
-        .filter(lesson => lesson.isPreview)
-        .map(lesson => ({
+    // Helper to process a single lesson
+    const processLesson = (lesson, chapterIsPreview = false) => {
+      if (!hasFullAccess && !isEnrolled && !lesson.isPreview && !chapterIsPreview) {
+        return {
           ...lesson,
-          progress: undefined,
-        }));
+          videoUrl: null,
+          content: null,
+          attachmentUrl: null,
+        };
+      }
+      return lesson;
+    };
 
-      res.json({
-        success: true,
-        data: {
-          ...course,
-          chapters: processedChapters,
-          lessons: processedLessons,
-        },
+    // Flatten all lessons
+    const allLessons = [];
+
+    // Add lessons from chapters
+    course.chapters?.forEach(chapter => {
+      chapter.lessons?.forEach(lesson => {
+        allLessons.push(processLesson(lesson, chapter.isPreview));
       });
-    }
+    });
+
+    // Add lessons without chapters
+    course.lessons?.forEach(lesson => {
+      allLessons.push(processLesson(lesson, false));
+    });
+
+    // Sort all lessons by order if needed, but they are already ordered within their groups
+    // If you want a global order, you might need a secondary sort here
+
+    res.json({
+      success: true,
+      data: allLessons,
+    });
   } catch (error) {
+    console.error('Error in getCourseLessons:', error);
     next(error);
   }
 };

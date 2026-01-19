@@ -18,7 +18,9 @@ export default function EditInstructorPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchInstructor();
+    if (instructorId) {
+      fetchInstructor();
+    }
   }, [instructorId]);
 
   const fetchInstructor = async () => {

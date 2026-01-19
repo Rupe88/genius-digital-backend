@@ -101,7 +101,7 @@ export const AdminReferralDashboard: React.FC = () => {
 
     try {
       const result = await markCommissionsAsPaid(selectedConversions);
-      toast.success(`Marked ${result.conversionsUpdated} commissions as paid (NPR ${result.totalAmount.toFixed(2)})`);
+      toast.success(`Marked ${result.conversionsUpdated} commissions as paid (NPR ${(result.totalAmount || 0).toFixed(2)})`);
 
       // Refresh data
       await loadData();

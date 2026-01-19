@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -31,7 +31,7 @@ interface CategoryFormProps {
   isLoading?: boolean;
 }
 
-export const CategoryForm: React.FC<CategoryFormProps> = ({
+export const CategoryForm: React.FC<CategoryFormProps> = React.memo(({
   category,
   onSubmit,
   onCancel,
@@ -59,6 +59,7 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
       type: category?.type || 'COURSE',
       parentId: category?.parentId || '',
     },
+    mode: 'onBlur', // Changed from default 'onChange' to 'onBlur' for better performance
   });
 
   const watchedName = watch('name');
@@ -94,18 +95,28 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
     fetchParents();
   }, [watchedType, category?.id]);
 
-  const handleFileSelect = (file: File | null) => {
+  const handleFileSelect = useCallback((file: File | null) => {
     setImageFile(file);
     if (file) {
+      // Check file size (max 5MB for category images)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
+      };
+      reader.onerror = () => {
+        console.error('Error reading file');
+        setImagePreview(null);
       };
       reader.readAsDataURL(file);
     } else {
       setImagePreview(category?.image || null);
     }
-  };
+  }, [category?.image]);
 
   const handleFileRemove = () => {
     setImageFile(null);
@@ -225,5 +236,5 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
       </div>
     </form>
   );
-};
+});
 

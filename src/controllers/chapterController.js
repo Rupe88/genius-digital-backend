@@ -12,7 +12,14 @@ export const getCourseChapters = async (req, res, next) => {
     const { courseId } = req.params;
 
     const chapters = await prisma.chapter.findMany({
-      where: { courseId },
+      where: {
+        course: {
+          OR: [
+            ...(courseId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) ? [{ id: courseId }] : []),
+            { slug: courseId },
+          ],
+        }
+      },
       include: {
         lessons: {
           orderBy: {
@@ -349,8 +356,8 @@ export const toggleLock = async (req, res, next) => {
 
     const updatedChapter = await prisma.chapter.update({
       where: { id },
-      data: { 
-        isLocked: isLocked !== undefined 
+      data: {
+        isLocked: isLocked !== undefined
           ? (isLocked === true || isLocked === 'true')
           : !chapter.isLocked
       },
@@ -388,8 +395,8 @@ export const togglePreview = async (req, res, next) => {
 
     const updatedChapter = await prisma.chapter.update({
       where: { id },
-      data: { 
-        isPreview: isPreview !== undefined 
+      data: {
+        isPreview: isPreview !== undefined
           ? (isPreview === true || isPreview === 'true')
           : !chapter.isPreview
       },

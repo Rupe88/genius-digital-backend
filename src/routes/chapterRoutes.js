@@ -18,7 +18,6 @@ const router = express.Router();
 // Public/User routes
 router.get(
   '/course/:courseId',
-  [param('courseId').isUUID().withMessage('Invalid course ID')],
   getCourseChapters
 );
 

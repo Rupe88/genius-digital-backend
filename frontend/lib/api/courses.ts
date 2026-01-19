@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { apiClient, handleApiResponse, handleApiError } from './axios';
 import { API_ENDPOINTS } from '@/lib/utils/constants';
 import { Course } from '@/lib/types/course';

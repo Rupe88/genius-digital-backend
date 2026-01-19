@@ -99,60 +99,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Check if we're on an auth page
-    const pathname = window.location.pathname;
-    const isAuthPage =
-      pathname.includes('/login') ||
-      pathname.includes('/register') ||
-      pathname.includes('/verify-otp') ||
-      pathname.includes('/forgot-password') ||
-      pathname.includes('/reset-password');
-
-    // Don't set up token refresh on auth pages
-    if (isAuthPage) {
-      // Clear any existing interval if we navigate to auth page
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current);
-        refreshIntervalRef.current = null;
-      }
-      return;
-    }
-
-    const accessToken = localStorage.getItem('accessToken');
-    const refreshTokenValue = localStorage.getItem('refreshToken');
-
     // Clear any existing interval
     if (refreshIntervalRef.current) {
       clearInterval(refreshIntervalRef.current);
       refreshIntervalRef.current = null;
     }
 
-    // Only set up refresh if we have tokens and a logged-in user
-    if (accessToken && refreshTokenValue && user) {
-      // Initial check
-      refreshAccessToken();
-
+    // Only set up refresh if we have a logged-in user
+    if (user) {
       // Set up interval to check token every minute
       refreshIntervalRef.current = setInterval(() => {
         refreshAccessToken();
-      }, 60 * 1000); // Check every 1 minute
-
-      // Also set a timeout for when the token will expire
-      const timeUntilExpiry = getTimeUntilExpiry(accessToken);
-      if (timeUntilExpiry > 0 && timeUntilExpiry < 24 * 60 * 60 * 1000) {
-        // Only set timeout if token expires within 24 hours
-        const timeoutId = setTimeout(() => {
-          refreshAccessToken();
-        }, Math.max(0, timeUntilExpiry - 2 * 60 * 1000)); // Refresh 2 minutes before expiry
-
-        return () => {
-          clearTimeout(timeoutId);
-          if (refreshIntervalRef.current) {
-            clearInterval(refreshIntervalRef.current);
-            refreshIntervalRef.current = null;
-          }
-        };
-      }
+      }, 1 * 60 * 1000); // Check every minute
     }
 
     return () => {
@@ -161,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshIntervalRef.current = null;
       }
     };
-  }, [user, refreshAccessToken]);
+  }, [user]); // Removed refreshAccessToken from deps to prevent re-renders
 
   useEffect(() => {
     const initializeAuth = async () => {

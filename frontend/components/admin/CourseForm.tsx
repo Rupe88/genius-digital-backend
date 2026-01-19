@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,6 +12,7 @@ import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { FileUpload } from '@/components/ui/FileUpload';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
+import { TagInput } from '@/components/ui/TagInput';
 import { CurriculumBuilder } from './CurriculumBuilder';
 import { Course, Category, Instructor } from '@/lib/types/course';
 import { CreateCourseData } from '@/lib/api/courses';
@@ -32,10 +34,10 @@ const courseSchema = z.object({
   isFree: z.boolean().optional(),
   level: z.enum(['Beginner', 'Intermediate', 'Advanced']).optional(),
   duration: z.number().min(0, 'Duration must be positive').optional(),
-  language: z.string().optional(),
-  tags: z.string().optional(),
+  language: z.enum(['en', 'ne', 'hi', 'mr', 'bn', 'te', 'ta', 'gu', 'kn', 'ml', 'pa', 'or', 'as', 'mai', 'bh']).optional(),
+  tags: z.array(z.string()).optional(),
   learningOutcomes: z.string().optional(), // JSON string or newline-separated
-  skills: z.string().optional(), // JSON string or comma-separated
+  skills: z.array(z.string()).optional(),
 
   // Step 3
   status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED', 'ONGOING']).optional(),
@@ -47,7 +49,8 @@ const courseSchema = z.object({
 
 type CourseFormData = z.infer<typeof courseSchema> & {
   thumbnailFile?: File | null;
-  thumbnail?: string;
+  tags?: string[];
+  skills?: string[];
 };
 
 interface CourseFormProps {
@@ -59,7 +62,7 @@ interface CourseFormProps {
   isLoading?: boolean;
 }
 
-export const CourseForm: React.FC<CourseFormProps> = ({
+export const CourseForm: React.FC<CourseFormProps> = React.memo(({
   course,
   categories,
   instructors,
@@ -67,11 +70,17 @@ export const CourseForm: React.FC<CourseFormProps> = ({
   onCancel,
   isLoading = false,
 }) => {
-  const [currentStep, setCurrentStep] = useState(1);
+  const searchParams = useSearchParams();
+  const initialStep = parseInt(searchParams.get('step') || '1');
+  const [currentStep, setCurrentStep] = useState(initialStep);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(
     course?.thumbnail || null
   );
+
+  // Curriculum state
+  const [curriculumChapters, setCurriculumChapters] = useState<any[]>([]);
+  const [curriculumLessons, setCurriculumLessons] = useState<any[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,15 +107,17 @@ export const CourseForm: React.FC<CourseFormProps> = ({
         isFree: course.isFree,
         level: course.level || undefined,
         duration: course.duration || undefined,
-        language: course.language || 'en',
-        tags: course.tags || '',
+        language: (course.language && ['en', 'ne', 'hi', 'mr', 'bn', 'te', 'ta', 'gu', 'kn', 'ml', 'pa', 'or', 'as', 'mai', 'bh'].includes(course.language) ? course.language as 'en' | 'ne' | 'hi' | 'mr' | 'bn' | 'te' | 'ta' | 'gu' | 'kn' | 'ml' | 'pa' | 'or' | 'as' | 'mai' | 'bh' : 'ne'),
+        tags: course.tags ? (Array.isArray(course.tags) ? course.tags : course.tags.split(',').map(t => t.trim()).filter(Boolean)) : [],
         originalPrice: course.originalPrice || undefined,
         learningOutcomes: Array.isArray(course.learningOutcomes)
           ? course.learningOutcomes.join('\n')
           : course.learningOutcomes || '',
         skills: Array.isArray(course.skills)
-          ? course.skills.join(', ')
-          : course.skills || '',
+          ? course.skills
+          : (course.skills && typeof course.skills === 'string')
+            ? (course.skills as string).split(',').map(s => s.trim()).filter(Boolean)
+            : [],
         status: course.status,
         featured: course.featured,
         isOngoing: course.isOngoing,
@@ -114,7 +125,9 @@ export const CourseForm: React.FC<CourseFormProps> = ({
         endDate: course.endDate ? course.endDate.split('T')[0] : '',
       }
       : {
-        language: 'en',
+        language: 'ne',
+        skills: [],
+        tags: [],
         status: 'DRAFT',
         isFree: false,
         featured: false,
@@ -127,7 +140,8 @@ export const CourseForm: React.FC<CourseFormProps> = ({
   const slug = watch('slug');
   const isFree = watch('isFree');
   const price = watch('price');
-  const watchThumbnail = watch('thumbnail');
+  const watchTags = watch('tags');
+  const watchSkills = watch('skills');
 
   // Auto-generate slug from title
   useEffect(() => {
@@ -137,7 +151,7 @@ export const CourseForm: React.FC<CourseFormProps> = ({
     }
   }, [title, slug, course, setValue]);
 
-  const handleFileChange = (file: File | null) => {
+  const handleFileChange = useCallback((file: File | null) => {
     setThumbnailFile(file);
     if (file) {
       // Check file size before processing (limit to 10MB)
@@ -158,7 +172,7 @@ export const CourseForm: React.FC<CourseFormProps> = ({
     } else {
       setThumbnailPreview(course?.thumbnail || null);
     }
-  };
+  }, [course?.thumbnail]);
 
   const handleFileRemove = () => {
     setThumbnailFile(null);
@@ -227,20 +241,12 @@ export const CourseForm: React.FC<CourseFormProps> = ({
 
       setUploadProgress(30);
 
-      // Parse skills (comma-separated or JSON)
-      let skills: string[] | undefined;
-      if (data.skills) {
-        try {
-          const parsed = JSON.parse(data.skills);
-          skills = Array.isArray(parsed) ? parsed : data.skills.split(',').map(s => s.trim()).filter(s => s);
-        } catch {
-          skills = data.skills.split(',').map(s => s.trim()).filter(s => s);
-        }
-      }
+      // Skills are already an array from TagInput
+      const skills = data.skills;
 
       setUploadProgress(50);
 
-      const submitData: CreateCourseData = {
+      const submitData: CreateCourseData & { curriculumData?: { chapters: any[], lessons: any[] } } = {
         title: data.title,
         slug: data.slug,
         instructorId: data.instructorId,
@@ -258,16 +264,23 @@ export const CourseForm: React.FC<CourseFormProps> = ({
         isOngoing: data.isOngoing || false,
         startDate: data.startDate || undefined,
         endDate: data.endDate || undefined,
-        tags: data.tags || undefined,
+        tags: data.tags && data.tags.length > 0 ? data.tags.join(',') : undefined,
         learningOutcomes,
         skills,
         thumbnailFile: thumbnailFile || undefined,
-        thumbnail: thumbnailPreview && !thumbnailFile ? thumbnailPreview : undefined,
         onProgress: (progress: number) => {
           // Use requestAnimationFrame to avoid too many re-renders
           requestAnimationFrame(() => setUploadProgress(progress));
         },
       };
+
+      // Add curriculum data if it exists
+      if (curriculumChapters.length > 0) {
+        submitData.curriculumData = {
+          chapters: curriculumChapters,
+          lessons: curriculumLessons,
+        };
+      }
 
       setUploadProgress(70);
 
@@ -285,14 +298,8 @@ export const CourseForm: React.FC<CourseFormProps> = ({
     }
   };
 
-  // Handle course creation success to show curriculum builder
-  useEffect(() => {
-    if (course && currentStep === 2) {
-      // Auto-advance to curriculum after course is created
-      // Use setTimeout to avoid potential infinite re-renders
-      setTimeout(() => setCurrentStep(3), 100);
-    }
-  }, [course, currentStep]);
+  // Removed automatic advance to ensure Step 2 (Details) remains accessible
+  // when a course object is already present (e.g., on the Edit page).
 
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
@@ -301,9 +308,21 @@ export const CourseForm: React.FC<CourseFormProps> = ({
         <div className="flex items-center justify-between">
           {[1, 2, 3, 4].map((step) => (
             <React.Fragment key={step}>
-              <div className="flex flex-col items-center">
+              <div
+                className="flex flex-col items-center cursor-pointer group"
+                onClick={async () => {
+                  if (step < currentStep) {
+                    setCurrentStep(step);
+                  } else if (step > currentStep) {
+                    const isValid = await validateStep(currentStep);
+                    if (isValid) {
+                      setCurrentStep(step);
+                    }
+                  }
+                }}
+              >
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${currentStep >= step
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all group-hover:scale-110 ${currentStep >= step
                     ? 'bg-[var(--primary-700)] text-white'
                     : 'bg-gray-200 text-gray-600'
                     }`}
@@ -347,8 +366,8 @@ export const CourseForm: React.FC<CourseFormProps> = ({
             {isUploading && (
               <p className="text-xs text-[var(--muted-foreground)] mt-2">
                 {uploadProgress < 50 ? 'Validating data...' :
-                 uploadProgress < 70 ? 'Processing files...' :
-                 'Finalizing course creation...'}
+                  uploadProgress < 70 ? 'Processing files...' :
+                    'Finalizing course creation...'}
               </p>
             )}
           </div>
@@ -368,43 +387,6 @@ export const CourseForm: React.FC<CourseFormProps> = ({
               placeholder="Enter course title"
             />
 
-            <div>
-              <Input
-                label="Course Thumbnail URL"
-                {...register('thumbnail')}
-                error={errors.thumbnail?.message}
-                placeholder="https://example.com/image.jpg"
-              />
-              {watchThumbnail && (
-                <div className="mt-3">
-                  <p className="text-xs text-[var(--muted-foreground)] mb-2 text-center uppercase tracking-wider font-semibold">Thumbnail Preview</p>
-                  <div className="relative aspect-video rounded-xl overflow-hidden border-2 border-[var(--primary-200)] bg-[var(--muted)] shadow-sm group">
-                    <img
-                      src={watchThumbnail}
-                      alt="Thumbnail Preview"
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://placehold.co/600x400?text=Invalid+Image+URL';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
-                  </div>
-                </div>
-              )}
-              {!watchThumbnail && (
-                <div className="mt-3 aspect-video rounded-xl border-2 border-dashed border-[var(--border)] bg-[var(--muted-50)] flex flex-center items-center justify-center p-6 text-center">
-                  <div>
-                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-2 shadow-sm text-[var(--muted-foreground)]">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <p className="text-sm text-[var(--muted-foreground)] font-medium">Enter a URL to see a preview</p>
-                    <p className="text-xs text-[var(--muted-foreground)] mt-1 opacity-70">Recommended: 1280x720px</p>
-                  </div>
-                </div>
-              )}
-            </div>
 
             <Input
               label="Slug"
@@ -531,20 +513,60 @@ export const CourseForm: React.FC<CourseFormProps> = ({
                 placeholder="60"
               />
 
-              <Input
+              <Select
                 label="Language"
                 {...register('language')}
                 error={errors.language?.message}
-                placeholder="en"
+                options={[
+                  { value: 'ne', label: 'Nepali (नेपाली)' },
+                  { value: 'en', label: 'English' },
+                  { value: 'hi', label: 'Hindi (हिन्दी)' },
+                  { value: 'mr', label: 'Marathi (मराठी)' },
+                  { value: 'bn', label: 'Bengali (বাংলা)' },
+                  { value: 'te', label: 'Telugu (తెలుగు)' },
+                  { value: 'ta', label: 'Tamil (தமிழ்)' },
+                  { value: 'gu', label: 'Gujarati (ગુજરાતી)' },
+                  { value: 'kn', label: 'Kannada (ಕನ್ನಡ)' },
+                  { value: 'ml', label: 'Malayalam (മലയാളം)' },
+                  { value: 'pa', label: 'Punjabi (ਪੰਜਾਬੀ)' },
+                  { value: 'or', label: 'Odia (ଓଡ଼ିଆ)' },
+                  { value: 'as', label: 'Assamese (অসমীয়া)' },
+                  { value: 'mai', label: 'Maithili (मैथिली)' },
+                  { value: 'bh', label: 'Bhojpuri (भोजपुरी)' },
+                ]}
               />
             </div>
 
-            <Input
+            <TagInput
               label="Tags"
-              {...register('tags')}
+              value={watchTags}
+              onChange={(tags) => setValue('tags', tags)}
+              placeholder="Add course tags..."
+              suggestions={[
+                'Vastu Shastra',
+                'Numerology',
+                'Astrology',
+                'Feng Shui',
+                'Meditation',
+                'Yoga',
+                'Spiritual',
+                'Wellness',
+                'Healing',
+                'Energy',
+                'Architecture',
+                'Design',
+                'Construction',
+                'Home',
+                'Business',
+                'Success',
+                'Wealth',
+                'Health',
+                'Relationships',
+                'Career',
+              ]}
+              maxTags={15}
               error={errors.tags?.message}
-              helperText="Comma-separated tags"
-              placeholder="tag1, tag2, tag3"
+              helperText="Add relevant tags to help students find your course"
             />
 
             <div>
@@ -561,50 +583,68 @@ export const CourseForm: React.FC<CourseFormProps> = ({
             </div>
 
 
-            <div>
-              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
-                Skills You'll Gain
-              </label>
-              <Input
-                {...register('skills')}
-                error={errors.skills?.message}
-                helperText="Comma-separated skills or one per line"
-                placeholder="Skill 1, Skill 2, Skill 3"
-              />
-            </div>
+            <TagInput
+              label="Skills You'll Gain"
+              value={watchSkills}
+              onChange={(skills) => setValue('skills', skills)}
+              placeholder="Add skills you'll learn..."
+              suggestions={[
+                'Vastu Consultation',
+                'Numerology Reading',
+                'Astrological Analysis',
+                'Feng Shui Principles',
+                'Energy Healing',
+                'Meditation Techniques',
+                'Yoga Practice',
+                'Crystal Healing',
+                'Tarot Reading',
+                'Palmistry',
+                'Graphology',
+                'Aura Reading',
+                'Chakra Balancing',
+                'Mantra Chanting',
+                'Ritual Practices',
+                'Space Harmonization',
+                'Color Therapy',
+                'Sound Therapy',
+                'Herbal Remedies',
+                'Spiritual Counseling',
+                'Business Vastu',
+                'Home Vastu',
+                'Office Vastu',
+                'Relationship Compatibility',
+                'Career Guidance',
+                'Wealth Attraction',
+                'Health Analysis',
+                'Remedial Measures',
+                'Sacred Geometry',
+                'Mandala Creation',
+              ]}
+              maxTags={20}
+              error={errors.skills?.message}
+              helperText="Add skills that students will gain from this course"
+            />
 
-            {/* Quick Action: Save & Continue to Curriculum */}
+            {/* Special button to save basic info and jump to curriculum */}
             {!course && (
-              <div className="mt-8 pt-6 border-t border-[var(--border)]">
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-blue-900">Ready to add content?</h4>
-                      <p className="text-sm text-blue-700 mt-1">
-                        Save your course now and start building your curriculum with chapters and lessons.
-                      </p>
-                    </div>
-                    <Button
-                      variant="primary"
-                      disabled={isLoading || isSubmitting}
-                      isLoading={isLoading || isSubmitting}
-                      onClick={async (e) => {
-                        e.preventDefault();
-                        const step1Valid = await trigger(['title', 'instructorId']);
-                        if (!step1Valid) {
-                          setCurrentStep(1);
-                          return;
-                        }
-                        setValue('status', 'DRAFT');
-                        await handleSubmit(onFormSubmit)(e);
-                      }}
-                    >
-                      Save & Build Curriculum →
-                    </Button>
-                  </div>
-                </div>
+              <div className="mt-8 flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    const isValid = await validateStep(2);
+                    if (isValid) {
+                      const data = getValues();
+                      onFormSubmit(data);
+                    }
+                  }}
+                  className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                >
+                  Save & Build Curriculum
+                </Button>
               </div>
             )}
+            {/* Curriculum placeholder removed from Step 2 for clarity */}
           </div>
         </Card>
       )}
@@ -852,5 +892,5 @@ export const CourseForm: React.FC<CourseFormProps> = ({
       </div>
     </form>
   );
-};
+});
 

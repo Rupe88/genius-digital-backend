@@ -19,6 +19,8 @@ export default function EditCategoryPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!id) return;
+
     const fetchCategory = async () => {
       try {
         setLoading(true);
@@ -33,9 +35,7 @@ export default function EditCategoryPage() {
       }
     };
 
-    if (id) {
-      fetchCategory();
-    }
+    fetchCategory();
   }, [id, router]);
 
   const handleSubmit = async (data: CreateCategoryData) => {

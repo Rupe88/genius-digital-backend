@@ -25,10 +25,12 @@ export default function EditCoursePage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchData();
+    if (courseId) {
+      fetchData();
+    }
   }, [courseId]);
 
-  const fetchData = async () => {
+  const fetchData = async (retryCount = 0) => {
     try {
       setLoading(true);
       const [courseData, categoriesData, instructorsResponse] = await Promise.all([
@@ -40,11 +42,20 @@ export default function EditCoursePage() {
       setCategories(categoriesData || []);
       setInstructors(instructorsResponse.data || []);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error(`Error fetching data (attempt ${retryCount + 1}):`, error);
+
+      // Retry up to 3 times for potential race conditions
+      if (retryCount < 3) {
+        setTimeout(() => fetchData(retryCount + 1), 1000);
+        return;
+      }
+
       showError(Object(error).message || 'An error occurred' || 'Failed to load course data');
       router.push('/admin/courses');
     } finally {
-      setLoading(false);
+      if (retryCount === 0 || !loading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -53,7 +64,7 @@ export default function EditCoursePage() {
       setSubmitting(true);
       await courseApi.updateCourse(courseId, data);
       showSuccess('Course updated successfully!');
-      router.push('/admin/courses');
+      // router.push('/admin/courses'); - Stay on page for consistent behavior
     } catch (error) {
       console.error('Error updating course:', error);
       showError(Object(error).message || 'An error occurred' || 'Failed to update course');

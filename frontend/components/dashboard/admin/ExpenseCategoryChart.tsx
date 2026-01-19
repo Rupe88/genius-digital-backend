@@ -34,7 +34,7 @@ export const ExpenseCategoryChart: React.FC<ExpenseCategoryChartProps> = ({ data
                 style={{ width: `${item.percentage}%` }}
               />
             </div>
-            <div className="text-xs text-[var(--muted-foreground)] mt-1">{item.percentage.toFixed(1)}%</div>
+            <div className="text-xs text-[var(--muted-foreground)] mt-1">{(item.percentage || 0).toFixed(1)}%</div>
           </div>
         ))}
       </div>

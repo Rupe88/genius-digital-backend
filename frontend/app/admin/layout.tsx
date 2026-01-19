@@ -114,6 +114,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { user, isAuthenticated, loading } = useAuth();
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set(['Dashboard']));
 
+  console.log('AdminLayout render:', { pathname, isAuthenticated, loading });
+
   const toggleCategory = (categoryLabel: string) => {
     setOpenCategories(prev => {
       const newSet = new Set(prev);
@@ -133,27 +135,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   };
 
-  // Auto-open category if current path matches any of its items
+  // Simplified category opening logic
   React.useEffect(() => {
-    setOpenCategories(prev => {
-      const newCategories = new Set(prev);
-
-      // Find the active category for current path
-      let activeCategoryFound = false;
-      adminMenuCategories.forEach(category => {
-        if (isCategoryActive(category)) {
-          newCategories.add(category.label);
-          activeCategoryFound = true;
-        }
-      });
-
-      // If no category is active (e.g., on dashboard), ensure Dashboard is open by default
-      if (!activeCategoryFound && pathname === ROUTES.ADMIN) {
-        newCategories.add('Dashboard');
-      }
-
-      return newCategories;
-    });
+    const activeCategory = adminMenuCategories.find(category => isCategoryActive(category));
+    if (activeCategory && !openCategories.has(activeCategory.label)) {
+      setOpenCategories(prev => new Set(prev).add(activeCategory.label));
+    }
   }, [pathname]);
 
   // Don't apply auth check to login page
@@ -196,7 +183,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <li key={category.label} className="mb-2">
                     {/* Category Header */}
                     <button
-                      onClick={() => toggleCategory(category.label)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        console.log('Toggling category:', category.label);
+                        toggleCategory(category.label);
+                      }}
                       className={`flex items-center justify-between w-full px-4 py-2 rounded-lg transition-colors ${
                         categoryActive
                           ? 'text-red-600 bg-red-50 border-l-4 border-red-600'

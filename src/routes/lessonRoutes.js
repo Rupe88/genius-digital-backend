@@ -14,7 +14,7 @@ import { body, param } from 'express-validator';
 const router = express.Router();
 
 // Public routes
-router.get('/course/:courseId', [param('courseId').isUUID()], getCourseLessons);
+router.get('/course/:courseId', getCourseLessons);
 router.get('/:id', [param('id').isUUID()], getLessonById);
 
 // Admin routes

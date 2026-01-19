@@ -14,7 +14,7 @@ interface RichTextEditorProps {
   helperText?: string;
 }
 
-export const RichTextEditor: React.FC<RichTextEditorProps> = ({
+export const RichTextEditor: React.FC<RichTextEditorProps> = React.memo(({
   value,
   onChange,
   placeholder = 'Enter description...',
@@ -165,5 +165,5 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       )}
     </div>
   );
-};
+});
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -42,7 +42,7 @@ interface InstructorFormProps {
   isLoading?: boolean;
 }
 
-export const InstructorForm: React.FC<InstructorFormProps> = ({
+export const InstructorForm: React.FC<InstructorFormProps> = React.memo(({
   instructor,
   onSubmit,
   onCancel,
@@ -83,7 +83,7 @@ export const InstructorForm: React.FC<InstructorFormProps> = ({
           order: 0,
           commissionRate: 30,
         },
-    mode: 'onChange',
+    mode: 'onBlur', // Changed from 'onChange' to 'onBlur' for better performance
   });
 
   const name = watch('name');
@@ -97,25 +97,35 @@ export const InstructorForm: React.FC<InstructorFormProps> = ({
     }
   }, [name, slug, instructor, setValue]);
 
-  const handleFileChange = (file: File | null) => {
+  const handleFileChange = useCallback((file: File | null) => {
     setImageFile(file);
     if (file) {
+      // Check file size (max 5MB for instructor images)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
+      };
+      reader.onerror = () => {
+        console.error('Error reading file');
+        setImagePreview(null);
       };
       reader.readAsDataURL(file);
     } else {
       setImagePreview(instructor?.image || null);
     }
-  };
+  }, [instructor?.image]);
 
   const handleFileRemove = () => {
     setImageFile(null);
     setImagePreview(instructor?.image || null);
   };
 
-  const onFormSubmit = async (data: InstructorFormData) => {
+  const onFormSubmit = useCallback(async (data: InstructorFormData) => {
     const submitData: CreateInstructorData = {
       name: data.name,
       slug: data.slug,
@@ -136,7 +146,7 @@ export const InstructorForm: React.FC<InstructorFormProps> = ({
     };
 
     await onSubmit(submitData);
-  };
+  }, [imageFile, imagePreview, onSubmit]);
 
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
@@ -311,5 +321,5 @@ export const InstructorForm: React.FC<InstructorFormProps> = ({
       </div>
     </form>
   );
-};
+});
 

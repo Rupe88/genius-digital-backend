@@ -10,6 +10,8 @@ import { CreateCourseData } from '@/lib/api/courses';
 import * as courseApi from '@/lib/api/courses';
 import * as categoryApi from '@/lib/api/categories';
 import * as instructorApi from '@/lib/api/instructors';
+import * as chapterApi from '@/lib/api/chapters';
+import * as lessonApi from '@/lib/api/lessons';
 import { showSuccess, showError } from '@/lib/utils/toast';
 
 export default function CreateCoursePage() {
@@ -40,7 +42,7 @@ export default function CreateCoursePage() {
     }
   };
 
-  const handleSubmit = async (data: CreateCourseData) => {
+  const handleSubmit = async (data: CreateCourseData & { curriculumData?: { chapters: any[], lessons: any[] } }) => {
     try {
       setSubmitting(true);
       console.log('Starting course creation...');
@@ -56,21 +58,73 @@ export default function CreateCoursePage() {
       const result = await Promise.race([createCoursePromise, timeoutPromise]);
       console.log('Course created successfully:', result);
 
-      showSuccess('Course created successfully!');
-      router.push('/admin/courses');
+      // If there's curriculum data, create chapters and lessons
+      if (data.curriculumData && (result as any).id) {
+        try {
+          console.log('Creating curriculum data...');
+
+          // Create chapters
+          for (const chapter of data.curriculumData.chapters) {
+            const chapterData = {
+              courseId: (result as any).id,
+              title: chapter.title,
+              description: chapter.description || undefined,
+              isLocked: chapter.isLocked || false,
+              isPreview: chapter.isPreview || false,
+              order: chapter.order,
+            };
+
+            const createdChapter = await chapterApi.createChapter(chapterData);
+
+            if (createdChapter) {
+              console.log('Chapter created:', createdChapter);
+
+              // Create lessons for this chapter (nested structure)
+              const lessons = chapter.lessons || [];
+              for (const lesson of lessons) {
+                const lessonData = {
+                  courseId: (result as any).id,
+                  chapterId: createdChapter.id,
+                  title: lesson.title,
+                  description: lesson.description || undefined,
+                  content: lesson.content || undefined,
+                  lessonType: lesson.lessonType || 'VIDEO',
+                  videoUrl: lesson.videoUrl || undefined,
+                  videoDuration: lesson.videoDuration || undefined,
+                  isPreview: lesson.isPreview || false,
+                  isLocked: lesson.isLocked || false,
+                  order: lesson.order,
+                };
+
+                await lessonApi.createLesson(lessonData);
+              }
+            }
+          }
+
+          showSuccess('Course and curriculum created successfully!');
+        } catch (curriculumError) {
+          console.error('Error creating curriculum:', curriculumError);
+          showSuccess('Course created successfully! Some curriculum items may need to be added manually.');
+        }
+      } else {
+        showSuccess('Course created successfully!');
+      }
+
+      router.push(`/admin/courses/${(result as any).id}/edit?step=3`);
     } catch (error) {
       console.error('Error creating course:', error);
 
       // Provide more specific error messages
       let errorMessage = 'Failed to create course';
-      if (error.message?.includes('timed out')) {
+      const errorObj = error as any;
+      if (errorObj?.message?.includes('timed out')) {
         errorMessage = 'Course creation timed out. Please check your connection and try again.';
-      } else if (error.message?.includes('upload')) {
+      } else if (errorObj?.message?.includes('upload')) {
         errorMessage = 'File upload failed. Please try with a smaller image or check your internet connection.';
-      } else if (error.message?.includes('network') || error.message?.includes('Network Error')) {
+      } else if (errorObj?.message?.includes('network') || errorObj?.message?.includes('Network Error')) {
         errorMessage = 'Network error. Please check your internet connection and try again.';
-      } else if (error.message) {
-        errorMessage = error.message;
+      } else if (errorObj?.message) {
+        errorMessage = errorObj.message;
       }
 
       showError(errorMessage);

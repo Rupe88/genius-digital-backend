@@ -104,36 +104,35 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       )}
 
       {preview ? (
-        <div className="relative">
-          <div className="relative w-full h-48 rounded-lg overflow-hidden border border-[var(--border)]">
+        <div className="relative inline-block">
+          <div className="relative w-40 h-24 rounded-lg overflow-hidden border-2 border-[var(--border)] shadow-sm hover:shadow-md transition-shadow">
             <img
               src={preview}
-              alt="Preview"
+              alt="Course Thumbnail"
               className="w-full h-full object-cover"
             />
             <button
               type="button"
               onClick={handleRemove}
-              className="absolute top-2 right-2 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-              aria-label="Remove image"
+              className="absolute -top-2 -right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 shadow-lg"
+              aria-label="Remove thumbnail"
             >
-              <HiX className="h-4 w-4" />
+              <HiX className="h-3 w-3" />
             </button>
           </div>
-          <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-            Click image or drag a new file to replace
+          <p className="mt-2 text-xs text-[var(--muted-foreground)] text-center">
+            Course Thumbnail
           </p>
         </div>
       ) : (
         <div
           className={classNames(
-            'relative border-2 border-dashed rounded-lg p-8 text-center transition-colors',
+            'relative border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer',
             dragActive
               ? 'border-[var(--primary-500)] bg-[var(--primary-50)]'
               : error
               ? 'border-[var(--error)]'
               : 'border-[var(--border)] hover:border-[var(--primary-300)]',
-            'cursor-pointer'
           )}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -149,12 +148,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             className="hidden"
             id={generatedId}
           />
-          <HiPhotograph className="mx-auto h-12 w-12 text-[var(--muted-foreground)]" />
+          <HiPhotograph className="mx-auto h-6 w-6 text-[var(--muted-foreground)]" />
           <p className="mt-2 text-sm text-[var(--foreground)]">
-            <span className="font-medium text-[var(--primary-600)]">Click to upload</span> or drag and drop
+            <span className="font-medium text-[var(--primary-600)]">Upload thumbnail</span>
           </p>
           <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-            {accept.includes('image') ? 'PNG, JPG, WEBP up to' : 'File up to'} {maxSize}MB
+            PNG, JPG up to {maxSize}MB • 16:9 recommended
           </p>
         </div>
       )}
