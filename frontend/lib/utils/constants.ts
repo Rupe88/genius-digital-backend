@@ -64,7 +64,7 @@ export const API_ENDPOINTS = {
   },
   // Payments
   PAYMENTS: {
-    CREATE: '/payments',
+    CREATE: '/payments/initiate',
     VERIFY: '/payments/verify',
     HISTORY: '/payments/history',
     BY_ID: (id: string) => `/payments/${id}`,

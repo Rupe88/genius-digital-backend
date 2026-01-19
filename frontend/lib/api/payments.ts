@@ -3,16 +3,33 @@ import { API_ENDPOINTS } from '@/lib/utils/constants';
 import { Payment } from '@/lib/types/payment';
 import { PaginatedResponse, ApiResponse } from '@/lib/types/api';
 
+export interface InitiatePaymentResponse {
+  success: boolean;
+  paymentId: string;
+  transactionId: string;
+  amount: number;
+  discount: number;
+  paymentMethod: string;
+  paymentDetails: {
+    paymentUrl: string;
+    formData?: Record<string, string>;
+    [key: string]: any;
+  };
+}
+
 export const createPayment = async (data: {
   courseId?: string;
+  orderId?: string;
   productIds?: string[];
   amount: number;
   paymentMethod: string;
   couponCode?: string;
-}): Promise<Payment> => {
+  successUrl?: string;
+  failureUrl?: string;
+}): Promise<InitiatePaymentResponse> => {
   try {
-    const response = await apiClient.post<ApiResponse<Payment>>(API_ENDPOINTS.PAYMENTS.CREATE, data);
-    return handleApiResponse<Payment>(response);
+    const response = await apiClient.post<ApiResponse<InitiatePaymentResponse>>(API_ENDPOINTS.PAYMENTS.CREATE, data);
+    return handleApiResponse<InitiatePaymentResponse>(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }

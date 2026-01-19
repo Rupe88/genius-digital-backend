@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/Button';
 import * as courseApi from '@/lib/api/courses';
 import * as lessonApi from '@/lib/api/lessons';
 import * as enrollmentApi from '@/lib/api/enrollments';
+import * as paymentApi from '@/lib/api/payments';
+import { reviewsApi } from '@/lib/api/reviews';
 import { Course, Lesson, Review } from '@/lib/types/course';
 import { formatPrice, formatCurrency } from '@/lib/utils/helpers';
 import { useAuth } from '@/lib/context/AuthContext';
@@ -41,6 +43,35 @@ export default function CourseDetailPage() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
   const [demoVideoPlaying, setDemoVideoPlaying] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!course) return;
+
+    try {
+      setSubmittingReview(true);
+      const data = await reviewsApi.create({
+        courseId: course.id,
+        rating: reviewRating,
+        title: 'Course Review', // Added because API type requires it
+        comment: reviewComment,
+      } as any);
+
+      if (data.success) {
+        showSuccess('Review submitted successfully!');
+        setReviewComment('');
+        // Refresh course to show new review
+        fetchCourse(course.id);
+      }
+    } catch (error) {
+      showError(Object(error).message || 'Failed to submit review');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   useEffect(() => {
     if (params.id) {
@@ -73,6 +104,26 @@ export default function CourseDetailPage() {
     }
   };
 
+  const submitEsewaForm = (paymentDetails: any) => {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = paymentDetails.paymentUrl;
+
+    const formData = paymentDetails.formData;
+    for (const key in formData) {
+      if (Object.prototype.hasOwnProperty.call(formData, key)) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = formData[key];
+        form.appendChild(input);
+      }
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+  };
+
   const handleEnroll = async () => {
     if (!isAuthenticated) {
       router.push(`${ROUTES.LOGIN}?redirect=/courses/${params.id}`);
@@ -81,11 +132,36 @@ export default function CourseDetailPage() {
 
     if (!course) return;
 
+    // If already enrolled
+    if (course.isEnrolled) {
+      router.push(ROUTES.DASHBOARD);
+      return;
+    }
+
     try {
       setEnrolling(true);
-      await enrollmentApi.enrollInCourse(course.id);
-      showSuccess('Successfully enrolled in course!');
-      router.push(ROUTES.DASHBOARD);
+
+      if (course.isFree || course.price === 0) {
+        await enrollmentApi.enrollInCourse(course.id);
+        showSuccess('Successfully enrolled in course!');
+        router.push(ROUTES.DASHBOARD);
+      } else {
+        // Paid course - Initiate eSewa payment
+        const paymentResponse = await paymentApi.createPayment({
+          courseId: course.id,
+          amount: course.price,
+          paymentMethod: 'ESEWA',
+          successUrl: `${window.location.origin}/payment/success`,
+          failureUrl: `${window.location.origin}/payment/failure`,
+        });
+
+        if (paymentResponse.success && paymentResponse.paymentDetails) {
+          showSuccess('Redirecting to eSewa...');
+          submitEsewaForm(paymentResponse.paymentDetails);
+        } else {
+          throw new Error('Failed to initiate payment');
+        }
+      }
     } catch (error) {
       showError(Object(error).message || 'An error occurred' || 'Enrollment failed');
     } finally {
@@ -142,7 +218,7 @@ export default function CourseDetailPage() {
     // Extract chapter/day from title (e.g., "Day 1 - Basic Vastu" or "Pre-Assignment - 1")
     const match = lesson.title.match(/^(Day\s*\d+|Pre-Assignment|DAY-\d+)/i);
     const chapterTitle = match ? match[1].toUpperCase() : 'Other';
-    
+
     if (!acc[chapterTitle]) {
       acc[chapterTitle] = [];
     }
@@ -156,7 +232,7 @@ export default function CourseDetailPage() {
   const handleShare = (platform: string) => {
     const encodedUrl = encodeURIComponent(shareUrl);
     const encodedTitle = encodeURIComponent(courseTitle);
-    
+
     const shareLinks: Record<string, string> = {
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
       twitter: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`,
@@ -192,7 +268,7 @@ export default function CourseDetailPage() {
 
   const videoLessons = lessons.filter(l => l.lessonType === 'VIDEO').length;
   const totalLessons = lessons.length;
-  
+
   // Calculate total hours and minutes for display
   const totalHours = Math.floor(totalVideoDuration / 3600);
   const totalMinutes = Math.floor((totalVideoDuration % 3600) / 60);
@@ -224,7 +300,7 @@ export default function CourseDetailPage() {
             {/* Demo Video Button */}
             {course.thumbnail && (
               <div className="relative aspect-video rounded-lg overflow-hidden bg-black cursor-pointer group"
-                   onClick={() => setDemoVideoPlaying(!demoVideoPlaying)}>
+                onClick={() => setDemoVideoPlaying(!demoVideoPlaying)}>
                 <Image
                   src={course.thumbnail}
                   alt={course.title}
@@ -254,11 +330,10 @@ export default function CourseDetailPage() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as TabType)}
-                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                      activeTab === tab.id
-                        ? 'border-[var(--primary-700)] text-[var(--primary-700)]'
-                        : 'border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-[var(--border)]'
-                    }`}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id
+                      ? 'border-[var(--primary-700)] text-[var(--primary-700)]'
+                      : 'border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-[var(--border)]'
+                      }`}
                   >
                     {tab.label}
                   </button>
@@ -313,7 +388,7 @@ export default function CourseDetailPage() {
                       <h2 className="text-2xl font-bold text-[var(--foreground)] mb-4">
                         About this course
                       </h2>
-                      <div 
+                      <div
                         className="prose max-w-none text-[var(--foreground)]"
                         dangerouslySetInnerHTML={{ __html: course.description }}
                       />
@@ -346,7 +421,7 @@ export default function CourseDetailPage() {
                           <FaChevronDown className="text-[var(--muted-foreground)]" />
                         )}
                       </button>
-                      
+
                       {expandedChapters.has(chapterTitle) && (
                         <div className="mt-4 space-y-2 border-t border-[var(--border)] pt-4">
                           {chapterLessons.map((lesson) => (
@@ -436,7 +511,49 @@ export default function CourseDetailPage() {
 
               {/* Reviews Tab */}
               {activeTab === 'reviews' && (
-                <div>
+                <div className="space-y-6">
+                  {course.isEnrolled && (
+                    <Card padding="lg" className="bg-white shadow-sm border border-[var(--border)]">
+                      <h4 className="text-xl font-bold text-[var(--foreground)] mb-4">Write a Review</h4>
+                      <form onSubmit={handleSubmitReview} className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--foreground)] mb-2">Rating</label>
+                          <div className="flex gap-2">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                type="button"
+                                onClick={() => setReviewRating(star)}
+                                className={`text-2xl transition-colors ${star <= reviewRating ? 'text-yellow-400' : 'text-gray-300 hover:text-yellow-200'
+                                  }`}
+                              >
+                                ★
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--foreground)] mb-2">Comment</label>
+                          <textarea
+                            value={reviewComment}
+                            onChange={(e) => setReviewComment(e.target.value)}
+                            required
+                            className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-gray-50 text-[var(--foreground)] focus:ring-2 focus:ring-[var(--primary-700)] focus:border-transparent transition-all outline-none min-h-[100px]"
+                            placeholder="Share your thoughts about this course..."
+                          />
+                        </div>
+                        <Button
+                          type="submit"
+                          isLoading={submittingReview}
+                          variant="primary"
+                          className="w-full sm:w-auto"
+                        >
+                          Submit Review
+                        </Button>
+                      </form>
+                    </Card>
+                  )}
+
                   {reviews.length > 0 ? (
                     <div className="space-y-4">
                       {reviews.map((review) => (
@@ -466,11 +583,10 @@ export default function CourseDetailPage() {
                                   {[...Array(5)].map((_, i) => (
                                     <span
                                       key={i}
-                                      className={`text-lg ${
-                                        i < (review.rating || 0)
-                                          ? 'text-yellow-400'
-                                          : 'text-gray-300'
-                                      }`}
+                                      className={`text-lg ${i < (review.rating || 0)
+                                        ? 'text-yellow-400'
+                                        : 'text-gray-300'
+                                        }`}
                                     >
                                       ★
                                     </span>
@@ -542,7 +658,7 @@ export default function CourseDetailPage() {
                   onClick={handleEnroll}
                   isLoading={enrolling}
                 >
-                  {course.isFree ? 'Enroll for Free' : 'Enroll Now'}
+                  {course.isEnrolled ? 'Go to Course' : course.isFree ? 'Enroll for Free' : 'Enroll Now'}
                 </Button>
 
                 {/* Save Course Button */}

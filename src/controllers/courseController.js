@@ -275,7 +275,7 @@ export const getOngoingCourses = async (req, res, next) => {
 export const getCourseById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    
+
     const course = await prisma.course.findFirst({
       where: {
         OR: [
@@ -323,9 +323,32 @@ export const getCourseById = async (req, res, next) => {
       });
     }
 
+    // Check enrollment if user is logged in
+    let enrollment = null;
+    if (req.user) {
+      enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: {
+            userId: req.user.id,
+            courseId: course.id,
+          },
+        },
+        select: {
+          id: true,
+          status: true,
+          progress: true,
+          completedAt: true,
+        },
+      });
+    }
+
     res.json({
       success: true,
-      data: course,
+      data: {
+        ...course,
+        isEnrolled: !!enrollment,
+        enrollment,
+      },
     });
   } catch (error) {
     next(error);
@@ -591,7 +614,7 @@ export const updateCourse = async (req, res, next) => {
 
     const updateData = {};
     if (title) updateData.title = title;
-    
+
     // Handle slug: if title changed and slug not provided, auto-generate
     // If slug provided, use it; if not provided but title changed, generate from title
     if (slug) {
@@ -599,7 +622,7 @@ export const updateCourse = async (req, res, next) => {
     } else if (title && title !== existingCourse.title) {
       // Title changed, auto-generate slug
       let finalSlug = generateSlug(title);
-      
+
       // Ensure slug is unique (excluding current course)
       let uniqueSlug = finalSlug;
       let counter = 1;
@@ -609,7 +632,7 @@ export const updateCourse = async (req, res, next) => {
           NOT: { id },
         },
       });
-      
+
       while (slugExists) {
         uniqueSlug = `${finalSlug}-${counter}`;
         slugExists = await prisma.course.findFirst({
@@ -622,7 +645,7 @@ export const updateCourse = async (req, res, next) => {
       }
       updateData.slug = uniqueSlug;
     }
-    
+
     if (description !== undefined) updateData.description = description;
     if (shortDescription !== undefined) updateData.shortDescription = shortDescription;
     if (req.cloudinary?.url || thumbnail) {
@@ -639,7 +662,7 @@ export const updateCourse = async (req, res, next) => {
     if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null;
     if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null;
     if (tags !== undefined) updateData.tags = tags;
-    
+
     // Handle learningOutcomes
     if (learningOutcomes !== undefined) {
       let parsedLearningOutcomes = learningOutcomes;
@@ -657,7 +680,7 @@ export const updateCourse = async (req, res, next) => {
       }
       updateData.learningOutcomes = parsedLearningOutcomes;
     }
-    
+
     // Handle skills
     if (skills !== undefined) {
       let parsedSkills = skills;
@@ -675,11 +698,11 @@ export const updateCourse = async (req, res, next) => {
       }
       updateData.skills = parsedSkills;
     }
-    
+
     if (originalPrice !== undefined) {
       updateData.originalPrice = originalPrice ? parseFloat(originalPrice) : null;
     }
-    
+
     // Validate instructor if provided
     if (instructorId) {
       const instructor = await prisma.instructor.findUnique({
@@ -693,7 +716,7 @@ export const updateCourse = async (req, res, next) => {
       }
       updateData.instructorId = instructorId;
     }
-    
+
     // Validate category if provided
     if (categoryId !== undefined) {
       if (categoryId) {

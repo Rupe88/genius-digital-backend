@@ -8,7 +8,7 @@ import {
   updateCourse,
   deleteCourse,
 } from '../controllers/courseController.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, optionalAuthenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
 import { singleUpload, processImageUpload } from '../middleware/cloudinaryUpload.js';
 import { courseValidation, courseFilterValidation } from '../utils/validators.js';
@@ -23,6 +23,7 @@ router.get('/ongoing', getOngoingCourses);
 
 router.get(
   '/:id',
+  optionalAuthenticate,
   [param('id').notEmpty()],
   getCourseById
 );

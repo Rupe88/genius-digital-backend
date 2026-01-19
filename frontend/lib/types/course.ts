@@ -97,6 +97,13 @@ export interface Course {
   chapters?: Chapter[];
   lessons?: Lesson[];
   reviews?: Review[];
+  isEnrolled?: boolean;
+  enrollment?: {
+    id: string;
+    status: string;
+    progress: number;
+    completedAt?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }

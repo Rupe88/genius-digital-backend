@@ -16,7 +16,7 @@ export const authenticate = asyncHandler(async (req, res, next) => {
 
   try {
     const decoded = verifyAccessToken(token);
-    
+
     // Get user from database
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
@@ -55,4 +55,35 @@ export const authenticate = asyncHandler(async (req, res, next) => {
     });
   }
 });
+export const optionalAuthenticate = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
 
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next();
+  }
+
+  const token = authHeader.substring(7);
+
+  try {
+    const decoded = verifyAccessToken(token);
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        isActive: true,
+      },
+    });
+
+    if (user && user.isActive) {
+      req.user = user;
+    }
+    next();
+  } catch (error) {
+    // Silently fail for optional auth
+    next();
+  }
+};
