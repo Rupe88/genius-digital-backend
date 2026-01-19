@@ -270,6 +270,7 @@ export const refreshToken = asyncHandler(async (req, res) => {
   try {
     decoded = verifyRefreshToken(refreshToken);
   } catch (error) {
+    console.error('Refresh token verification failed:', error.message);
     return res.status(401).json({
       success: false,
       message: error.message || 'Invalid refresh token',
@@ -279,16 +280,17 @@ export const refreshToken = asyncHandler(async (req, res) => {
   // Verify token in database
   const isValid = await verifyRefreshTokenInDB(decoded.userId, refreshToken);
   if (!isValid) {
+    console.error('Refresh token not found or mismatched in DB for user:', decoded.userId);
     return res.status(401).json({
       success: false,
       message: 'Invalid refresh token',
     });
   }
 
-  // Generate new access token
+  // Find user and check status
   const user = await prisma.user.findUnique({
     where: { id: decoded.userId },
-    select: { id: true, role: true },
+    select: { id: true, role: true, isActive: true },
   });
 
   if (!user || !user.isActive) {
@@ -298,27 +300,20 @@ export const refreshToken = asyncHandler(async (req, res) => {
     });
   }
 
+  // Generate new tokens (Always rotate for a sliding window)
   const accessToken = generateAccessToken({ userId: user.id, role: user.role });
+  const newRefreshToken = generateRefreshToken({ userId: user.id });
 
-  // Optionally generate a new refresh token if the current one is about to expire
-  // Check if refresh token expires in less than 1 day (optional rotation)
-  const tokenExpiryTime = decoded.exp * 1000; // Convert to milliseconds
-  const oneDayInMs = 24 * 60 * 60 * 1000;
-  const timeUntilExpiry = tokenExpiryTime - Date.now();
+  // Save the new refresh token
+  await saveRefreshToken(user.id, newRefreshToken);
 
-  let newRefreshToken = refreshToken; // Keep the same refresh token by default
-
-  // Only rotate refresh token if it's expiring soon (less than 1 day remaining)
-  if (timeUntilExpiry < oneDayInMs) {
-    newRefreshToken = generateRefreshToken({ userId: user.id });
-    await saveRefreshToken(user.id, newRefreshToken);
-  }
+  console.log(`Token rotated for user: ${user.id}`);
 
   res.json({
     success: true,
     data: {
       accessToken,
-      refreshToken: newRefreshToken || refreshToken, // Always return refreshToken (new or original)
+      refreshToken: newRefreshToken,
     },
   });
 });

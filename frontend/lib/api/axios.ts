@@ -84,15 +84,17 @@ apiClient.interceptors.response.use(
 
       // If it's a 401 on the refresh-token endpoint itself, or on an auth page, logout
       if (originalRequest.url?.includes('/auth/refresh-token') || isAuthPage) {
+        console.warn('401 on auth page or refresh endpoint - logging out');
         handleLogout();
         return Promise.reject(error);
       }
 
       if (isRefreshing) {
+        console.log('Refresh already in progress, queuing request');
         return new Promise((resolve) => {
           addRefreshSubscriber((token: string) => {
             if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
+              originalRequest.headers['Authorization'] = `Bearer ${token}`;
             }
             resolve(apiClient(originalRequest));
           });
@@ -106,12 +108,19 @@ apiClient.interceptors.response.use(
 
       if (refreshToken) {
         try {
-          console.log('Attempting to refresh token...');
-          // Using axios directly to avoid interceptor issues
-          const response = await axios.post(`${API_URL}/auth/refresh-token`, { refreshToken });
+          console.log(`Attempting to refresh token at: ${API_URL}/auth/refresh-token`);
+
+          // Using axios directly to avoid interceptor issues, with explicit config
+          const response = await axios.post(
+            `${API_URL}/auth/refresh-token`,
+            { refreshToken },
+            { withCredentials: true }
+          );
 
           if (response.data && response.data.success) {
             const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+
+            console.log('Token refresh successful, updating storage');
 
             if (typeof window !== 'undefined') {
               localStorage.setItem('accessToken', accessToken);
@@ -120,25 +129,31 @@ apiClient.interceptors.response.use(
               }
             }
 
+            // Update default headers for subsequent requests
             apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
 
+            const token = accessToken;
+            onTokenRefreshed(token);
             isRefreshing = false;
-            onTokenRefreshed(accessToken);
 
+            // Update current request header
             if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+              originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
             }
 
-            console.log('Token refreshed successfully, retrying original request');
+            console.log('Retrying original request');
             return apiClient(originalRequest);
+          } else {
+            throw new Error('Refresh response indicated failure');
           }
         } catch (refreshError) {
-          console.error('Token refresh failed:', refreshError);
+          console.error('Token refresh critical failure:', refreshError);
           isRefreshing = false;
           handleLogout();
           return Promise.reject(refreshError);
         }
       } else {
+        console.warn('No refresh token found in storage');
         handleLogout();
       }
     }

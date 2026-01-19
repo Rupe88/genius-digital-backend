@@ -59,11 +59,17 @@ const corsOptions = {
     }
 
     // Check if origin is in allowed list
-    if (config.corsOrigins.includes(origin) || config.nodeEnv === 'development') {
+    const isAllowed =
+      config.corsOrigins.includes(origin) ||
+      config.nodeEnv === 'development' ||
+      (origin && origin.includes('aacharyarajbabu.vercel.app')) ||
+      (origin && origin.includes('vercel.app')); // Be slightly more flexible for Vercel previews
+
+    if (isAllowed) {
       callback(null, true);
     } else {
-      console.log('CORS blocked origin:', origin);
-      console.log('Allowed origins:', config.corsOrigins);
+      console.warn(`CORS blocked origin: ${origin}`);
+      console.log('Allowed origins in config:', config.corsOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
