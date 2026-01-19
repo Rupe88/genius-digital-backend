@@ -78,11 +78,20 @@ export const processImageUpload = async (req, res, next) => {
 
     console.log(`Uploading image to Cloudinary folder: ${folder}, size: ${req.file.buffer.length} bytes, type: ${req.file.mimetype}`);
 
-    const result = await uploadImage(req.file.buffer, {
+    // Add timeout to prevent hanging (30 seconds)
+    const uploadPromise = uploadImage(req.file.buffer, {
       folder,
       transformation,
       mimeType: req.file.mimetype,
     });
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Image upload timed out after 30 seconds'));
+      }, 30000);
+    });
+
+    const result = await Promise.race([uploadPromise, timeoutPromise]);
 
     req.cloudinary = {
       ...(req.cloudinary || {}),
@@ -109,6 +118,9 @@ export const processImageUpload = async (req, res, next) => {
     } else if (error.message?.includes('Invalid API Key')) {
       errorMessage = 'Cloudinary API key is invalid. Please check your credentials.';
       statusCode = 500;
+    } else if (error.message?.includes('timed out')) {
+      errorMessage = 'Image upload timed out. Please try again with a smaller file.';
+      statusCode = 408;
     } else {
       errorMessage = error.message || 'Image upload failed';
     }
@@ -152,9 +164,18 @@ export const processVideoUpload = async (req, res, next) => {
 
     console.log(`Uploading video to Cloudinary folder: ${folder}, size: ${req.file.buffer.length} bytes`);
 
-    const result = await uploadVideo(req.file.buffer, {
+    // Add timeout to prevent hanging (60 seconds for videos)
+    const uploadPromise = uploadVideo(req.file.buffer, {
       folder,
     });
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Video upload timed out after 60 seconds'));
+      }, 60000);
+    });
+
+    const result = await Promise.race([uploadPromise, timeoutPromise]);
 
     req.cloudinary = {
       ...(req.cloudinary || {}),
@@ -169,7 +190,22 @@ export const processVideoUpload = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Video upload middleware error:', error);
-    next(error);
+
+    let errorMessage = 'Video upload failed';
+    let statusCode = 400;
+
+    if (error.message?.includes('timed out')) {
+      errorMessage = 'Video upload timed out. Please try again with a smaller file.';
+      statusCode = 408;
+    } else {
+      errorMessage = error.message || 'Video upload failed';
+    }
+
+    return res.status(statusCode).json({
+      success: false,
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
   }
 };
 

@@ -10,13 +10,22 @@ async function main() {
   console.log('🌱 Starting comprehensive seed...\n');
 
   // 1. ADMIN USER
+  // We force update the password to ensure the user can log in after seeding
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@sanskaracademy.com';
   const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@123';
 
+  console.log(`🔐 Setting up admin: ${adminEmail}`);
   const hashedPassword = await bcrypt.hash(adminPassword, 10);
+
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
-    update: {},
+    update: {
+      password: hashedPassword, // Resetting password to ensure login works
+      fullName: 'Admin User',
+      role: 'ADMIN',
+      isActive: true,
+      isEmailVerified: true,
+    },
     create: {
       email: adminEmail,
       password: hashedPassword,
@@ -26,15 +35,20 @@ async function main() {
       isActive: true,
     },
   });
-  console.log('✅ Admin user ready');
+  console.log('✅ Admin user ready and password updated');
 
   // 2. CATEGORIES
+  console.log('📂 Seeding categories...');
   const categories = [
-    { name: 'Vastu Shastra', slug: 'vastu-shastra', type: 'COURSE' },
-    { name: 'Numerology', slug: 'numerology', type: 'COURSE' },
-    { name: 'Astrology', slug: 'astrology', type: 'COURSE' },
-    { name: 'Vastu Items', slug: 'vastu-items', type: 'PRODUCT' },
-    { name: 'Yantras', slug: 'yantras', type: 'PRODUCT' },
+    // Course Categories
+    { name: 'Vastu Shastra', slug: 'vastu-shastra', description: 'Ancient science of architecture', type: 'COURSE' },
+    { name: 'Numerology', slug: 'numerology', description: 'Power of numbers', type: 'COURSE' },
+    { name: 'Astrology', slug: 'astrology', description: 'Vedic astrology', type: 'COURSE' },
+    { name: 'Medical Astrology', slug: 'medical-astrology', description: 'Planetary health influences', type: 'COURSE' },
+    // Product Categories
+    { name: 'Vastu Items', slug: 'vastu-items', description: 'Remedies for home', type: 'PRODUCT' },
+    { name: 'Yantras', slug: 'yantras', description: 'Sacred geometry', type: 'PRODUCT' },
+    { name: 'Crystals', slug: 'crystals', description: 'Healing crystals', type: 'PRODUCT' },
   ];
 
   for (const cat of categories) {
@@ -44,17 +58,21 @@ async function main() {
       create: cat,
     });
   }
-  console.log('✅ Categories seeded');
+  console.log(`✅ ${categories.length} categories seeded`);
 
   // 3. INSTRUCTOR
+  console.log('👨‍🏫 Seeding instructor...');
   const instructor = await prisma.instructor.upsert({
     where: { slug: 'acharya-raja-babu-shah' },
-    update: {},
+    update: {
+      designation: 'Top Vastulogist in Nepal | NLP Master Trainer',
+      bio: "Led by Acharya Raja Babu Shah, Nepal's most trusted Vastu professional coach and the founder of Nepal's 1st ISO Certified Institute in Vastu, Numerology & Astrology.",
+    },
     create: {
       name: 'Acharya Raja Babu Shah',
       slug: 'acharya-raja-babu-shah',
-      designation: 'Top Vastulogist in Nepal',
-      bio: 'ISO Certified Institute Founder with 15+ years experience.',
+      designation: 'Top Vastulogist in Nepal | NLP Master Trainer',
+      bio: "Led by Acharya Raja Babu Shah, Nepal's most trusted Vastu professional coach and the founder of Nepal's 1st ISO Certified Institute in Vastu, Numerology & Astrology.",
       email: 'contact@sanskaracademy.com',
       featured: true,
     },
@@ -62,110 +80,135 @@ async function main() {
   console.log('✅ Instructor ready');
 
   // 4. COURSE: 7 Days Basic Vastu
+  console.log('📚 Seeding courses...');
   const catVastu = await prisma.category.findUnique({ where: { slug: 'vastu-shastra' } });
   const vastuCourse = await prisma.course.upsert({
     where: { slug: '7-days-basic-vastu-course' },
-    update: {},
+    update: {
+      price: 399,
+      originalPrice: 4000,
+      status: 'PUBLISHED',
+      featured: true,
+    },
     create: {
       title: '7 DAYS BASIC VASTU COURSE',
       slug: '7-days-basic-vastu-course',
-      shortDescription: 'Transform your home with ancient wisdom.',
+      shortDescription: 'Transform your home with ancient wisdom. Learn from Nepal\'s Best.',
       price: 399,
       originalPrice: 4000,
       status: 'PUBLISHED',
       level: 'Beginner',
       instructorId: instructor.id,
       categoryId: catVastu?.id,
-      tags: 'Vastu,Basic,Home',
+      tags: 'Vastu,Basic,Home,Nepal',
+      featured: true,
     },
   });
-  console.log('✅ Basic Vastu Course ready');
+  console.log('✅ Basic Vastu Course seeded');
 
-  // 5. CHAPTERS & LESSONS (Basic Loop)
-  const chapters = [
-    { title: 'Day 1: Intro to Vastu', slug: 'day-1', order: 1 },
-    { title: 'Day 2: Directions', slug: 'day-2', order: 2 },
+  // 5. CHAPTERS & LESSONS (All 7 Days)
+  console.log('📖 Seeding full curriculum...');
+  const days = [
+    { title: 'Day 1: What is Scientific Vastu?', slug: 'day-1' },
+    { title: 'Day 2: 5 Elements & 16 Directions', slug: 'day-2' },
+    { title: 'Day 3: Entrance Analysis', slug: 'day-3' },
+    { title: 'Day 4: Brahamsthan & Energy Points', slug: 'day-4' },
+    { title: 'Day 5: Bedroom & Sleeping Directions', slug: 'day-5' },
+    { title: 'Day 6: Toilet & Kitchen Vastu', slug: 'day-6' },
+    { title: 'Day 7: Remedial Vastu (No Demolition)', slug: 'day-7' },
   ];
 
-  for (const ch of chapters) {
+  for (let i = 0; i < days.length; i++) {
+    const day = days[i];
     const chapter = await prisma.chapter.upsert({
-      where: { courseId_slug: { courseId: vastuCourse.id, slug: ch.slug } },
-      update: ch,
-      create: { ...ch, courseId: vastuCourse.id },
-    });
-
-    await prisma.lesson.upsert({
-      where: { courseId_slug: { courseId: vastuCourse.id, slug: `${ch.slug}-lesson` } },
-      update: {},
+      where: { courseId_slug: { courseId: vastuCourse.id, slug: day.slug } },
+      update: { order: i + 1 },
       create: {
-        title: `${ch.title} Lesson`,
-        slug: `${ch.slug}-lesson`,
-        content: 'Content for ' + ch.title,
-        lessonType: 'VIDEO',
-        chapterId: chapter.id,
-        courseId: vastuCourse.id,
+        title: day.title,
+        slug: day.slug,
+        order: i + 1,
+        courseId: vastuCourse.id
       },
     });
+
+    // Add 2 lessons per day
+    for (let l = 1; l <= 2; l++) {
+      await prisma.lesson.upsert({
+        where: { courseId_slug: { courseId: vastuCourse.id, slug: `${day.slug}-lesson-${l}` } },
+        update: {},
+        create: {
+          title: `${day.title} - Part ${l}`,
+          slug: `${day.slug}-lesson-${l}`,
+          content: `In this section, we cover details of ${day.title}.`,
+          lessonType: 'VIDEO',
+          order: l,
+          chapterId: chapter.id,
+          courseId: vastuCourse.id,
+        },
+      });
+    }
   }
-  console.log('✅ Chapters/Lessons ready');
+  console.log('✅ Full 7-day curriculum seeded');
 
   // 6. TESTIMONIALS
-  await prisma.testimonial.upsert({
-    where: { id: 'test-1' }, // Dummy ID for seed
-    update: {},
-    create: {
-      id: 'test-1',
-      name: 'Ram Sharma',
-      comment: 'Life changing course!',
-      rating: 5,
-      designation: 'Architect',
-      isPublished: true,
-    },
-  });
+  console.log('⭐ Seeding testimonials...');
+  const testimonials = [
+    { name: 'Sushil Shrestha', comment: 'Amazing insights into Vastu!', rating: 5, designation: 'Architect' },
+    { name: 'Anita Pradhan', comment: 'The best investment for my home.', rating: 5, designation: 'Business Owner' }
+  ];
 
-  // 7. EVENTS (FIXED FIELDS)
+  for (const t of testimonials) {
+    await prisma.testimonial.upsert({
+      where: { id: t.name.toLowerCase().replace(/ /g, '-') },
+      update: t,
+      create: {
+        id: t.name.toLowerCase().replace(/ /g, '-'),
+        ...t,
+        isPublished: true,
+        featured: true,
+      }
+    });
+  }
+
+  // 7. EVENTS
+  console.log('📅 Seeding events...');
   await prisma.event.upsert({
     where: { slug: 'free-camp-2026' },
     update: {},
     create: {
-      title: 'Free Vastu Consultation Camp',
+      title: 'Free Vastu Consultation Camp 2026',
       slug: 'free-camp-2026',
-      startDate: new Date('2026-02-15T10:00:00'),
+      startDate: new Date('2026-03-15T10:00:00'),
       isFree: true,
-      venue: 'Kathmandu',
-      maxAttendees: 50,
+      venue: 'Sanskar Academy Hall, Kathmandu',
+      maxAttendees: 100,
       status: 'UPCOMING',
+      featured: true,
     },
   });
 
   // 8. PRODUCTS
+  console.log('🛍️ Seeding products...');
   const catItems = await prisma.category.findUnique({ where: { slug: 'vastu-items' } });
   await prisma.product.upsert({
-    where: { slug: 'vastu-pyramid' },
+    where: { slug: 'vastu-pyramid-set' },
     update: {},
     create: {
-      name: 'Vastu Pyramid',
-      slug: 'vastu-pyramid',
-      price: 1499,
-      images: ['https://example.com/img.jpg'],
+      name: 'Professional Vastu Pyramid Set',
+      slug: 'vastu-pyramid-set',
+      price: 2500,
+      description: 'High quality copper pyramids for home energy correction.',
+      images: ['https://images.unsplash.com/photo-1590487988256-9ed24133863e?w=800'],
       categoryId: catItems?.id,
       status: 'ACTIVE',
-    },
-  });
-
-  // 9. LIVE CLASSES (FIXED FIELDS)
-  await prisma.liveClass.create({
-    data: {
-      title: 'Weekly Q&A',
-      scheduledAt: new Date('2026-01-25T18:00:00'),
-      duration: 60,
-      meetingProvider: 'ZOOM',
-      instructorId: instructor.id,
-      courseId: vastuCourse.id,
+      featured: true,
+      stock: 50,
     },
   });
 
   console.log('\n✨ Seed completed successfully! ✨');
+  console.log(`🔑 Admin Login: ${adminEmail}`);
+  console.log(`🔑 Password: ${adminPassword}`);
 }
 
 main()

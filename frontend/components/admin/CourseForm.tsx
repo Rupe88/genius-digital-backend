@@ -72,6 +72,9 @@ export const CourseForm: React.FC<CourseFormProps> = ({
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(
     course?.thumbnail || null
   );
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
     register,
@@ -79,7 +82,7 @@ export const CourseForm: React.FC<CourseFormProps> = ({
     watch,
     setValue,
     getValues,
-    formState: { errors, isValid },
+    formState: { errors },
     trigger,
   } = useForm<CourseFormData>({
     resolver: zodResolver(courseSchema),
@@ -117,7 +120,7 @@ export const CourseForm: React.FC<CourseFormProps> = ({
         featured: false,
         isOngoing: false,
       },
-    mode: 'onChange',
+    mode: 'onBlur', // Changed from onChange to onBlur to reduce re-renders
   });
 
   const title = watch('title');
@@ -137,9 +140,19 @@ export const CourseForm: React.FC<CourseFormProps> = ({
   const handleFileChange = (file: File | null) => {
     setThumbnailFile(file);
     if (file) {
+      // Check file size before processing (limit to 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB');
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setThumbnailPreview(reader.result as string);
+      };
+      reader.onerror = () => {
+        console.error('Error reading file');
+        setThumbnailPreview(null);
       };
       reader.readAsDataURL(file);
     } else {
@@ -190,64 +203,96 @@ export const CourseForm: React.FC<CourseFormProps> = ({
   };
 
   const onFormSubmit = async (data: CourseFormData) => {
-    // Parse learning outcomes (newline-separated or JSON)
-    let learningOutcomes: string[] | undefined;
-    if (data.learningOutcomes) {
-      try {
-        const parsed = JSON.parse(data.learningOutcomes);
-        learningOutcomes = Array.isArray(parsed) ? parsed : [data.learningOutcomes];
-      } catch {
-        // If not JSON, split by newlines
-        learningOutcomes = data.learningOutcomes.split('\n').filter(line => line.trim());
-      }
+    // Prevent multiple submissions
+    if (isSubmitting || isUploading) {
+      return;
     }
 
-    // Parse skills (comma-separated or JSON)
-    let skills: string[] | undefined;
-    if (data.skills) {
-      try {
-        const parsed = JSON.parse(data.skills);
-        skills = Array.isArray(parsed) ? parsed : data.skills.split(',').map(s => s.trim()).filter(s => s);
-      } catch {
-        skills = data.skills.split(',').map(s => s.trim()).filter(s => s);
+    try {
+      setIsSubmitting(true);
+      setIsUploading(true);
+      setUploadProgress(10);
+
+      // Parse learning outcomes (newline-separated or JSON)
+      let learningOutcomes: string[] | undefined;
+      if (data.learningOutcomes) {
+        try {
+          const parsed = JSON.parse(data.learningOutcomes);
+          learningOutcomes = Array.isArray(parsed) ? parsed : [data.learningOutcomes];
+        } catch {
+          // If not JSON, split by newlines
+          learningOutcomes = data.learningOutcomes.split('\n').filter(line => line.trim());
+        }
       }
+
+      setUploadProgress(30);
+
+      // Parse skills (comma-separated or JSON)
+      let skills: string[] | undefined;
+      if (data.skills) {
+        try {
+          const parsed = JSON.parse(data.skills);
+          skills = Array.isArray(parsed) ? parsed : data.skills.split(',').map(s => s.trim()).filter(s => s);
+        } catch {
+          skills = data.skills.split(',').map(s => s.trim()).filter(s => s);
+        }
+      }
+
+      setUploadProgress(50);
+
+      const submitData: CreateCourseData = {
+        title: data.title,
+        slug: data.slug,
+        instructorId: data.instructorId,
+        categoryId: data.categoryId || undefined,
+        shortDescription: data.shortDescription || undefined,
+        description: data.description || undefined,
+        price: data.price !== undefined ? Number(data.price) : undefined,
+        originalPrice: data.originalPrice !== undefined ? Number(data.originalPrice) : undefined,
+        isFree: data.isFree || false,
+        status: data.status || 'DRAFT',
+        level: data.level || undefined,
+        duration: data.duration !== undefined ? Number(data.duration) : undefined,
+        language: data.language || 'en',
+        featured: data.featured || false,
+        isOngoing: data.isOngoing || false,
+        startDate: data.startDate || undefined,
+        endDate: data.endDate || undefined,
+        tags: data.tags || undefined,
+        learningOutcomes,
+        skills,
+        thumbnailFile: thumbnailFile || undefined,
+        thumbnail: thumbnailPreview && !thumbnailFile ? thumbnailPreview : undefined,
+        onProgress: (progress: number) => {
+          // Use requestAnimationFrame to avoid too many re-renders
+          requestAnimationFrame(() => setUploadProgress(progress));
+        },
+      };
+
+      setUploadProgress(70);
+
+      await onSubmit(submitData);
+
+      setUploadProgress(100);
+    } catch (error) {
+      console.error('Form submission error:', error);
+      throw error; // Re-throw to let parent handle error
+    } finally {
+      // Clean up state
+      setIsSubmitting(false);
+      setIsUploading(false);
+      setUploadProgress(0);
     }
-
-    const submitData: CreateCourseData = {
-      title: data.title,
-      slug: data.slug,
-      instructorId: data.instructorId,
-      categoryId: data.categoryId || undefined,
-      shortDescription: data.shortDescription || undefined,
-      description: data.description || undefined,
-      price: data.price !== undefined ? Number(data.price) : undefined,
-      originalPrice: data.originalPrice !== undefined ? Number(data.originalPrice) : undefined,
-      isFree: data.isFree || false,
-      status: data.status || 'DRAFT',
-      level: data.level || undefined,
-      duration: data.duration !== undefined ? Number(data.duration) : undefined,
-      language: data.language || 'en',
-      featured: data.featured || false,
-      isOngoing: data.isOngoing || false,
-      startDate: data.startDate || undefined,
-      endDate: data.endDate || undefined,
-      tags: data.tags || undefined,
-      learningOutcomes,
-      skills,
-      thumbnailFile: thumbnailFile || undefined,
-      thumbnail: thumbnailPreview && !thumbnailFile ? thumbnailPreview : undefined,
-    };
-
-    await onSubmit(submitData);
   };
 
   // Handle course creation success to show curriculum builder
   useEffect(() => {
     if (course && currentStep === 2) {
       // Auto-advance to curriculum after course is created
-      setCurrentStep(3);
+      // Use setTimeout to avoid potential infinite re-renders
+      setTimeout(() => setCurrentStep(3), 100);
     }
-  }, [course]);
+  }, [course, currentStep]);
 
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
@@ -281,6 +326,33 @@ export const CourseForm: React.FC<CourseFormProps> = ({
             </React.Fragment>
           ))}
         </div>
+
+        {/* Upload Progress Bar */}
+        {(isUploading || isLoading) && (
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                {isUploading ? 'Creating course...' : 'Processing...'}
+              </span>
+              <span className="text-sm text-[var(--muted-foreground)]">
+                {isUploading ? `${uploadProgress}%` : 'Please wait...'}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-[var(--primary-700)] h-2 rounded-full transition-all duration-300"
+                style={{ width: isUploading ? `${uploadProgress}%` : '100%' }}
+              ></div>
+            </div>
+            {isUploading && (
+              <p className="text-xs text-[var(--muted-foreground)] mt-2">
+                {uploadProgress < 50 ? 'Validating data...' :
+                 uploadProgress < 70 ? 'Processing files...' :
+                 'Finalizing course creation...'}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Step 1: Basic Information */}
@@ -514,8 +586,8 @@ export const CourseForm: React.FC<CourseFormProps> = ({
                     </div>
                     <Button
                       variant="primary"
-                      disabled={isLoading}
-                      isLoading={isLoading}
+                      disabled={isLoading || isSubmitting}
+                      isLoading={isLoading || isSubmitting}
                       onClick={async (e) => {
                         e.preventDefault();
                         const step1Valid = await trigger(['title', 'instructorId']);
@@ -595,8 +667,8 @@ export const CourseForm: React.FC<CourseFormProps> = ({
               <Button
                 variant="primary"
                 size="lg"
-                disabled={isLoading}
-                isLoading={isLoading}
+                disabled={isLoading || isSubmitting}
+                isLoading={isLoading || isSubmitting}
                 onClick={async (e) => {
                   e.preventDefault();
                   // Validate Steps 1 and 2 first
@@ -767,11 +839,11 @@ export const CourseForm: React.FC<CourseFormProps> = ({
                   setValue('status', 'DRAFT');
                   await handleSubmit(onFormSubmit)(e);
                 }}
-                disabled={isLoading}
+                disabled={isLoading || isSubmitting}
               >
                 Save as Draft
               </Button>
-              <Button type="submit" variant="primary" disabled={isLoading} isLoading={isLoading}>
+              <Button type="submit" variant="primary" disabled={isLoading || isSubmitting} isLoading={isLoading || isSubmitting}>
                 {course ? 'Update Course' : 'Create Course'}
               </Button>
             </>

@@ -374,21 +374,27 @@ export const createCourse = async (req, res, next) => {
     let finalSlug = slug;
     if (!finalSlug && title) {
       finalSlug = generateSlug(title);
-      
-      // Ensure slug is unique
+
+      // Ensure slug is unique with timeout (prevent infinite loops)
       let uniqueSlug = finalSlug;
       let counter = 1;
-      let slugExists = await prisma.course.findUnique({
-        where: { slug: uniqueSlug },
-      });
-      
-      while (slugExists) {
-        uniqueSlug = `${finalSlug}-${counter}`;
-        slugExists = await prisma.course.findUnique({
+      const maxAttempts = 10;
+
+      for (let attempts = 0; attempts < maxAttempts; attempts++) {
+        const slugExists = await prisma.course.findUnique({
           where: { slug: uniqueSlug },
         });
+
+        if (!slugExists) break;
+
+        uniqueSlug = `${finalSlug}-${counter}`;
         counter++;
       }
+
+      if (counter > maxAttempts) {
+        throw new Error('Unable to generate unique slug. Please provide a custom slug.');
+      }
+
       finalSlug = uniqueSlug;
     }
 
@@ -398,10 +404,7 @@ export const createCourse = async (req, res, next) => {
     });
 
     if (!instructor) {
-      return res.status(400).json({
-        success: false,
-        message: 'Instructor not found',
-      });
+      throw new Error('Instructor not found');
     }
 
     // Validate category if provided
@@ -411,10 +414,7 @@ export const createCourse = async (req, res, next) => {
       });
 
       if (!category) {
-        return res.status(400).json({
-          success: false,
-          message: 'Category not found',
-        });
+        throw new Error('Category not found');
       }
     }
 
@@ -447,46 +447,51 @@ export const createCourse = async (req, res, next) => {
       parsedSkills = null;
     }
 
-    const course = await prisma.course.create({
-      data: {
-        title,
-        slug: finalSlug,
-        description,
-        shortDescription,
-        thumbnail: req.cloudinary?.url || thumbnail,
-        price: price ? parseFloat(price) : 0,
-        originalPrice: originalPrice ? parseFloat(originalPrice) : null,
-        isFree: isFree === true || isFree === 'true',
-        status: status || 'DRAFT',
-        level,
-        duration: duration ? parseInt(duration) : null,
-        language: language || 'en',
-        featured: featured === true || featured === 'true',
-        isOngoing: isOngoing === true || isOngoing === 'true',
-        startDate: startDate ? new Date(startDate) : null,
-        endDate: endDate ? new Date(endDate) : null,
-        tags,
-        learningOutcomes: parsedLearningOutcomes,
-        skills: parsedSkills,
-        instructorId,
-        categoryId: categoryId || null,
-      },
-      include: {
-        instructor: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    // Create course with transaction
+    const course = await prisma.$transaction(async (tx) => {
+      const createdCourse = await tx.course.create({
+        data: {
+          title,
+          slug: finalSlug,
+          description,
+          shortDescription,
+          thumbnail: req.cloudinary?.url || thumbnail,
+          price: price ? parseFloat(price) : 0,
+          originalPrice: originalPrice ? parseFloat(originalPrice) : null,
+          isFree: isFree === true || isFree === 'true',
+          status: status || 'DRAFT',
+          level,
+          duration: duration ? parseInt(duration) : null,
+          language: language || 'en',
+          featured: featured === true || featured === 'true',
+          isOngoing: isOngoing === true || isOngoing === 'true',
+          startDate: startDate ? new Date(startDate) : null,
+          endDate: endDate ? new Date(endDate) : null,
+          tags,
+          learningOutcomes: parsedLearningOutcomes,
+          skills: parsedSkills,
+          instructorId,
+          categoryId: categoryId || null,
+        },
+        include: {
+          instructor: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
           },
         },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-      },
+      });
+
+      return createdCourse;
     });
 
     res.status(201).json({
@@ -495,26 +500,48 @@ export const createCourse = async (req, res, next) => {
       message: 'Course created successfully',
     });
   } catch (error) {
-    if (error.code === 'P2002') {
+    if (error.message?.includes('Validation failed')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        errors: validationResult(req).array(),
+      });
+    }
+    if (error.message?.includes('slug already exists') || error.code === 'P2002') {
       return res.status(400).json({
         success: false,
         message: 'Course with this slug already exists. Please use a different slug.',
       });
     }
-    if (error.code === 'P2003') {
+    if (error.message?.includes('Invalid instructor') || error.code === 'P2003') {
       return res.status(400).json({
         success: false,
         message: 'Invalid instructor or category ID',
       });
     }
+    if (error.message?.includes('Instructor not found')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Instructor not found',
+      });
+    }
+    if (error.message?.includes('Category not found')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category not found',
+      });
+    }
+    if (error.message?.includes('unique slug')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
     console.error('Error creating course:', error);
     next(error);
   }
 };
-
-/**
- * Update course (Admin only)
- */
 export const updateCourse = async (req, res, next) => {
   try {
     const errors = validationResult(req);

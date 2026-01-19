@@ -115,10 +115,14 @@ export interface CreateCourseData {
   instructorId: string;
   categoryId?: string;
   thumbnailFile?: File;
+  onProgress?: (progress: number) => void;
 }
 
 export const createCourse = async (data: CreateCourseData): Promise<Course> => {
   try {
+    // Update progress: Starting
+    data.onProgress?.(10);
+
     const formData = new FormData();
 
     // Add all fields to FormData
@@ -153,13 +157,40 @@ export const createCourse = async (data: CreateCourseData): Promise<Course> => {
       formData.append('thumbnail', data.thumbnailFile);
     }
 
+    // Update progress: Form data prepared
+    data.onProgress?.(30);
+
+    // Use longer timeout for course creation (2 minutes due to file upload)
     const response = await apiClient.post<ApiResponse<Course>>(API_ENDPOINTS.COURSES.LIST, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 120000, // 2 minutes for course creation
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 70) / progressEvent.total) + 30;
+          data.onProgress?.(Math.min(percentCompleted, 90));
+        }
+      },
     });
+
+    // Update progress: Request completed
+    data.onProgress?.(100);
+
     return handleApiResponse<Course>(response);
   } catch (error) {
+    // Provide more specific error messages for course creation
+    if (axios.isAxiosError(error)) {
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        throw new Error('Course creation timed out. The server may be busy. Please try again.');
+      }
+      if (error.response?.status === 408) {
+        throw new Error('Request timed out during file upload. Please try with a smaller image.');
+      }
+      if (!error.response) {
+        throw new Error('Network error. Please check your internet connection and try again.');
+      }
+    }
     throw new Error(handleApiError(error));
   }
 };

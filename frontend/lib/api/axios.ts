@@ -18,14 +18,14 @@ const addRefreshSubscriber = (callback: (token: string) => void) => {
   refreshSubscribers.push(callback);
 };
 
-// Create axios instance
+// Create axios instance with different timeouts for different operations
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
   withCredentials: true, // Keep enabled for authenticated requests
-  timeout: 30000, // 30 seconds timeout
+  timeout: 60000, // 60 seconds default timeout (increased for file uploads)
 });
 
 // Request interceptor - Add auth token

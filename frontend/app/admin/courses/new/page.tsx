@@ -43,12 +43,37 @@ export default function CreateCoursePage() {
   const handleSubmit = async (data: CreateCourseData) => {
     try {
       setSubmitting(true);
-      await courseApi.createCourse(data);
+      console.log('Starting course creation...');
+
+      // Add timeout for course creation (2 minutes)
+      const createCoursePromise = courseApi.createCourse(data);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Course creation timed out. Please try again.'));
+        }, 120000); // 2 minutes
+      });
+
+      const result = await Promise.race([createCoursePromise, timeoutPromise]);
+      console.log('Course created successfully:', result);
+
       showSuccess('Course created successfully!');
       router.push('/admin/courses');
     } catch (error) {
       console.error('Error creating course:', error);
-      showError(Object(error).message || 'An error occurred' || 'Failed to create course');
+
+      // Provide more specific error messages
+      let errorMessage = 'Failed to create course';
+      if (error.message?.includes('timed out')) {
+        errorMessage = 'Course creation timed out. Please check your connection and try again.';
+      } else if (error.message?.includes('upload')) {
+        errorMessage = 'File upload failed. Please try with a smaller image or check your internet connection.';
+      } else if (error.message?.includes('network') || error.message?.includes('Network Error')) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      showError(errorMessage);
     } finally {
       setSubmitting(false);
     }
