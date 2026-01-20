@@ -14,14 +14,21 @@ export const config = {
   // Database
   databaseUrl: process.env.DATABASE_URL,
 
-  // Frontend URL
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3001',
+  // Frontend URL - Smart default based on environment
+  frontendUrl: process.env.FRONTEND_URL ||
+    (process.env.NODE_ENV === 'production'
+      ? 'https://aacharyarajbabu.vercel.app'
+      : 'http://localhost:3000'),
   appName: process.env.APP_NAME || 'Sanskar Academy',
 
   // CORS - Multiple origins separated by commas
   corsOrigins: process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
-    : ['http://localhost:3000', 'http://localhost:3001'],
+    : [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://aacharyarajbabu.vercel.app'
+    ],
 
   // Email
   smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',
