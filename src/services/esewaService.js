@@ -46,6 +46,16 @@ export const generateEsewaPaymentUrl = (params) => {
   const environment = config.esewa.environment || 'sandbox';
   const baseUrl = ESEWA_BASE_URL[environment];
 
+  // FORCE TEST CREDENTIALS IN SANDBOX
+  // This prevents ES104 errors if user has wrong keys in .env for testing
+  let secretKey = config.esewa.secretKey;
+  let productCode = config.esewaProductCode || 'EPAYTEST';
+
+  if (environment === 'sandbox') {
+    secretKey = '8gBm/:&EnhH.1/q';
+    productCode = 'EPAYTEST';
+  }
+
   // Calculate total amount
   const totalAmount =
     parseFloat(amount) +
@@ -53,7 +63,7 @@ export const generateEsewaPaymentUrl = (params) => {
     parseFloat(productDeliveryCharge);
 
   // Create signature data
-  const productCode = config.esewaProductCode || 'EPAYTEST';
+  // Create signature data
   const signatureData = {
     total_amount: totalAmount.toFixed(2),
     transaction_uuid: transactionId,
@@ -63,7 +73,7 @@ export const generateEsewaPaymentUrl = (params) => {
   // Generate signature (HMAC SHA256)
   const message = `total_amount=${signatureData.total_amount},transaction_uuid=${signatureData.transaction_uuid},product_code=${signatureData.product_code}`;
   const signature = crypto
-    .createHmac('sha256', config.esewa.secretKey)
+    .createHmac('sha256', secretKey)
     .update(message)
     .digest('base64');
 
@@ -104,11 +114,21 @@ export const verifyEsewaPayment = async (transactionId, productCode = null) => {
   const environment = config.esewa.environment || 'sandbox';
   const verifyUrl = ESEWA_VERIFY_URL[environment];
 
+  let secretKey = config.esewa.secretKey;
+
+  // Force test credentials in sandbox
+  if (environment === 'sandbox') {
+    secretKey = '8gBm/:&EnhH.1/q';
+    if (!productCode || productCode === 'EPAYTEST') {
+      productCode = 'EPAYTEST';
+    }
+  }
+
   try {
     // Create signature for verification
     const message = `transaction_uuid=${transactionId},product_code=${productCode}`;
     const signature = crypto
-      .createHmac('sha256', config.esewa.secretKey)
+      .createHmac('sha256', secretKey)
       .update(message)
       .digest('base64');
 
@@ -117,7 +137,7 @@ export const verifyEsewaPayment = async (transactionId, productCode = null) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Bearer ${config.esewa.secretKey}`,
+        Authorization: `Bearer ${secretKey}`,
       },
       body: new URLSearchParams({
         transaction_uuid: transactionId,
