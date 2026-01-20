@@ -808,33 +808,52 @@ export default function CourseDetailPage() {
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {relatedCourses.map((rc) => (
-                <Link key={rc.id} href={`/courses/${rc.slug || rc.id}`} className="group">
-                  <Card padding="none" hover className="h-full border border-gray-200 rounded-none overflow-hidden bg-white shadow-sm ring-blue-500/10 group-hover:ring-8 transition-all">
-                    <div className="relative aspect-video">
-                      {rc.thumbnail && (
-                        <Image src={rc.thumbnail} alt={rc.title} fill className="object-cover transition-transform group-hover:scale-105" />
-                      )}
-                      <div className="absolute top-2 right-2 px-2 py-1 bg-white/90 rounded-none text-[10px] font-black tracking-widest text-gray-900 border border-gray-100">
-                        {rc.level ? rc.level.toUpperCase() : 'ALL'}
+                <Card key={rc.id} hover className="overflow-hidden">
+                  <Link href={`/courses/${rc.slug || rc.id}`} className="block h-full">
+                    {rc.thumbnail && (
+                      <div className="relative h-48 w-full">
+                        <Image
+                          src={rc.thumbnail}
+                          alt={rc.title}
+                          fill
+                          className="object-cover"
+                        />
                       </div>
-                    </div>
-                    <div className="p-5 space-y-4">
-                      <h3 className="font-black text-gray-900 group-hover:text-[var(--primary-700)] transition-colors line-clamp-2 h-12 leading-tight">
+                    )}
+                    <div className="p-4 flex flex-col h-[calc(100%-12rem)]">
+                      <h3 className="text-xl font-semibold text-[var(--foreground)] mb-2">
                         {rc.title}
                       </h3>
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                        <span className="text-lg font-black text-gray-900">
-                          {rc.isFree ? 'FREE' : `Rs. ${rc.price.toLocaleString()}`}
+                      <p className="text-sm text-[var(--muted-foreground)] mb-4 line-clamp-2 flex-grow">
+                        {rc.shortDescription || rc.description}
+                      </p>
+                      <div className="flex items-center justify-between mt-auto mb-3">
+                        <span className="text-lg font-bold text-[var(--primary-700)]">
+                          {rc.isFree ? 'Free' : formatCurrency(rc.price)}
                         </span>
-                        <div className="p-2 rounded-none bg-gray-50 group-hover:bg-blue-50 group-hover:text-[var(--primary-700)] transition-colors">
-                          <HiChevronRight className="w-5 h-5" />
-                        </div>
+                        <Button variant="primary" size="sm">View Details</Button>
                       </div>
+
+                      {user && (
+                        <div className="flex gap-2" onClick={(e) => e.preventDefault()}>
+                          <ShareButton
+                            courseId={rc.id}
+                            course={{
+                              id: rc.id,
+                              title: rc.title,
+                              thumbnail: rc.thumbnail
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                          />
+                        </div>
+                      )}
                     </div>
-                  </Card>
-                </Link>
+                  </Link>
+                </Card>
               ))}
             </div>
           </div>
