@@ -164,15 +164,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex">
+    <>
+      <div className="flex h-screen overflow-hidden bg-gray-50">
         {/* Sidebar */}
-        <aside className="w-64 bg-white shadow-lg min-h-screen sticky top-0 overflow-y-auto border-r border-gray-200">
-          <div className="p-6 border-b border-gray-200">
+        <aside className="w-64 bg-white shadow-lg flex-shrink-0 border-r border-gray-200 flex flex-col h-full">
+          <div className="p-6 border-b border-gray-200 flex-shrink-0">
             <h2 className="text-xl font-bold text-gray-900">Admin Panel</h2>
             <p className="text-sm text-gray-600 mt-1">{user?.fullName}</p>
           </div>
-          <nav className="p-4">
+          <nav className="flex-1 overflow-y-auto p-4 custom-scrollbar">
             <ul className="space-y-1">
               {adminMenuCategories.map((category) => {
                 const CategoryIcon = category.icon;
@@ -188,11 +188,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         console.log('Toggling category:', category.label);
                         toggleCategory(category.label);
                       }}
-                      className={`flex items-center justify-between w-full px-4 py-2 rounded-none transition-colors ${
-                        categoryActive
+                      className={`flex items-center justify-between w-full px-4 py-2 rounded-none transition-colors ${categoryActive
                           ? 'text-red-600 bg-red-50 border-l-4 border-red-600'
                           : 'text-gray-700 hover:text-red-600 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center space-x-3">
                         <CategoryIcon className="h-5 w-5" />
@@ -215,11 +214,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             <li key={item.href}>
                               <Link
                                 href={item.href}
-                                className={`flex items-center space-x-3 px-4 py-2 rounded-none transition-colors ${
-                                  isActive
+                                className={`flex items-center space-x-3 px-4 py-2 rounded-none transition-colors ${isActive
                                     ? 'text-red-600 bg-red-50 border-l-4 border-red-600'
                                     : 'text-gray-700 hover:bg-gray-50 hover:text-red-600'
-                                }`}
+                                  }`}
                               >
                                 <ItemIcon className="h-4 w-4" />
                                 <span className="text-sm">{item.label}</span>
@@ -236,10 +234,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </nav>
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 p-8 bg-white">
-          {children}
-        </main>
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <main className="flex-1 overflow-y-auto bg-white p-8 custom-scrollbar">
+            {children}
+          </main>
+        </div>
       </div>
       <Toaster
         position="top-right"
@@ -264,7 +264,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           },
         }}
       />
-    </div>
+    </>
   );
 }
 

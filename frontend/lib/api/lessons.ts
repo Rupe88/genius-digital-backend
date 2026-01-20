@@ -31,6 +31,21 @@ export const getLessonById = async (id: string): Promise<Lesson> => {
   }
 };
 
+export interface QuizQuestionData {
+  question: string;
+  options: string[];
+  correctAnswer: string;
+  points: number;
+}
+
+export interface QuizData {
+  title: string;
+  description?: string;
+  timeLimit?: number;
+  passingScore?: number;
+  questions: QuizQuestionData[];
+}
+
 export interface CreateLessonData {
   courseId: string;
   chapterId?: string;
@@ -48,6 +63,7 @@ export interface CreateLessonData {
   unlockRequirement?: string[];
   videoFile?: File | null;
   attachmentFile?: File | null;
+  quizData?: QuizData;
 }
 
 export const createLesson = async (data: CreateLessonData): Promise<Lesson> => {
@@ -68,6 +84,9 @@ export const createLesson = async (data: CreateLessonData): Promise<Lesson> => {
     if (data.isLocked !== undefined) formData.append('isLocked', data.isLocked.toString());
     if (data.unlockRequirement) {
       formData.append('unlockRequirement', JSON.stringify(data.unlockRequirement));
+    }
+    if (data.quizData) {
+      formData.append('quizData', JSON.stringify(data.quizData));
     }
     if (data.videoFile) formData.append('video', data.videoFile);
     if (data.attachmentFile) formData.append('attachment', data.attachmentFile);
@@ -112,6 +131,9 @@ export const updateLesson = async (id: string, data: Partial<CreateLessonData>):
     if (data.isLocked !== undefined) formData.append('isLocked', data.isLocked.toString());
     if (data.unlockRequirement !== undefined) {
       formData.append('unlockRequirement', JSON.stringify(data.unlockRequirement));
+    }
+    if (data.quizData !== undefined) {
+      formData.append('quizData', data.quizData ? JSON.stringify(data.quizData) : '');
     }
     if (data.videoFile) formData.append('video', data.videoFile);
     if (data.attachmentFile) formData.append('attachment', data.attachmentFile);

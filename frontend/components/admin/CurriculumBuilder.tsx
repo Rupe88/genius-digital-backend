@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
-import { Lesson, CreateLessonData } from '@/lib/api/lessons';
+import { Lesson, CreateLessonData, QuizData, QuizQuestionData } from '@/lib/api/lessons';
 import { Chapter, CreateChapterData } from '@/lib/api/chapters';
 
 // Local curriculum types for when course doesn't exist yet
@@ -33,6 +33,7 @@ interface LocalLesson {
   videoDuration?: number;
   isPreview: boolean;
   isLocked: boolean;
+  quiz?: QuizData;
 }
 import { FileUpload } from '@/components/ui/FileUpload';
 import * as lessonApi from '@/lib/api/lessons';
@@ -79,6 +80,7 @@ interface LessonFormData {
   isLocked: boolean;
   videoFile: File | null;
   attachmentFile: File | null;
+  quizData: QuizData;
 }
 
 export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
@@ -117,6 +119,10 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
     isLocked: false,
     videoFile: null,
     attachmentFile: null,
+    quizData: {
+      title: '',
+      questions: [{ question: '', options: ['', '', '', ''], correctAnswer: '', points: 1 }],
+    },
   });
 
   // Load chapters on mount
@@ -270,6 +276,10 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
       isLocked: false,
       videoFile: null,
       attachmentFile: null,
+      quizData: {
+        title: '',
+        questions: [{ question: '', options: ['', '', '', ''], correctAnswer: '', points: 1 }],
+      },
     });
     setShowLessonModal(true);
   };
@@ -277,6 +287,33 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
   const handleEditLesson = (lesson: Lesson | LocalLesson) => {
     setEditingLesson(lesson);
     setSelectedChapterId((lesson as Lesson).chapterId || '');
+
+    // Default quiz data if not present
+    let quizData: QuizData;
+
+    // Check if it's a server Lesson (has .quiz) or LocalLesson (has .quiz object directly or inside quizData sometimes)
+    if ('quiz' in lesson && lesson.quiz) {
+      // It's a server Lesson or LocalLesson with quiz property
+      const q = lesson.quiz as any; // Using any temporarily to bridge types, but logic is safe
+      quizData = {
+        title: q.title || '',
+        description: q.description || '',
+        timeLimit: q.timeLimit || 0,
+        passingScore: q.passingScore || 70,
+        questions: q.questions?.map((q: any) => ({
+          question: q.question,
+          options: Array.isArray(q.options) ? q.options : (typeof q.options === 'string' ? JSON.parse(q.options) : ['', '', '', '']),
+          correctAnswer: q.correctAnswer || '',
+          points: q.points || 1,
+        })) || [{ question: '', options: ['', '', '', ''], correctAnswer: '', points: 1 }],
+      };
+    } else {
+      quizData = {
+        title: '',
+        questions: [{ question: '', options: ['', '', '', ''], correctAnswer: '', points: 1 }],
+      };
+    }
+
     setLessonForm({
       title: lesson.title,
       description: lesson.description || '',
@@ -288,6 +325,7 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
       isLocked: lesson.isLocked || false,
       videoFile: null,
       attachmentFile: null,
+      quizData,
     });
     setShowLessonModal(true);
   };
@@ -314,6 +352,7 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
           isLocked: lessonForm.isLocked,
           videoFile: lessonForm.videoFile || undefined,
           attachmentFile: lessonForm.attachmentFile || undefined,
+          quizData: lessonForm.lessonType === 'QUIZ' ? lessonForm.quizData : undefined,
         };
 
         if (editingLesson) {
@@ -338,6 +377,7 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
           videoDuration: lessonForm.videoDuration || undefined,
           isPreview: lessonForm.isPreview,
           isLocked: lessonForm.isLocked,
+          quiz: lessonForm.lessonType === 'QUIZ' ? lessonForm.quizData : undefined,
         };
 
         // Add lesson to the selected chapter
@@ -367,6 +407,67 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
       console.error('Error saving lesson:', error);
       showError('Failed to save lesson');
     }
+  };
+
+  const addQuizQuestion = () => {
+    setLessonForm(prev => ({
+      ...prev,
+      quizData: {
+        ...prev.quizData,
+        questions: [
+          ...prev.quizData.questions,
+          { question: '', options: ['', '', '', ''], correctAnswer: '', points: 1 },
+        ],
+      },
+    }));
+  };
+
+  const removeQuizQuestion = (index: number) => {
+    setLessonForm(prev => ({
+      ...prev,
+      quizData: {
+        ...prev.quizData,
+        questions: prev.quizData.questions.filter((_, i) => i !== index),
+      },
+    }));
+  };
+
+  const updateQuizQuestion = (index: number, field: string, value: any) => {
+    setLessonForm(prev => {
+      const newQuestions = [...prev.quizData.questions];
+      newQuestions[index] = { ...newQuestions[index], [field]: value };
+      return {
+        ...prev,
+        quizData: {
+          ...prev.quizData,
+          questions: newQuestions,
+        },
+      };
+    });
+  };
+
+  const updateQuizOption = (qIndex: number, oIndex: number, value: string) => {
+    setLessonForm(prev => {
+      const newQuestions = [...prev.quizData.questions];
+      const newOptions = [...newQuestions[qIndex].options];
+      const oldOptionValue = newOptions[oIndex];
+      newOptions[oIndex] = value;
+
+      // If the correct answer matches the old value, update it to the new value
+      let newCorrectAnswer = newQuestions[qIndex].correctAnswer;
+      if (newCorrectAnswer === oldOptionValue) {
+        newCorrectAnswer = value;
+      }
+
+      newQuestions[qIndex] = { ...newQuestions[qIndex], options: newOptions, correctAnswer: newCorrectAnswer };
+      return {
+        ...prev,
+        quizData: {
+          ...prev.quizData,
+          questions: newQuestions,
+        },
+      };
+    });
   };
 
   const handleDeleteLesson = async (chapterId: string, lessonId: string) => {
@@ -762,12 +863,76 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
             />
           )}
 
-          {(lessonForm.lessonType === 'TEXT' || lessonForm.lessonType === 'QUIZ' || lessonForm.lessonType === 'ASSIGNMENT') ? (
+          {lessonForm.lessonType === 'QUIZ' && (
+            <div className="space-y-6 pt-4 border-t border-gray-200">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold text-gray-900">Quiz Questions</h3>
+                <Button type="button" variant="outline" size="sm" onClick={addQuizQuestion}>
+                  <HiPlus className="w-4 h-4 mr-2" />
+                  Add Question
+                </Button>
+              </div>
+
+              <div className="space-y-8">
+                {lessonForm.quizData.questions.map((q, qIndex) => (
+                  <div key={qIndex} className="p-4 border border-gray-200 rounded-none bg-gray-50 space-y-4 relative">
+                    <button
+                      type="button"
+                      onClick={() => removeQuizQuestion(qIndex)}
+                      className="absolute top-2 right-2 p-1 text-red-500 hover:bg-red-50 rounded-none"
+                    >
+                      <HiX className="w-5 h-5" />
+                    </button>
+
+                    <Input
+                      label={`Question ${qIndex + 1}`}
+                      value={q.question}
+                      onChange={(e) => updateQuizQuestion(qIndex, 'question', e.target.value)}
+                      placeholder="Enter question text"
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      {q.options.map((option, oIndex) => (
+                        <div key={oIndex} className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            name={`correct-${qIndex}`}
+                            checked={q.correctAnswer === option && option !== ''}
+                            onChange={() => updateQuizQuestion(qIndex, 'correctAnswer', option)}
+                            className="h-4 w-4 text-red-600 border-gray-300 focus:ring-red-500"
+                          />
+                          <Input
+                            value={option}
+                            onChange={(e) => updateQuizOption(qIndex, oIndex, e.target.value)}
+                            placeholder={`Option ${oIndex + 1}`}
+                            className="flex-1"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center space-x-4">
+                      <Input
+                        label="Points"
+                        type="number"
+                        value={q.points}
+                        onChange={(e) => updateQuizQuestion(qIndex, 'points', parseInt(e.target.value) || 1)}
+                        className="w-24"
+                      />
+                      <div className="text-xs text-gray-500 pt-6">
+                        * Select the radio button next to the correct option
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(lessonForm.lessonType === 'TEXT' || lessonForm.lessonType === 'ASSIGNMENT') ? (
             <div className="space-y-2">
               <label className="block text-sm font-medium text-[var(--foreground)]">
-                {lessonForm.lessonType === 'TEXT' ? 'Lesson Content' :
-                  lessonForm.lessonType === 'QUIZ' ? 'Quiz Instructions' :
-                    'Assignment Instructions'}
+                {lessonForm.lessonType === 'TEXT' ? 'Lesson Content' : 'Assignment Instructions'}
               </label>
               <RichTextEditor
                 value={lessonForm.content}
@@ -775,7 +940,7 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
                 placeholder="Enter detailed content here..."
               />
             </div>
-          ) : (
+          ) : lessonForm.lessonType !== 'QUIZ' && (
             <Textarea
               label="Additional Notes / Content"
               value={lessonForm.content}

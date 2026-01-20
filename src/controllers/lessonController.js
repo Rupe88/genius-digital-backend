@@ -195,6 +195,7 @@ export const createLesson = async (req, res, next) => {
       isPreview,
       isLocked,
       unlockRequirement,
+      quizData,
     } = req.body;
 
     // Validate course exists
@@ -271,27 +272,69 @@ export const createLesson = async (req, res, next) => {
       }
     }
 
-    const lesson = await prisma.lesson.create({
-      data: {
-        courseId,
-        chapterId: chapterId || null,
-        title,
-        slug: finalSlug,
-        description: description || null,
-        content: content || null,
-        videoUrl: req.cloudinary?.videoUrl || videoUrl || null,
-        videoDuration: req.cloudinary?.videoDuration || (videoDuration ? parseInt(videoDuration) : null),
-        attachmentUrl: req.cloudinary?.attachmentUrl || attachmentUrl || null,
-        lessonType: lessonType || 'VIDEO',
-        order: finalOrder,
-        isPreview: isPreview === true || isPreview === 'true',
-        isLocked: isLocked === true || isLocked === 'true',
-        unlockRequirement: parsedUnlockRequirement,
-      },
-      include: {
-        course: true,
-        chapter: true,
-      },
+    // Parse quizData if provided
+    let parsedQuizData = null;
+    if (quizData) {
+      try {
+        parsedQuizData = typeof quizData === 'string' ? JSON.parse(quizData) : quizData;
+      } catch (e) {
+        console.error('Error parsing quizData:', e);
+      }
+    }
+
+    const lesson = await prisma.$transaction(async (tx) => {
+      const newLesson = await tx.lesson.create({
+        data: {
+          courseId,
+          chapterId: chapterId || null,
+          title,
+          slug: finalSlug,
+          description: description || null,
+          content: content || null,
+          videoUrl: req.cloudinary?.videoUrl || videoUrl || null,
+          videoDuration: req.cloudinary?.videoDuration || (videoDuration ? parseInt(videoDuration) : null),
+          attachmentUrl: req.cloudinary?.attachmentUrl || attachmentUrl || null,
+          lessonType: lessonType || 'VIDEO',
+          order: finalOrder,
+          isPreview: isPreview === true || isPreview === 'true',
+          isLocked: isLocked === true || isLocked === 'true',
+          unlockRequirement: parsedUnlockRequirement,
+        },
+      });
+
+      if (lessonType === 'QUIZ' && parsedQuizData) {
+        await tx.quiz.create({
+          data: {
+            lessonId: newLesson.id,
+            title: parsedQuizData.title || title,
+            description: parsedQuizData.description || description,
+            timeLimit: parsedQuizData.timeLimit ? parseInt(parsedQuizData.timeLimit) : null,
+            passingScore: parsedQuizData.passingScore ? parseInt(parsedQuizData.passingScore) : 70,
+            questions: {
+              create: parsedQuizData.questions.map((q, idx) => ({
+                question: q.question,
+                options: q.options,
+                correctAnswer: q.correctAnswer,
+                points: q.points ? parseInt(q.points) : 1,
+                order: idx,
+              })),
+            },
+          },
+        });
+      }
+
+      return await tx.lesson.findUnique({
+        where: { id: newLesson.id },
+        include: {
+          course: true,
+          chapter: true,
+          quiz: {
+            include: {
+              questions: true,
+            },
+          },
+        },
+      });
     });
 
     res.status(201).json({
@@ -332,10 +375,12 @@ export const updateLesson = async (req, res, next) => {
       isPreview,
       isLocked,
       unlockRequirement,
+      quizData,
     } = req.body;
 
     const existingLesson = await prisma.lesson.findUnique({
       where: { id },
+      include: { quiz: true },
     });
 
     if (!existingLesson) {
@@ -402,6 +447,16 @@ export const updateLesson = async (req, res, next) => {
       }
     }
 
+    // Parse quizData if provided
+    let parsedQuizData = null;
+    if (quizData) {
+      try {
+        parsedQuizData = typeof quizData === 'string' ? JSON.parse(quizData) : quizData;
+      } catch (e) {
+        console.error('Error parsing quizData:', e);
+      }
+    }
+
     const updateData = {};
     if (title !== undefined) updateData.title = title;
     if (finalSlug) updateData.slug = finalSlug;
@@ -429,13 +484,55 @@ export const updateLesson = async (req, res, next) => {
       updateData.unlockRequirement = parsedUnlockRequirement;
     }
 
-    const lesson = await prisma.lesson.update({
-      where: { id },
-      data: updateData,
-      include: {
-        course: true,
-        chapter: true,
-      },
+    const lesson = await prisma.$transaction(async (tx) => {
+      const updatedLesson = await tx.lesson.update({
+        where: { id },
+        data: updateData,
+      });
+
+      if ((lessonType === 'QUIZ' || updatedLesson.lessonType === 'QUIZ') && parsedQuizData) {
+        // Delete existing quiz and questions to simplify update
+        if (existingLesson.quiz) {
+          await tx.quizQuestion.deleteMany({ where: { quizId: existingLesson.quiz.id } });
+          await tx.quiz.delete({ where: { id: existingLesson.quiz.id } });
+        }
+
+        await tx.quiz.create({
+          data: {
+            lessonId: updatedLesson.id,
+            title: parsedQuizData.title || title || updatedLesson.title,
+            description: parsedQuizData.description || description || updatedLesson.description,
+            timeLimit: parsedQuizData.timeLimit ? parseInt(parsedQuizData.timeLimit) : null,
+            passingScore: parsedQuizData.passingScore ? parseInt(parsedQuizData.passingScore) : 70,
+            questions: {
+              create: parsedQuizData.questions.map((q, idx) => ({
+                question: q.question,
+                options: q.options,
+                correctAnswer: q.correctAnswer,
+                points: q.points ? parseInt(q.points) : 1,
+                order: idx,
+              })),
+            },
+          },
+        });
+      } else if (lessonType && lessonType !== 'QUIZ' && existingLesson.quiz) {
+        // If lesson type changed from QUIZ, delete the quiz
+        await tx.quizQuestion.deleteMany({ where: { quizId: existingLesson.quiz.id } });
+        await tx.quiz.delete({ where: { id: existingLesson.quiz.id } });
+      }
+
+      return await tx.lesson.findUnique({
+        where: { id: updatedLesson.id },
+        include: {
+          course: true,
+          chapter: true,
+          quiz: {
+            include: {
+              questions: true,
+            },
+          },
+        },
+      });
     });
 
     res.json({
