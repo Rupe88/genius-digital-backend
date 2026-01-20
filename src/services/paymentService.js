@@ -28,21 +28,21 @@ const generateTransactionId = () => {
  * @returns {Promise<Object>} Payment initiation result
  */
 export const initiatePayment = async (params) => {
-    const {
-      userId,
-      amount,
-      paymentMethod,
-      courseId = null,
-      orderId = null,
-      couponCode = null,
-      productIds = [],
-      productName = 'Course/Product Payment',
-      successUrl,
-      failureUrl,
-      metadata = {},
-    } = params;
+  const {
+    userId,
+    amount,
+    paymentMethod,
+    courseId = null,
+    orderId = null,
+    couponCode = null,
+    productIds = [],
+    productName = 'Course/Product Payment',
+    successUrl,
+    failureUrl,
+    metadata = {},
+  } = params;
 
-    const startTime = Date.now();
+  const startTime = Date.now();
 
   // Validate amount
   const paymentAmount = parseFloat(amount);
@@ -186,11 +186,11 @@ export const initiatePayment = async (params) => {
           amount: finalAmount.toString(),
           description: productName,
         });
-          paymentDetails = {
-            ...mobileBanking.paymentInstructions,
-            method: finalPaymentMethod,
-            transactionId,
-          };
+        paymentDetails = {
+          ...mobileBanking.paymentInstructions,
+          method: finalPaymentMethod,
+          transactionId,
+        };
         break;
 
       case 'VISA_CARD':
@@ -348,6 +348,7 @@ export const verifyPayment = async (params) => {
           }
         }
         verificationResult = await esewaService.verifyEsewaPayment(
+          payment.finalAmount,
           transactionId || payment.transactionId
         );
         break;
@@ -430,7 +431,7 @@ export const verifyPayment = async (params) => {
           payment.finalAmount,
           payment.metadata?.referralClickId
         );
-        
+
         // Get course to find instructor
         const course = await prisma.course.findUnique({
           where: { id: payment.courseId },
@@ -463,7 +464,7 @@ export const verifyPayment = async (params) => {
             });
           }
         }
-        
+
         // Calculate affiliate commission if enrollment has affiliate
         if (enrollment && enrollment.affiliateId) {
           try {
@@ -683,7 +684,7 @@ export const processRefund = async (paymentId, refundAmount = null, reason = nul
   }
 
   // If no amount specified, full refund
-  const refundAmountDecimal = refundAmount 
+  const refundAmountDecimal = refundAmount
     ? parseFloat(refundAmount)
     : parseFloat(payment.finalAmount.toString());
 

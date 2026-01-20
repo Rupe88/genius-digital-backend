@@ -98,17 +98,18 @@ export const generateEsewaPaymentUrl = (params) => {
 
 /**
  * Verify eSewa payment
+ * @param {string} amount - Transaction amount
  * @param {string} transactionId - Transaction ID to verify
  * @param {string} productCode - Product code
  * @returns {Promise<Object>} Verification result
  */
-export const verifyEsewaPayment = async (transactionId, productCode = null) => {
+export const verifyEsewaPayment = async (amount, transactionId, productCode = null) => {
   // Use configured product code if not provided
   if (!productCode) {
     productCode = config.esewaProductCode || 'EPAYTEST';
   }
   if (!config.esewa.merchantId || !config.esewa.secretKey) {
-    throw new Error('eSewa credentials not configured');
+    // throw new Error('eSewa credentials not configured');
   }
 
   const environment = config.esewa.environment || 'sandbox';
@@ -124,26 +125,31 @@ export const verifyEsewaPayment = async (transactionId, productCode = null) => {
     }
   }
 
+  // Ensure amount is formatted to 2 decimal places
+  const formattedAmount = parseFloat(amount).toFixed(2);
+
   try {
     // Create signature for verification
-    const message = `transaction_uuid=${transactionId},product_code=${productCode}`;
+    const message = `total_amount=${formattedAmount},transaction_uuid=${transactionId},product_code=${productCode}`;
     const signature = crypto
       .createHmac('sha256', secretKey)
       .update(message)
       .digest('base64');
 
-    // Make verification request
-    const response = await fetch(verifyUrl, {
-      method: 'POST',
+    // Make verification request (GET for V2 Status Check)
+    const queryString = new URLSearchParams({
+      product_code: productCode,
+      total_amount: formattedAmount,
+      transaction_uuid: transactionId,
+      signature: signature
+    }).toString();
+
+    const response = await fetch(`${verifyUrl}?${queryString}`, {
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Bearer ${secretKey}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
       },
-      body: new URLSearchParams({
-        transaction_uuid: transactionId,
-        product_code: productCode,
-        signature: signature,
-      }),
     });
 
     const data = await response.json();
@@ -161,7 +167,7 @@ export const verifyEsewaPayment = async (transactionId, productCode = null) => {
     return {
       success: false,
       status: data.status || 'FAILED',
-      message: data.message || 'Payment verification failed',
+      message: 'Payment verification failed',
       data: data,
     };
   } catch (error) {
