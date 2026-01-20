@@ -5,28 +5,26 @@ import { ReferralDashboard } from '@/components/referrals/ReferralDashboard';
 import { ShareButton } from '@/components/referrals/ShareButton';
 import { useRouter } from 'next/navigation';
 import { getReferralStats } from '@/lib/api/referrals';
+import { useAuth } from '@/lib/context/AuthContext';
 
 export default function ReferralsPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [stats, setStats] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem('accessToken');
-    const userData = JSON.parse(localStorage.getItem('userData') || 'null');
+    // Wait for auth check to complete
+    if (authLoading) return;
 
-    if (!token || !userData) {
+    if (!isAuthenticated) {
       router.push('/login');
       return;
     }
 
-    setUser(userData);
-
-    // Load initial stats
+    // Load stats only if authenticated
     loadStats();
-  }, [router]);
+  }, [isAuthenticated, authLoading, router]);
 
   const loadStats = async () => {
     try {
@@ -35,11 +33,11 @@ export default function ReferralsPage() {
     } catch (error) {
       console.error('Failed to load referral stats:', error);
     } finally {
-      setLoading(false);
+      setLoadingStats(false);
     }
   };
 
-  if (loading) {
+  if (authLoading || loadingStats) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-none h-32 w-32 border-b-2 border-blue-600"></div>

@@ -233,12 +233,14 @@ export const getReferralLinks = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: linksWithEarnings,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / parseInt(limit)),
+      data: {
+        data: linksWithEarnings,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit)),
+        },
       },
     });
   } catch (error) {
@@ -336,12 +338,14 @@ export const getReferralConversions = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: conversions,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / parseInt(limit)),
+      data: {
+        data: conversions,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit)),
+        },
       },
     });
   } catch (error) {
