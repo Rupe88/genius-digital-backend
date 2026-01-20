@@ -234,6 +234,21 @@ export const handleReferralClick = (referralCode: string): void => {
 };
 
 /**
+ * Track referral click via AJAX
+ */
+export const trackReferralClick = async (referralCode: string): Promise<{ clickId: string; valid: boolean }> => {
+  try {
+    const response = await apiClient.post<ApiResponse<{ clickId: string; valid: boolean }>>('/referrals/track', {
+      referralCode
+    });
+    return handleApiResponse<{ clickId: string; valid: boolean }>(response);
+  } catch (error) {
+    console.error('Failed to track referral click:', error);
+    throw error;
+  }
+};
+
+/**
  * Social Sharing Utilities
  */
 export class SocialSharing {

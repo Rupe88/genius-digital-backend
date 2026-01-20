@@ -2,6 +2,7 @@ import express from 'express';
 import {
   generateSharingLinks,
   trackReferralClick,
+  trackReferralClickAjax,
   getReferralStats,
   getReferralLinks,
   getReferralAnalytics,
@@ -19,6 +20,7 @@ const router = express.Router();
 
 // Public routes (no authentication required)
 router.get('/click/:referralCode', trackReferralClick);
+router.post('/track', trackReferralClickAjax);
 
 // Authenticated routes
 router.use(authenticate);

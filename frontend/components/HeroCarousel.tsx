@@ -85,74 +85,76 @@ export const HeroCarousel: React.FC = () => {
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      {/* Full-width carousel container */}
-      <div className="hero-carousel-container">
-        {/* Slides wrapper with smooth transition */}
-        <div
-          ref={slideRef}
-          className="hero-slides-wrapper"
-          style={{
-            transform: `translateX(-${currentSlide * 100}%)`,
-          }}
-        >
-          {heroSlides.map((slide, index) => (
-            <div key={index} className="hero-slide">
-              <Image
-                src={slide.image}
-                alt={slide.alt}
-                fill
-                priority={index === 0}
-                sizes="100vw"
-                className="hero-slide-image"
-                quality={90}
-              />
-              {/* Gradient overlay for better text visibility */}
-              <div className="hero-slide-overlay" />
-            </div>
-          ))}
-        </div>
-
-        {/* Navigation Arrows */}
-        <button
-          onClick={prevSlide}
-          className="hero-nav-btn hero-nav-btn-left"
-          aria-label="Previous slide"
-          disabled={isTransitioning}
-        >
-          <HiChevronLeft className="h-6 w-6 md:h-7 md:w-7" />
-        </button>
-        <button
-          onClick={nextSlide}
-          className="hero-nav-btn hero-nav-btn-right"
-          aria-label="Next slide"
-          disabled={isTransitioning}
-        >
-          <HiChevronRight className="h-6 w-6 md:h-7 md:w-7" />
-        </button>
-
-        {/* Pagination Dots */}
-        <div className="hero-pagination">
-          {heroSlides.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => goToSlide(index)}
-              className={`hero-pagination-dot ${index === currentSlide ? 'hero-pagination-dot-active' : ''
-                }`}
-              aria-label={`Go to slide ${index + 1}`}
-              aria-current={index === currentSlide ? 'true' : 'false'}
-            />
-          ))}
-        </div>
-
-        {/* Progress bar */}
-        <div className="hero-progress-bar">
+      {/* Constrained container to match Navbar */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="hero-carousel-container shadow-2xl border border-gray-100">
+          {/* Slides wrapper with smooth transition */}
           <div
-            className="hero-progress-fill"
+            ref={slideRef}
+            className="hero-slides-wrapper"
             style={{
-              animation: isPaused ? 'none' : 'progressFill 4s linear infinite',
+              transform: `translateX(-${currentSlide * 100}%)`,
             }}
-            key={currentSlide}
-          />
+          >
+            {heroSlides.map((slide, index) => (
+              <div key={index} className="hero-slide">
+                <Image
+                  src={slide.image}
+                  alt={slide.alt}
+                  fill
+                  priority={index === 0}
+                  sizes="(max-width: 1280px) 100vw, 1280px"
+                  className="hero-slide-image"
+                  quality={90}
+                />
+                {/* Gradient overlay for better text visibility */}
+                <div className="hero-slide-overlay" />
+              </div>
+            ))}
+          </div>
+
+          {/* Navigation Arrows */}
+          <button
+            onClick={prevSlide}
+            className="hero-nav-btn hero-nav-btn-left"
+            aria-label="Previous slide"
+            disabled={isTransitioning}
+          >
+            <HiChevronLeft className="h-6 w-6 md:h-7 md:w-7" />
+          </button>
+          <button
+            onClick={nextSlide}
+            className="hero-nav-btn hero-nav-btn-right"
+            aria-label="Next slide"
+            disabled={isTransitioning}
+          >
+            <HiChevronRight className="h-6 w-6 md:h-7 md:w-7" />
+          </button>
+
+          {/* Pagination Dots */}
+          <div className="hero-pagination">
+            {heroSlides.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => goToSlide(index)}
+                className={`hero-pagination-dot ${index === currentSlide ? 'hero-pagination-dot-active' : ''
+                  }`}
+                aria-label={`Go to slide ${index + 1}`}
+                aria-current={index === currentSlide ? 'true' : 'false'}
+              />
+            ))}
+          </div>
+
+          {/* Progress bar */}
+          <div className="hero-progress-bar">
+            <div
+              className="hero-progress-fill"
+              style={{
+                animation: isPaused ? 'none' : 'progressFill 4s linear infinite',
+              }}
+              key={currentSlide}
+            />
+          </div>
         </div>
       </div>
 
@@ -160,37 +162,37 @@ export const HeroCarousel: React.FC = () => {
       <style jsx>{`
         .hero-carousel-wrapper {
           width: 100%;
-          background: #0a0a0a;
+          background: transparent;
         }
 
         .hero-carousel-container {
           position: relative;
           width: 100%;
-          height: 480px;
+          height: 280px;
           overflow: hidden;
         }
 
         @media (min-width: 640px) {
           .hero-carousel-container {
-            height: 560px;
+            height: 340px;
           }
         }
 
         @media (min-width: 768px) {
           .hero-carousel-container {
-            height: 620px;
+            height: 380px;
           }
         }
 
         @media (min-width: 1024px) {
           .hero-carousel-container {
-            height: 680px;
+            height: 440px;
           }
         }
 
         @media (min-width: 1280px) {
           .hero-carousel-container {
-            height: 720px;
+            height: 500px;
           }
         }
 

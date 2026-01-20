@@ -24,6 +24,7 @@ export const createPayment = async (data: {
   amount: number;
   paymentMethod: string;
   couponCode?: string;
+  referralClickId?: string;
   successUrl?: string;
   failureUrl?: string;
 }): Promise<InitiatePaymentResponse> => {

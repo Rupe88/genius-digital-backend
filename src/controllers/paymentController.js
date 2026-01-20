@@ -76,7 +76,7 @@ export const initiatePayment = async (req, res, next) => {
       metadata: {
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
-        referralClickId: req.cookies.referral_click_id,
+        referralClickId: req.body.referralClickId || req.cookies.referral_click_id,
       },
     });
 

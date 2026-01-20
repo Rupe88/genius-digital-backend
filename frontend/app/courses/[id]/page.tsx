@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
@@ -172,6 +172,35 @@ export default function CourseDetailPage() {
     form.submit();
   };
 
+  /* --------------------------------------------------------------------------------
+   * REFERRAL TRACKING LOGIC
+   * -------------------------------------------------------------------------------- */
+  const searchParams = useSearchParams();
+  const [referralClickId, setReferralClickId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleReferral = async () => {
+      const refCode = searchParams.get('ref');
+      if (refCode) {
+        try {
+          // Track the click
+          const response = await import('@/lib/api/referrals').then(m => m.trackReferralClick(refCode));
+          if (response && response.clickId) {
+            console.log('Referral tracked:', response.clickId);
+            setReferralClickId(response.clickId);
+            // Optionally persist to sessionStorage if needed for strict persistence across reloads
+            // sessionStorage.setItem('referral_click_id', response.clickId);
+          }
+        } catch (error) {
+          console.error('Error tracking referral:', error);
+        }
+      }
+    };
+
+    handleReferral();
+  }, [searchParams]);
+
+
   const handleEnroll = async () => {
     if (!isAuthenticated) {
       router.push(`${ROUTES.LOGIN}?redirect=/courses/${params.id}`);
@@ -199,6 +228,7 @@ export default function CourseDetailPage() {
           courseId: course.id,
           amount: course.price,
           paymentMethod: 'ESEWA',
+          referralClickId: referralClickId || undefined, // Pass referral click ID if exists
           successUrl: `${window.location.origin}/payment/success`,
           failureUrl: `${window.location.origin}/payment/failure`,
         });

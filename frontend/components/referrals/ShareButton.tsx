@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { generateSharingLinks } from '@/lib/api/referrals';
-import { SocialSharing, SharingLinks } from '@/lib/api/referrals';
+import { generateSharingLinks, SocialSharing, SharingLinks } from '@/lib/api/referrals';
 import { FaShare, FaFacebook, FaLinkedin, FaTwitter, FaWhatsapp, FaCopy, FaCheck } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 

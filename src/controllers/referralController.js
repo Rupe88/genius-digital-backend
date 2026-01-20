@@ -98,6 +98,59 @@ export const trackReferralClick = async (req, res, next) => {
 };
 
 /**
+ * Track referral click via AJAX (returns JSON)
+ */
+export const trackReferralClickAjax = async (req, res, next) => {
+  try {
+    const { referralCode } = req.body;
+
+    if (!referralCode) {
+      return res.status(400).json({ success: false, message: 'Referral code is required' });
+    }
+
+    // Get click data from request
+    const clickData = {
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('User-Agent'),
+      referrer: req.get('Referer'),
+      userId: req.user ? req.user.id : null,
+      sessionId: req.sessionID || null,
+      deviceInfo: {
+        userAgent: req.get('User-Agent'),
+        platform: req.useragent ? req.useragent.platform : null,
+        browser: req.useragent ? req.useragent.browser : null,
+        version: req.useragent ? req.useragent.version : null,
+        os: req.useragent ? req.useragent.os : null,
+      },
+    };
+
+    const click = await referralService.trackReferralClick(referralCode, clickData);
+
+    // Set cookie as backup
+    res.cookie('referral_click_id', click.id, {
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
+
+    res.json({
+      success: true,
+      data: {
+        clickId: click.id,
+        valid: click.isValid
+      }
+    });
+  } catch (error) {
+    // Return 200 with error message to avoid breaking UI flow
+    res.json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
  * Get user's referral statistics
  */
 export const getReferralStats = async (req, res, next) => {
