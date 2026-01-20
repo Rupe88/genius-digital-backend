@@ -1,6 +1,7 @@
 import { validationResult } from 'express-validator';
 import * as referralService from '../services/referralService.js';
 import { PrismaClient } from '@prisma/client';
+import { config } from '../config/env.js';
 
 const prisma = new PrismaClient();
 
@@ -33,7 +34,7 @@ export const generateSharingLinks = async (req, res, next) => {
       });
     }
 
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const baseUrl = config.frontendUrl;
     console.log(`Generating sharing links for user ${userId} and course ${courseId}`);
 
     // Pass course slug to avoid extra DB call
@@ -92,12 +93,12 @@ export const trackReferralClick = async (req, res, next) => {
 
     // Redirect to course page
     const referralLink = await referralService.getReferralLinkByCode(referralCode);
-    const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/courses/${referralLink.course.slug}`;
+    const redirectUrl = `${config.frontendUrl}/courses/${referralLink.course.slug}`;
 
     res.redirect(302, redirectUrl);
   } catch (error) {
     // On error, redirect to home page
-    const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}`;
+    const redirectUrl = config.frontendUrl;
     res.redirect(302, redirectUrl);
   }
 };
