@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
-import { HiHome, HiBookOpen, HiChartBar, HiAcademicCap, HiCreditCard, HiHeart, HiCog } from 'react-icons/hi';
+import { HiHome, HiBookOpen, HiChartBar, HiAcademicCap, HiCreditCard, HiHeart, HiCog, HiShare } from 'react-icons/hi';
 import { ROUTES } from '@/lib/utils/constants';
 
 const menuItems = [
@@ -12,6 +12,7 @@ const menuItems = [
   { href: `${ROUTES.DASHBOARD}/my-courses`, label: 'My Courses', icon: HiBookOpen },
   { href: `${ROUTES.DASHBOARD}/progress`, label: 'Progress', icon: HiChartBar },
   { href: `${ROUTES.DASHBOARD}/certificates`, label: 'Certificates', icon: HiAcademicCap },
+  { href: `${ROUTES.DASHBOARD}/referrals`, label: 'Referrals', icon: HiShare },
   { href: `${ROUTES.DASHBOARD}/payments`, label: 'Payments', icon: HiCreditCard },
   { href: `${ROUTES.DASHBOARD}/wishlist`, label: 'Wishlist', icon: HiHeart },
   { href: `${ROUTES.DASHBOARD}/settings`, label: 'Settings', icon: HiCog },
@@ -52,11 +53,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      className={`flex items-center space-x-3 px-4 py-2 rounded-none transition-colors ${
-                        isActive
+                      className={`flex items-center space-x-3 px-4 py-2 rounded-none transition-colors ${isActive
                           ? 'bg-[var(--primary-700)] text-white'
                           : 'text-[var(--foreground)] hover:bg-[var(--muted)]'
-                      }`}
+                        }`}
                     >
                       <Icon className="h-5 w-5" />
                       <span>{item.label}</span>

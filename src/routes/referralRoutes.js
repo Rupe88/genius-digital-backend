@@ -31,7 +31,6 @@ router.get(
   [
     param('courseId').isUUID(),
   ],
-  validate,
   generateSharingLinks
 );
 
@@ -54,7 +53,6 @@ router.patch(
   [
     param('linkId').isUUID(),
   ],
-  validate,
   deactivateReferralLink
 );
 
@@ -64,7 +62,6 @@ router.patch(
   [
     param('linkId').isUUID(),
   ],
-  validate,
   reactivateReferralLink
 );
 
@@ -99,7 +96,6 @@ router.post(
     body('conversionIds').isArray().withMessage('Conversion IDs array is required'),
     body('conversionIds.*').isUUID(),
   ],
-  validate,
   markCommissionsAsPaid
 );
 
