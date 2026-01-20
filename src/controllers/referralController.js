@@ -27,10 +27,24 @@ export const generateSharingLinks = async (req, res, next) => {
       select: { id: true, status: true, title: true, slug: true },
     });
 
-    if (!course || course.status !== 'PUBLISHED') {
+    console.log(`Course lookup for ${courseId}:`, course);
+
+    if (!course) {
+      console.error(`Course ${courseId} not found in database`);
       return res.status(404).json({
         success: false,
-        message: 'Course not found or not available for sharing',
+        message: 'Course not found',
+      });
+    }
+
+    // In production, enforce PUBLISHED status. In development, allow any status
+    const requirePublished = config.nodeEnv === 'production';
+
+    if (requirePublished && course.status !== 'PUBLISHED') {
+      console.error(`Course ${courseId} has status: ${course.status}, expected PUBLISHED`);
+      return res.status(404).json({
+        success: false,
+        message: `Course is not available for sharing. Status: ${course.status}. Please publish the course first.`,
       });
     }
 
