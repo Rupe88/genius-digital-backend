@@ -101,7 +101,7 @@ export default function AdminInstructorsPage() {
             <Card key={instructor.id} padding="lg" className="hover:shadow-lg transition-shadow">
               <div className="flex flex-col items-center text-center mb-4">
                 {instructor.image ? (
-                  <div className="relative w-24 h-24 rounded-full overflow-hidden mb-4">
+                  <div className="relative w-24 h-24 rounded-none overflow-hidden mb-4">
                     <Image
                       src={instructor.image}
                       alt={instructor.name}
@@ -111,7 +111,7 @@ export default function AdminInstructorsPage() {
                     />
                   </div>
                 ) : (
-                  <div className="w-24 h-24 rounded-full bg-[var(--primary-700)] flex items-center justify-center text-white font-semibold text-2xl mb-4">
+                  <div className="w-24 h-24 rounded-none bg-[var(--primary-700)] flex items-center justify-center text-white font-semibold text-2xl mb-4">
                     {instructor.name[0]?.toUpperCase()}
                   </div>
                 )}

@@ -202,7 +202,7 @@ export default function AdminCoursesPage() {
                   <tr key={course.id} className="hover:bg-[var(--muted)]">
                     <td className="px-6 py-4 whitespace-nowrap">
                       {course.thumbnail ? (
-                        <div className="relative w-16 h-16 rounded overflow-hidden">
+                        <div className="relative w-16 h-16 rounded-none overflow-hidden">
                           <Image
                             src={course.thumbnail}
                             alt={course.title}
@@ -212,7 +212,7 @@ export default function AdminCoursesPage() {
                           />
                         </div>
                       ) : (
-                        <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+                        <div className="w-16 h-16 bg-gray-200 rounded-none flex items-center justify-center">
                           <span className="text-gray-400 text-xs">No Image</span>
                         </div>
                       )}

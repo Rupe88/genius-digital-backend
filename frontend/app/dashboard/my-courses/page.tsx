@@ -56,15 +56,15 @@ export default function MyCoursesPage() {
                     <span className="text-[var(--muted-foreground)]">Progress</span>
                     <span className="font-medium">{enrollment.progress}%</span>
                   </div>
-                  <div className="w-full bg-[var(--muted)] rounded-full h-2">
+                  <div className="w-full bg-[var(--muted)] rounded-none h-2">
                     <div
-                      className="bg-[var(--primary-700)] h-2 rounded-full"
+                      className="bg-[var(--primary-700)] h-2 rounded-none"
                       style={{ width: `${enrollment.progress}%` }}
                     ></div>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className={`text-sm px-2 py-1 rounded ${enrollment.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                  <span className={`text-sm px-2 py-1 rounded-none ${enrollment.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
                       enrollment.status === 'ACTIVE' ? 'bg-blue-100 text-blue-700' :
                         'bg-gray-100 text-gray-700'
                     }`}>

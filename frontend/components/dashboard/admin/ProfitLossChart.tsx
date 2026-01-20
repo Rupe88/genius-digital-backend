@@ -30,9 +30,9 @@ export const ProfitLossChart: React.FC<ProfitLossChartProps> = ({
             <span className="text-sm font-medium">Revenue</span>
             <span className="text-sm font-bold text-green-600">Rs. {revenue.toLocaleString()}</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-4">
+          <div className="w-full bg-gray-200 rounded-none h-4">
             <div
-              className="bg-green-600 h-4 rounded-full transition-all"
+              className="bg-green-600 h-4 rounded-none transition-all"
               style={{ width: `${revenueBarWidth}%` }}
             />
           </div>
@@ -42,9 +42,9 @@ export const ProfitLossChart: React.FC<ProfitLossChartProps> = ({
             <span className="text-sm font-medium">Expenses</span>
             <span className="text-sm font-bold text-red-600">Rs. {expenses.toLocaleString()}</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-4">
+          <div className="w-full bg-gray-200 rounded-none h-4">
             <div
-              className="bg-red-600 h-4 rounded-full transition-all"
+              className="bg-red-600 h-4 rounded-none transition-all"
               style={{ width: `${expensesBarWidth}%` }}
             />
           </div>
@@ -56,9 +56,9 @@ export const ProfitLossChart: React.FC<ProfitLossChartProps> = ({
               Rs. {grossProfit.toLocaleString()}
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-4">
+          <div className="w-full bg-gray-200 rounded-none h-4">
             <div
-              className={`h-4 rounded-full transition-all ${grossProfit >= 0 ? 'bg-green-500' : 'bg-red-500'}`}
+              className={`h-4 rounded-none transition-all ${grossProfit >= 0 ? 'bg-green-500' : 'bg-red-500'}`}
               style={{ width: `${Math.max(0, (Math.abs(grossProfit) / maxValue) * 100)}%` }}
             />
           </div>
@@ -70,9 +70,9 @@ export const ProfitLossChart: React.FC<ProfitLossChartProps> = ({
               Rs. {netProfit.toLocaleString()}
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-6">
+          <div className="w-full bg-gray-200 rounded-none h-6">
             <div
-              className={`h-6 rounded-full transition-all ${netProfit >= 0 ? 'bg-green-600' : 'bg-red-600'}`}
+              className={`h-6 rounded-none transition-all ${netProfit >= 0 ? 'bg-green-600' : 'bg-red-600'}`}
               style={{ width: `${Math.max(0, (Math.abs(netProfit) / maxValue) * 100)}%` }}
             />
           </div>

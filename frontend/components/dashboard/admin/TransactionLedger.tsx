@@ -60,7 +60,7 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({ transactio
                 </td>
                 <td className="py-3 px-4">
                   <span
-                    className={`px-2 py-1 rounded text-xs ${
+                    className={`px-2 py-1 rounded-none text-xs ${
                       transaction.type === 'INCOME' || transaction.type === 'REFUND'
                         ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'

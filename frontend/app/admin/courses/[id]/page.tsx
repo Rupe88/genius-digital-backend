@@ -127,7 +127,7 @@ export default function CourseDetailPage() {
                   src={course.thumbnail}
                   alt={course.title}
                   fill
-                  className="object-cover rounded-t-lg"
+                  className="object-cover rounded-none"
                   sizes="(max-width: 768px) 100vw, 66vw"
                 />
               </div>

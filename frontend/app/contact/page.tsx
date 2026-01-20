@@ -58,13 +58,13 @@ export default function ContactPage() {
 
         <Card padding="lg">
           {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-none text-sm">
               Message sent successfully!
             </div>
           )}
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-none text-sm">
               {error}
             </div>
           )}
@@ -101,7 +101,7 @@ export default function ContactPage() {
               <textarea
                 {...register('message')}
                 rows={6}
-                className="w-full px-4 py-2 border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
+                className="w-full px-4 py-2 border border-[var(--border)] rounded-none focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                 placeholder="Enter your message"
               />
               {errors.message && (

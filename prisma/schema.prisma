@@ -339,6 +339,7 @@ model Course {
   endDate          DateTime?
 
   tags             String?  @db.VarChar(500)
+  videoUrl         String?  @db.VarChar(500)
   originalPrice    Decimal? @db.Decimal(10, 2)  // For showing discount
   learningOutcomes Json?    // Array of learning outcomes
   skills           Json?    // Array of skills

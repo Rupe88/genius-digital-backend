@@ -101,12 +101,12 @@ export default function RegisterPage() {
           {/* Left side - brand */}
           <div className="mb-10 flex flex-1 flex-col items-center text-center lg:mb-0 lg:items-start lg:text-left">
             <div className="mb-6 flex items-center gap-3">
-              <div className="relative h-14 w-14 rounded-full bg-white shadow-md">
+              <div className="relative h-14 w-14 rounded-none bg-white shadow-md">
                 <Image
                   src="/sanskar-academy-logo.jpeg"
                   alt="Sanskar Academy"
                   fill
-                  className="rounded-full object-contain"
+                  className="rounded-none object-contain"
                   sizes="56px"
                   priority
                 />
@@ -143,7 +143,7 @@ export default function RegisterPage() {
               </div>
 
               {error && (
-                <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                <div className="mb-4 rounded-none border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                   {error}
                 </div>
               )}
@@ -209,12 +209,12 @@ export default function RegisterPage() {
         {/* Left side - brand / description */}
         <div className="mb-10 flex flex-1 flex-col items-center text-center lg:mb-0 lg:items-start lg:text-left">
           <div className="mb-6 flex items-center gap-3">
-            <div className="relative h-14 w-14 rounded-full bg-white shadow-md">
+            <div className="relative h-14 w-14 rounded-none bg-white shadow-md">
               <Image
                 src="/sanskar-academy-logo.jpeg"
                 alt="Sanskar Academy"
                 fill
-                className="rounded-full object-contain"
+                className="rounded-none object-contain"
                 sizes="56px"
                 priority
               />
@@ -250,7 +250,7 @@ export default function RegisterPage() {
             </div>
 
             {error && (
-              <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div className="mb-4 rounded-none border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                 {error}
               </div>
             )}
@@ -278,13 +278,13 @@ export default function RegisterPage() {
                   Phone Number <span className="text-xs text-gray-400">(Optional)</span>
                 </label>
                 <div className="flex">
-                  <div className="flex items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-3 text-sm text-gray-700">
+                  <div className="flex items-center rounded-none border border-r-0 border-gray-300 bg-gray-50 px-3 text-sm text-gray-700">
                     <span className="mr-1 text-gray-500">🇳🇵</span>
                     <span>+977</span>
                   </div>
                   <input
                     type="tel"
-                    className="block w-full rounded-r-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-[#c01e2e] focus:outline-none focus:ring-1 focus:ring-[#c01e2e]"
+                    className="block w-full rounded-none border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-[#c01e2e] focus:outline-none focus:ring-1 focus:ring-[#c01e2e]"
                     placeholder="98XXXXXXXX"
                     {...register('phone')}
                   />

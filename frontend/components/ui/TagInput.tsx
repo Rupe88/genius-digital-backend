@@ -134,7 +134,7 @@ export const TagInput: React.FC<TagInputProps> = ({
         </label>
       )}
 
-      <div className={`relative border rounded-lg p-3 transition-colors ${
+      <div className={`relative border rounded-none p-3 transition-colors ${
         error
           ? 'border-[var(--error)] bg-[var(--error-50)]'
           : isFocused
@@ -146,13 +146,13 @@ export const TagInput: React.FC<TagInputProps> = ({
           {value.map((tag, index) => (
             <span
               key={index}
-              className="inline-flex items-center gap-1 px-3 py-1 text-sm font-medium bg-[var(--primary-100)] text-[var(--primary-800)] rounded-full border border-[var(--primary-200)] hover:bg-[var(--primary-200)] transition-colors"
+              className="inline-flex items-center gap-1 px-3 py-1 text-sm font-medium bg-[var(--primary-100)] text-[var(--primary-800)] rounded-none border border-[var(--primary-200)] hover:bg-[var(--primary-200)] transition-colors"
             >
               {tag}
               <button
                 type="button"
                 onClick={() => removeTag(tag)}
-                className="flex items-center justify-center w-4 h-4 rounded-full hover:bg-[var(--primary-200)] transition-colors"
+                className="flex items-center justify-center w-4 h-4 rounded-none hover:bg-[var(--primary-200)] transition-colors"
                 aria-label={`Remove ${tag} tag`}
               >
                 <HiX className="w-3 h-3" />
@@ -189,7 +189,7 @@ export const TagInput: React.FC<TagInputProps> = ({
 
         {/* Suggestions Dropdown */}
         {showSuggestions && filteredSuggestions.length > 0 && (
-          <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-[var(--border)] rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-[var(--border)] rounded-none shadow-lg max-h-48 overflow-y-auto">
             {filteredSuggestions.map((suggestion, index) => (
               <button
                 key={suggestion}

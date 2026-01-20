@@ -148,7 +148,7 @@ export default function AdminLiveClassesPage() {
             setEditingClass(null);
             resetForm();
           }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="px-4 py-2 bg-blue-600 text-white rounded-none hover:bg-blue-700"
         >
           {showForm ? 'Cancel' : 'Create Live Class'}
         </button>
@@ -167,7 +167,7 @@ export default function AdminLiveClassesPage() {
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   required
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border rounded-none"
                 />
               </div>
               <div>
@@ -176,7 +176,7 @@ export default function AdminLiveClassesPage() {
                   value={formData.instructorId}
                   onChange={(e) => setFormData({ ...formData, instructorId: e.target.value })}
                   required
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border rounded-none"
                 >
                   <option value="">Select Instructor</option>
                   {instructors.map((instructor) => (
@@ -191,7 +191,7 @@ export default function AdminLiveClassesPage() {
                 <select
                   value={formData.courseId}
                   onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border rounded-none"
                 >
                   <option value="">No Course</option>
                   {courses.map((course) => (
@@ -208,7 +208,7 @@ export default function AdminLiveClassesPage() {
                   value={formData.scheduledAt}
                   onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
                   required
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border rounded-none"
                 />
               </div>
               <div>
@@ -219,7 +219,7 @@ export default function AdminLiveClassesPage() {
                   onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
                   required
                   min={1}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border rounded-none"
                 />
               </div>
               <div>
@@ -227,7 +227,7 @@ export default function AdminLiveClassesPage() {
                 <select
                   value={formData.meetingProvider}
                   onChange={(e) => setFormData({ ...formData, meetingProvider: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border rounded-none"
                 >
                   {meetingProviders.map((provider) => (
                     <option key={provider.value} value={provider.value}>
@@ -244,7 +244,7 @@ export default function AdminLiveClassesPage() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
-                className="w-full px-3 py-2 border rounded-lg"
+                className="w-full px-3 py-2 border rounded-none"
               />
             </div>
 
@@ -273,7 +273,7 @@ export default function AdminLiveClassesPage() {
                       value={formData.meetingUrl}
                       onChange={(e) => setFormData({ ...formData, meetingUrl: e.target.value })}
                       placeholder="https://zoom.us/j/... or https://meet.google.com/..."
-                      className="w-full px-3 py-2 border rounded-lg"
+                      className="w-full px-3 py-2 border rounded-none"
                     />
                   </div>
                   <div>
@@ -282,7 +282,7 @@ export default function AdminLiveClassesPage() {
                       type="text"
                       value={formData.meetingPassword}
                       onChange={(e) => setFormData({ ...formData, meetingPassword: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg"
+                      className="w-full px-3 py-2 border rounded-none"
                     />
                   </div>
                 </>
@@ -292,7 +292,7 @@ export default function AdminLiveClassesPage() {
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-blue-600 text-white rounded-none hover:bg-blue-700"
               >
                 {editingClass ? 'Update' : 'Create'} Live Class
               </button>
@@ -303,7 +303,7 @@ export default function AdminLiveClassesPage() {
                   setEditingClass(null);
                   resetForm();
                 }}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-none hover:bg-gray-300"
               >
                 Cancel
               </button>
@@ -359,7 +359,7 @@ export default function AdminLiveClassesPage() {
                     </td>
                     <td className="py-3 px-4">
                       <span
-                        className={`px-2 py-1 rounded text-xs ${
+                        className={`px-2 py-1 rounded-none text-xs ${
                           liveClass.status === 'LIVE'
                             ? 'bg-red-100 text-red-800'
                             : liveClass.status === 'COMPLETED'

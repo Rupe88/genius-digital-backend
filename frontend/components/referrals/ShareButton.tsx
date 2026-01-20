@@ -69,7 +69,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
   };
 
   const getButtonClasses = () => {
-    const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2';
+    const baseClasses = 'inline-flex items-center justify-center font-medium rounded-none transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2';
 
     const variants = {
       primary: 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500',
@@ -96,7 +96,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
       >
         {loading ? (
           <div className="flex items-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+            <div className="animate-spin rounded-none h-4 w-4 border-b-2 border-current mr-2"></div>
             Generating...
           </div>
         ) : (
@@ -115,7 +115,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
               <div className="absolute inset-0 bg-gray-500 opacity-75" onClick={() => setShowModal(false)}></div>
             </div>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-none text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
@@ -124,7 +124,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
                     </h3>
 
                     {/* Referral Stats */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-none p-4 mb-4">
                       <div className="text-sm text-blue-800">
                         <p className="font-medium">Earn 10% commission when friends enroll!</p>
                         <p className="text-xs mt-1">
@@ -144,11 +144,11 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
                             type="text"
                             value={sharingData.shareUrl}
                             readOnly
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md bg-gray-50 text-sm"
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-none bg-gray-50 text-sm"
                           />
                           <button
                             onClick={handleCopyLink}
-                            className="px-4 py-2 border border-l-0 border-gray-300 bg-gray-50 hover:bg-gray-100 rounded-r-md text-sm font-medium"
+                            className="px-4 py-2 border border-l-0 border-gray-300 bg-gray-50 hover:bg-gray-100 rounded-none text-sm font-medium"
                           >
                             {copied ? <FaCheck className="w-4 h-4 text-green-600" /> : <FaCopy className="w-4 h-4" />}
                           </button>
@@ -164,7 +164,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => handleSocialShare('facebook')}
-                          className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+                          className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-none hover:bg-blue-700 text-sm font-medium"
                         >
                           <FaFacebook className="w-4 h-4 mr-2" />
                           Facebook
@@ -172,7 +172,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
 
                         <button
                           onClick={() => handleSocialShare('linkedin')}
-                          className="flex items-center justify-center px-4 py-2 bg-blue-700 text-white rounded-md hover:bg-blue-800 text-sm font-medium"
+                          className="flex items-center justify-center px-4 py-2 bg-blue-700 text-white rounded-none hover:bg-blue-800 text-sm font-medium"
                         >
                           <FaLinkedin className="w-4 h-4 mr-2" />
                           LinkedIn
@@ -180,7 +180,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
 
                         <button
                           onClick={() => handleSocialShare('twitter')}
-                          className="flex items-center justify-center px-4 py-2 bg-blue-400 text-white rounded-md hover:bg-blue-500 text-sm font-medium"
+                          className="flex items-center justify-center px-4 py-2 bg-blue-400 text-white rounded-none hover:bg-blue-500 text-sm font-medium"
                         >
                           <FaTwitter className="w-4 h-4 mr-2" />
                           Twitter
@@ -188,7 +188,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
 
                         <button
                           onClick={() => handleSocialShare('whatsapp')}
-                          className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
+                          className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-none hover:bg-green-700 text-sm font-medium"
                         >
                           <FaWhatsapp className="w-4 h-4 mr-2" />
                           WhatsApp
@@ -202,7 +202,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button
                   type="button"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  className="w-full inline-flex justify-center rounded-none border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
                   onClick={() => setShowModal(false)}
                 >
                   Done

@@ -75,17 +75,17 @@ export const ReferralDashboard: React.FC = () => {
       <div className="animate-pulse space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-gray-200 h-24 rounded-lg"></div>
+            <div key={i} className="bg-gray-200 h-24 rounded-none"></div>
           ))}
         </div>
-        <div className="bg-gray-200 h-64 rounded-lg"></div>
+        <div className="bg-gray-200 h-64 rounded-none"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+      <div className="bg-red-50 border border-red-200 rounded-none p-6">
         <div className="flex">
           <div className="flex-shrink-0">
             <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
@@ -100,7 +100,7 @@ export const ReferralDashboard: React.FC = () => {
             <div className="mt-4">
               <button
                 onClick={loadData}
-                className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-sm font-medium"
+                className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-none text-sm font-medium"
               >
                 Try Again
               </button>
@@ -124,7 +124,7 @@ export const ReferralDashboard: React.FC = () => {
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="bg-white overflow-hidden shadow rounded-none">
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -144,7 +144,7 @@ export const ReferralDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="bg-white overflow-hidden shadow rounded-none">
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -164,7 +164,7 @@ export const ReferralDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="bg-white overflow-hidden shadow rounded-none">
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -184,7 +184,7 @@ export const ReferralDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="bg-white overflow-hidden shadow rounded-none">
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -208,7 +208,7 @@ export const ReferralDashboard: React.FC = () => {
 
       {/* Earnings Breakdown */}
       {stats && (
-        <div className="bg-white shadow rounded-lg">
+        <div className="bg-white shadow rounded-none">
           <div className="px-4 py-5 sm:p-6">
             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
               Earnings Breakdown
@@ -238,7 +238,7 @@ export const ReferralDashboard: React.FC = () => {
       )}
 
       {/* Referral Links Table */}
-      <div className="bg-white shadow rounded-lg">
+      <div className="bg-white shadow rounded-none">
         <div className="px-4 py-5 sm:p-6">
           <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
             Your Referral Links
@@ -284,7 +284,7 @@ export const ReferralDashboard: React.FC = () => {
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
                             <img
-                              className="h-10 w-10 rounded-lg object-cover"
+                              className="h-10 w-10 rounded-none object-cover"
                               src={link.course?.thumbnail || '/placeholder-course.jpg'}
                               alt={link.course?.title}
                             />
@@ -309,7 +309,7 @@ export const ReferralDashboard: React.FC = () => {
                         NPR {link.totalEarnings?.toFixed(2) || '0.00'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${link.isActive
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-none ${link.isActive
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
                           }`}>
@@ -319,7 +319,7 @@ export const ReferralDashboard: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
                           onClick={() => handleToggleLink(link.id, link.isActive)}
-                          className={`inline-flex items-center px-3 py-1 rounded-md text-sm font-medium ${link.isActive
+                          className={`inline-flex items-center px-3 py-1 rounded-none text-sm font-medium ${link.isActive
                               ? 'text-red-600 hover:text-red-900 hover:bg-red-50'
                               : 'text-green-600 hover:text-green-900 hover:bg-green-50'
                             }`}
@@ -351,14 +351,14 @@ export const ReferralDashboard: React.FC = () => {
                 <button
                   onClick={() => handlePageChange(pagination.page - 1)}
                   disabled={pagination.page === 1}
-                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-none text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
                 <button
                   onClick={() => handlePageChange(pagination.page + 1)}
                   disabled={pagination.page === pagination.pages}
-                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-none text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
@@ -371,11 +371,11 @@ export const ReferralDashboard: React.FC = () => {
                   </p>
                 </div>
                 <div>
-                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                  <nav className="relative z-0 inline-flex rounded-none shadow-sm -space-x-px">
                     <button
                       onClick={() => handlePageChange(pagination.page - 1)}
                       disabled={pagination.page === 1}
-                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="relative inline-flex items-center px-2 py-2 rounded-none border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <FaChevronLeft className="h-5 w-5" />
                     </button>
@@ -401,7 +401,7 @@ export const ReferralDashboard: React.FC = () => {
                     <button
                       onClick={() => handlePageChange(pagination.page + 1)}
                       disabled={pagination.page === pagination.pages}
-                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="relative inline-flex items-center px-2 py-2 rounded-none border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <FaChevronRight className="h-5 w-5" />
                     </button>

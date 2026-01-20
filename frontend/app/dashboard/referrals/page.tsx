@@ -42,7 +42,7 @@ export default function ReferralsPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-none h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -66,7 +66,7 @@ export default function ReferralsPage() {
           {/* Quick Stats */}
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white overflow-hidden shadow rounded-lg">
+              <div className="bg-white overflow-hidden shadow rounded-none">
                 <div className="p-5">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
@@ -88,7 +88,7 @@ export default function ReferralsPage() {
                 </div>
               </div>
 
-              <div className="bg-white overflow-hidden shadow rounded-lg">
+              <div className="bg-white overflow-hidden shadow rounded-none">
                 <div className="p-5">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
@@ -111,7 +111,7 @@ export default function ReferralsPage() {
                 </div>
               </div>
 
-              <div className="bg-white overflow-hidden shadow rounded-lg">
+              <div className="bg-white overflow-hidden shadow rounded-none">
                 <div className="p-5">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
@@ -133,7 +133,7 @@ export default function ReferralsPage() {
                 </div>
               </div>
 
-              <div className="bg-white overflow-hidden shadow rounded-lg">
+              <div className="bg-white overflow-hidden shadow rounded-none">
                 <div className="p-5">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">

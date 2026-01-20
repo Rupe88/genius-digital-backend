@@ -120,7 +120,7 @@ export default function InstructorDetailPage() {
           <Card padding="lg">
             <div className="flex items-start gap-6">
               {instructor.image ? (
-                <div className="relative w-32 h-32 rounded-full overflow-hidden flex-shrink-0">
+                <div className="relative w-32 h-32 rounded-none overflow-hidden flex-shrink-0">
                   <Image
                     src={instructor.image}
                     alt={instructor.name}
@@ -130,7 +130,7 @@ export default function InstructorDetailPage() {
                   />
                 </div>
               ) : (
-                <div className="w-32 h-32 rounded-full bg-[var(--primary-700)] flex items-center justify-center text-white font-semibold text-4xl flex-shrink-0">
+                <div className="w-32 h-32 rounded-none bg-[var(--primary-700)] flex items-center justify-center text-white font-semibold text-4xl flex-shrink-0">
                   {instructor.name[0]?.toUpperCase()}
                 </div>
               )}

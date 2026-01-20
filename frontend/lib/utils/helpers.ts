@@ -108,3 +108,15 @@ export const handleError = (error: unknown): string => {
   return Object(error).message || 'An error occurred';
 };
 
+/**
+ * Get YouTube embed URL from a regular YouTube link
+ */
+export const getYouTubeEmbedUrl = (url: string): string | null => {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  if (match && match[2].length === 11) {
+    return `https://www.youtube.com/embed/${match[2]}`;
+  }
+  return null;
+};

@@ -97,7 +97,7 @@ export default function AdminUsersPage() {
                     <td className="px-6 py-4 whitespace-nowrap">{user.fullName}</td>
                     <td className="px-6 py-4 whitespace-nowrap">{user.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded text-xs ${
+                      <span className={`px-2 py-1 rounded-none text-xs ${
                         user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
                         user.role === 'INSTRUCTOR' ? 'bg-blue-100 text-blue-700' :
                         'bg-gray-100 text-gray-700'
@@ -106,7 +106,7 @@ export default function AdminUsersPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded text-xs ${
+                      <span className={`px-2 py-1 rounded-none text-xs ${
                         user.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                       }`}>
                         {user.isActive ? 'Active' : 'Blocked'}

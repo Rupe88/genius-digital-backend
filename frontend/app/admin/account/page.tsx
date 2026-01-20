@@ -102,7 +102,7 @@ export default function AccountManagementPage() {
             <select
               value={filters.type}
               onChange={(e) => setFilters({ ...filters, type: e.target.value, page: 1 })}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             >
               <option value="">All Types</option>
               {transactionTypes.map((type) => (
@@ -117,7 +117,7 @@ export default function AccountManagementPage() {
             <select
               value={filters.category}
               onChange={(e) => setFilters({ ...filters, category: e.target.value, page: 1 })}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             >
               <option value="">All Categories</option>
               {transactionCategories.map((cat) => (
@@ -158,7 +158,7 @@ export default function AccountManagementPage() {
                     </td>
                     <td className="py-3 px-4">
                       <span
-                        className={`px-2 py-1 rounded text-xs ${
+                        className={`px-2 py-1 rounded-none text-xs ${
                           transaction.type === 'INCOME' || transaction.type === 'REFUND'
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
@@ -195,7 +195,7 @@ export default function AccountManagementPage() {
             <button
               onClick={() => setFilters({ ...filters, page: filters.page - 1 })}
               disabled={filters.page === 1}
-              className="px-4 py-2 border rounded-lg disabled:opacity-50"
+              className="px-4 py-2 border rounded-none disabled:opacity-50"
             >
               Previous
             </button>
@@ -205,7 +205,7 @@ export default function AccountManagementPage() {
             <button
               onClick={() => setFilters({ ...filters, page: filters.page + 1 })}
               disabled={filters.page === pagination.pages}
-              className="px-4 py-2 border rounded-lg disabled:opacity-50"
+              className="px-4 py-2 border rounded-none disabled:opacity-50"
             >
               Next
             </button>

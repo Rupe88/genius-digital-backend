@@ -202,7 +202,7 @@ export default function EditProductPage() {
   if (fetchLoading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+        <div className="animate-spin rounded-none h-8 w-8 border-b-2 border-red-600"></div>
       </div>
     );
   }
@@ -385,7 +385,7 @@ export default function EditProductPage() {
             <h3 className="text-lg font-medium text-gray-900 mb-4">Product Images</h3>
 
             <div className="space-y-4">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+              <div className="border-2 border-dashed border-gray-300 rounded-none p-6">
                 <div className="text-center">
                   <HiCloudUpload className="mx-auto h-12 w-12 text-gray-400" />
                   <div className="mt-4">
@@ -418,12 +418,12 @@ export default function EditProductPage() {
                         alt={`Product image ${index + 1}`}
                         width={200}
                         height={200}
-                        className="w-full h-32 object-cover rounded-lg"
+                        className="w-full h-32 object-cover rounded-none"
                       />
                       <button
                         type="button"
                         onClick={() => removeImage(index)}
-                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-none p-1 hover:bg-red-600"
                       >
                         <HiX className="h-4 w-4" />
                       </button>
@@ -444,7 +444,7 @@ export default function EditProductPage() {
                   <input
                     type="checkbox"
                     {...register('featured')}
-                    className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                    className="rounded-none border-gray-300 text-red-600 focus:ring-red-500"
                   />
                   <span className="ml-2 text-sm text-gray-700">Featured Product</span>
                 </label>
@@ -453,7 +453,7 @@ export default function EditProductPage() {
                   <input
                     type="checkbox"
                     {...register('published')}
-                    className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                    className="rounded-none border-gray-300 text-red-600 focus:ring-red-500"
                   />
                   <span className="ml-2 text-sm text-gray-700">Published</span>
                 </label>

@@ -186,7 +186,7 @@ export const QuizBuilder: React.FC<QuizBuilderProps> = ({
                   <div
                     key={index}
                     onClick={() => setSelectedQuestionIndex(index)}
-                    className={`p-3 rounded-lg cursor-pointer transition-colors border ${selectedQuestionIndex === index
+                    className={`p-3 rounded-none cursor-pointer transition-colors border ${selectedQuestionIndex === index
                       ? 'bg-green-50 border-green-300'
                       : 'bg-[var(--muted)] border-[var(--border)] hover:border-[var(--primary-300)]'
                       }`}
@@ -248,7 +248,7 @@ export const QuizBuilder: React.FC<QuizBuilderProps> = ({
                         correctAnswer: '',
                       })
                     }
-                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--background)] text-[var(--foreground)]"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-none bg-[var(--background)] text-[var(--foreground)]"
                   >
                     {Object.entries(QUESTION_TYPE_LABELS).map(([value, label]) => (
                       <option key={value} value={value}>
@@ -406,7 +406,7 @@ const QuestionOptionsEditor: React.FC<{
         {options.map((option, index) => (
           <div
             key={index}
-            className={`flex items-center gap-2 p-3 rounded-lg border ${(multiple ? correctAnswers.includes(option) : correctAnswers[0] === option)
+            className={`flex items-center gap-2 p-3 rounded-none border ${(multiple ? correctAnswers.includes(option) : correctAnswers[0] === option)
               ? 'bg-green-50 border-green-300'
               : 'bg-[var(--muted)] border-[var(--border)]'
               }`}
@@ -414,7 +414,7 @@ const QuestionOptionsEditor: React.FC<{
             <button
               type="button"
               onClick={() => toggleCorrectAnswer(option)}
-              className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center ${(multiple ? correctAnswers.includes(option) : correctAnswers[0] === option)
+              className={`flex-shrink-0 w-5 h-5 rounded-none border-2 flex items-center justify-center ${(multiple ? correctAnswers.includes(option) : correctAnswers[0] === option)
                 ? 'bg-green-500 border-green-600'
                 : 'border-[var(--border)]'
                 }`}
@@ -470,16 +470,16 @@ const TrueFalseEditor: React.FC<{
             <div
               key={value}
               onClick={() => onUpdate({ correctAnswer: value })}
-              className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer ${isSelected
+              className={`flex items-center gap-2 p-3 rounded-none border cursor-pointer ${isSelected
                 ? 'bg-green-50 border-green-300'
                 : 'bg-[var(--muted)] border-[var(--border)] hover:border-[var(--primary-300)]'
                 }`}
             >
               <div
-                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-green-600 bg-green-500' : 'border-[var(--border)]'
+                className={`w-5 h-5 rounded-none border-2 flex items-center justify-center ${isSelected ? 'border-green-600 bg-green-500' : 'border-[var(--border)]'
                   }`}
               >
-                {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                {isSelected && <div className="w-2 h-2 rounded-none bg-white" />}
               </div>
               <span className="text-sm font-medium">{option}</span>
             </div>

@@ -29,7 +29,7 @@ export const Textarea: React.FC<TextareaProps> = ({
       <textarea
         id={textareaId}
         className={classNames(
-          'w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)] focus:border-transparent transition-colors resize-y',
+          'w-full px-4 py-2 border rounded-none focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)] focus:border-transparent transition-colors resize-y',
           error ? 'border-[var(--error)] focus:ring-red-500' : 'border-[var(--border)]',
           'bg-[var(--input)] text-[var(--foreground)]',
           className

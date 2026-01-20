@@ -206,7 +206,7 @@ export default function AdminDashboardPage() {
           <Link key={stat.title} href={stat.link}>
             <Card padding="lg" className="hover:shadow-lg transition-shadow cursor-pointer">
               <div className="flex items-center">
-                <div className={`p-3 ${stat.bgColor} rounded-lg mr-4`}>
+                <div className={`p-3 ${stat.bgColor} rounded-none mr-4`}>
                   <stat.icon className={`h-6 w-6 ${stat.textColor}`} />
                 </div>
                 <div>
@@ -287,8 +287,8 @@ export default function AdminDashboardPage() {
             <div className="space-y-3">
               {quickActions.map((action) => (
                 <Link key={action.title} href={action.href}>
-                  <div className="flex items-center p-3 rounded-lg hover:bg-[var(--muted)] transition-colors cursor-pointer">
-                    <div className={`p-2 ${action.color} rounded-lg mr-3`}>
+                  <div className="flex items-center p-3 rounded-none hover:bg-[var(--muted)] transition-colors cursor-pointer">
+                    <div className={`p-2 ${action.color} rounded-none mr-3`}>
                       <action.icon className="h-5 w-5 text-white" />
                     </div>
                     <div>
@@ -315,11 +315,11 @@ export default function AdminDashboardPage() {
             {loading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="animate-pulse flex items-center gap-3 p-3 bg-[var(--muted)] rounded-lg">
-                    <div className="w-12 h-12 bg-gray-200 rounded-lg" />
+                  <div key={i} className="animate-pulse flex items-center gap-3 p-3 bg-[var(--muted)] rounded-none">
+                    <div className="w-12 h-12 bg-gray-200 rounded-none" />
                     <div className="flex-1">
-                      <div className="h-4 bg-gray-200 rounded w-2/3 mb-2" />
-                      <div className="h-3 bg-gray-200 rounded w-1/3" />
+                      <div className="h-4 bg-gray-200 rounded-none w-2/3 mb-2" />
+                      <div className="h-3 bg-gray-200 rounded-none w-1/3" />
                     </div>
                   </div>
                 ))}
@@ -328,8 +328,8 @@ export default function AdminDashboardPage() {
               <div className="space-y-3">
                 {recentCourses.map((course) => (
                   <Link key={course.id} href={`${ROUTES.ADMIN}/courses/${course.id}`}>
-                    <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-[var(--muted)] transition-colors cursor-pointer">
-                      <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                    <div className="flex items-center gap-3 p-3 rounded-none hover:bg-[var(--muted)] transition-colors cursor-pointer">
+                      <div className="w-12 h-12 bg-gray-100 rounded-none overflow-hidden flex-shrink-0">
                         {course.thumbnail ? (
                           <img
                             src={course.thumbnail}
@@ -348,7 +348,7 @@ export default function AdminDashboardPage() {
                           {course.instructor?.name || 'No instructor'} • {course.status}
                         </p>
                       </div>
-                      <span className={`px-2 py-1 text-xs rounded-full ${course.status === 'PUBLISHED'
+                      <span className={`px-2 py-1 text-xs rounded-none ${course.status === 'PUBLISHED'
                         ? 'bg-green-100 text-green-700'
                         : course.status === 'DRAFT'
                           ? 'bg-yellow-100 text-yellow-700'

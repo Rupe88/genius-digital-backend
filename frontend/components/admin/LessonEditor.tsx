@@ -199,7 +199,7 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
               />
             </div>
 
-            <div className="bg-[var(--muted)]/30 p-4 rounded-xl border border-[var(--border)] border-dashed">
+            <div className="bg-[var(--muted)]/30 p-4 rounded-none border border-[var(--border)] border-dashed">
               <p className="text-sm font-medium text-[var(--foreground)] mb-3">Or Upload Video File</p>
               <FileUpload
                 accept="video/*"
@@ -211,7 +211,7 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
               />
               {videoFile && (
                 <p className="mt-2 text-xs text-green-600 font-medium flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  <span className="w-2 h-2 bg-green-500 rounded-none animate-pulse"></span>
                   Ready to upload: {videoFile.name}
                 </p>
               )}
@@ -223,7 +223,7 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
                 <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                   Video Preview
                 </label>
-                <div className="border border-[var(--border)] rounded-lg overflow-hidden bg-black aspect-video max-w-xl">
+                <div className="border border-[var(--border)] rounded-none overflow-hidden bg-black aspect-video max-w-xl">
                   {videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be') ? (
                     <iframe
                       src={`https://www.youtube.com/embed/${videoUrl.includes('youtu.be')
@@ -260,7 +260,7 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
         )}
 
         {lessonType === 'TEXT' && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="rounded-none border border-blue-200 bg-blue-50 p-4">
             <p className="text-sm text-blue-800">
               <strong>Text Lesson:</strong> The content above will be displayed as the main lesson content.
               You can use rich text formatting to make it engaging.
@@ -278,7 +278,7 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
               helperText="Direct link to PDF or downloadable document"
             />
 
-            <div className="bg-[var(--muted)]/30 p-4 rounded-xl border border-[var(--border)] border-dashed">
+            <div className="bg-[var(--muted)]/30 p-4 rounded-none border border-[var(--border)] border-dashed">
               <p className="text-sm font-medium text-[var(--foreground)] mb-3">Or Upload Document</p>
               <FileUpload
                 accept=".pdf,.doc,.docx,.txt"
@@ -290,13 +290,13 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
               />
               {attachmentFile && (
                 <p className="mt-2 text-xs text-green-600 font-medium flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  <span className="w-2 h-2 bg-green-500 rounded-none animate-pulse"></span>
                   Ready to upload: {attachmentFile.name}
                 </p>
               )}
             </div>
             {attachmentUrl && (
-              <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-none">
                 <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
                 </svg>
@@ -318,7 +318,7 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
         )}
 
         {lessonType === 'QUIZ' && (
-          <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+          <div className="rounded-none border border-purple-200 bg-purple-50 p-4">
             <p className="text-sm text-purple-800">
               <strong>Quiz Lesson:</strong> After creating this lesson, you can add quiz questions
               using the Quiz Builder. The quiz will be automatically linked to this lesson.
@@ -342,7 +342,7 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
               id="isPreview"
               checked={isPreview}
               onChange={(e) => setIsPreview(e.target.checked)}
-              className="rounded"
+              className="rounded-none"
             />
             <label htmlFor="isPreview" className="text-sm font-medium text-[var(--foreground)]">
               Preview Lesson
@@ -354,7 +354,7 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
               id="isLocked"
               checked={isLocked}
               onChange={(e) => setIsLocked(e.target.checked)}
-              className="rounded"
+              className="rounded-none"
             />
             <label htmlFor="isLocked" className="text-sm font-medium text-[var(--foreground)]">
               Lock Lesson
@@ -367,7 +367,7 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
             <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
               Prerequisites (Lessons that must be completed first)
             </label>
-            <div className="space-y-2 max-h-40 overflow-y-auto border border-[var(--border)] rounded-lg p-3">
+            <div className="space-y-2 max-h-40 overflow-y-auto border border-[var(--border)] rounded-none p-3">
               {availablePrerequisites.map((prereq) => (
                 <div key={prereq.id} className="flex items-center space-x-2">
                   <input
@@ -381,7 +381,7 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
                         setUnlockRequirement(unlockRequirement.filter((id) => id !== prereq.id));
                       }
                     }}
-                    className="rounded"
+                    className="rounded-none"
                   />
                   <label
                     htmlFor={`prereq-${prereq.id}`}

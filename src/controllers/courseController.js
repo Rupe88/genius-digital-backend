@@ -391,6 +391,7 @@ export const createCourse = async (req, res, next) => {
       skills,
       instructorId,
       categoryId,
+      videoUrl,
     } = req.body;
 
     // Generate slug if not provided
@@ -493,6 +494,7 @@ export const createCourse = async (req, res, next) => {
           tags,
           learningOutcomes: parsedLearningOutcomes,
           skills: parsedSkills,
+          videoUrl,
           instructorId,
           categoryId: categoryId || null,
         },
@@ -598,6 +600,7 @@ export const updateCourse = async (req, res, next) => {
       skills,
       instructorId,
       categoryId,
+      videoUrl,
     } = req.body;
 
     // Check if course exists
@@ -731,6 +734,10 @@ export const updateCourse = async (req, res, next) => {
         }
       }
       updateData.categoryId = categoryId || null;
+    }
+
+    if (videoUrl !== undefined) {
+      updateData.videoUrl = videoUrl;
     }
 
     const course = await prisma.course.update({

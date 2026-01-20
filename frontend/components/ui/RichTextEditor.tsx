@@ -95,7 +95,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = React.memo(({
   if (!mounted) {
     return (
       <div className={className}>
-        <div className="h-[300px] border border-[var(--border)] rounded-lg p-4 bg-[var(--muted)] animate-pulse flex items-center justify-center">
+        <div className="h-[300px] border border-[var(--border)] rounded-none p-4 bg-[var(--muted)] animate-pulse flex items-center justify-center">
           <span className="text-[var(--muted-foreground)]">Loading editor...</span>
         </div>
         {error && (

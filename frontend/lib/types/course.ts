@@ -78,6 +78,7 @@ export interface Course {
   isFree: boolean;
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'ONGOING';
   level?: 'Beginner' | 'Intermediate' | 'Advanced';
+  videoUrl?: string;
   duration?: number;
   language: string;
   featured: boolean;

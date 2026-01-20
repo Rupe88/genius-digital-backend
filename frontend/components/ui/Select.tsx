@@ -31,7 +31,7 @@ export const Select: React.FC<SelectProps> = ({
       <select
         id={selectId}
         className={classNames(
-          'w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)] focus:border-transparent transition-colors',
+          'w-full px-4 py-2 border rounded-none focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)] focus:border-transparent transition-colors',
           error ? 'border-[var(--error)] focus:ring-red-500' : 'border-[var(--border)]',
           'bg-[var(--input)] text-[var(--foreground)]',
           className

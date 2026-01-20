@@ -73,7 +73,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({ expense, onSubmit, onC
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               required
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             />
           </div>
           <div>
@@ -85,7 +85,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({ expense, onSubmit, onC
               value={formData.amount}
               onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
               required
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             />
           </div>
           <div>
@@ -94,7 +94,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({ expense, onSubmit, onC
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               required
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             >
               {expenseCategories.map((cat) => (
                 <option key={cat} value={cat}>
@@ -110,7 +110,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({ expense, onSubmit, onC
               value={formData.paymentMethod}
               onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
               placeholder="e.g., BANK_TRANSFER, CASH"
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             />
           </div>
           <div>
@@ -119,7 +119,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({ expense, onSubmit, onC
               type="text"
               value={formData.invoiceNumber}
               onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             />
           </div>
         </div>
@@ -129,21 +129,21 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({ expense, onSubmit, onC
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             rows={3}
-            className="w-full px-3 py-2 border rounded-lg"
+            className="w-full px-3 py-2 border rounded-none"
           />
         </div>
         <div className="flex gap-2">
           <button
             type="submit"
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 bg-blue-600 text-white rounded-none hover:bg-blue-700 disabled:opacity-50"
           >
             {loading ? 'Saving...' : expense ? 'Update' : 'Create'} Expense
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-none hover:bg-gray-300"
           >
             Cancel
           </button>

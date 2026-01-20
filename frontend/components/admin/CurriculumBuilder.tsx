@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
+import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { Lesson, CreateLessonData } from '@/lib/api/lessons';
 import { Chapter, CreateChapterData } from '@/lib/api/chapters';
 
@@ -436,7 +437,7 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
   if (loading) {
     return (
       <div className="flex justify-center items-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-none h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -445,7 +446,7 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
     <>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <div className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-[var(--border)]">
+          <div className="flex justify-between items-center bg-gray-50 p-4 rounded-none border border-[var(--border)]">
             <div>
               <h2 className="text-xl font-bold text-[var(--foreground)]">Course Curriculum</h2>
               <p className="text-sm text-[var(--muted-foreground)]">Manage your course chapters and lessons</p>
@@ -460,7 +461,7 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
         {chapters.length === 0 ? (
           <Card padding="lg" className="border-dashed border-2 bg-[var(--muted)]/20">
             <div className="text-center py-12">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-blue-100 rounded-none flex items-center justify-center mx-auto mb-4">
                 <HiPlus className="w-8 h-8 text-blue-600" />
               </div>
               <h3 className="text-lg font-bold text-[var(--foreground)] mb-2">No chapters yet</h3>
@@ -482,7 +483,7 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
                   expandedChapters.has(chapter.id) ? "bg-blue-50/50" : "bg-white"
                 )} onClick={() => toggleChapter(chapter.id)}>
                   <div className="flex items-center gap-4">
-                    <div className="flex flex-col items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-500 font-bold text-xs uppercase">
+                    <div className="flex flex-col items-center justify-center w-8 h-8 rounded-none bg-gray-100 text-gray-500 font-bold text-xs uppercase">
                       CH {index + 1}
                     </div>
                     <div>
@@ -541,18 +542,23 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
                     <div className="space-y-3">
                       {chapter.lessons && chapter.lessons.length > 0 ? (
                         (chapter.lessons as (Lesson | LocalLesson)[]).map((lesson, lessonIndex) => (
-                          <div key={lesson.id} className="flex items-center gap-4 p-4 rounded-xl bg-white border border shadow-sm hover:border-blue-200 transition-all group">
-                            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 font-bold text-[10px]">
+                          <div key={lesson.id} className="flex items-center gap-4 p-4 rounded-none bg-white border border shadow-sm hover:border-blue-200 transition-all group">
+                            <div className="flex items-center justify-center w-6 h-6 rounded-none bg-blue-50 text-blue-600 font-bold text-[10px]">
                               {lessonIndex + 1}
                             </div>
                             <div className="flex items-center gap-3 flex-1">
                               {lesson.lessonType === 'VIDEO' && <HiPlay className="w-5 h-5 text-blue-500" />}
+                              {lesson.lessonType === 'TEXT' && <HiDocument className="w-5 h-5 text-green-500" />}
                               {lesson.lessonType === 'PDF' && <HiDocument className="w-5 h-5 text-red-500" />}
-                              {(lesson.lessonType === 'QUIZ' || lesson.lessonType === 'ASSIGNMENT') && (
-                                <HiClipboard className="w-5 h-5 text-purple-500" />
-                              )}
+                              {lesson.lessonType === 'QUIZ' && <HiClipboard className="w-5 h-5 text-purple-500" />}
+                              {lesson.lessonType === 'ASSIGNMENT' && <HiClipboard className="w-5 h-5 text-orange-500" />}
                               <div className="flex flex-col">
-                                <span className="font-semibold text-[var(--foreground)]">{lesson.title}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-[var(--foreground)]">{lesson.title}</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-none bg-gray-100 text-gray-500 font-medium">
+                                    {lesson.lessonType}
+                                  </span>
+                                </div>
                                 {lesson.description && (
                                   <span className="text-xs text-[var(--muted-foreground)] line-clamp-1">
                                     {lesson.description}
@@ -561,12 +567,12 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
                               </div>
                               <div className="flex gap-1 ml-auto">
                                 {lesson.isPreview && (
-                                  <span className="px-2 py-0.5 text-[10px] bg-blue-100 text-blue-700 rounded-full font-bold uppercase tracking-wider">
+                                  <span className="px-2 py-0.5 text-[10px] bg-blue-100 text-blue-700 rounded-none font-bold uppercase tracking-wider">
                                     Preview
                                   </span>
                                 )}
                                 {lesson.isLocked && (
-                                  <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-700 rounded-full font-bold uppercase tracking-wider">
+                                  <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-700 rounded-none font-bold uppercase tracking-wider">
                                     Locked
                                   </span>
                                 )}
@@ -583,7 +589,7 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
                           </div>
                         ))
                       ) : (
-                        <div className="text-center py-6 bg-white border border-dashed rounded-xl">
+                        <div className="text-center py-6 bg-white border border-dashed rounded-none">
                           <p className="text-[var(--muted-foreground)] text-sm mb-3">
                             No lessons in this chapter yet.
                           </p>
@@ -650,7 +656,7 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
                 type="checkbox"
                 checked={chapterForm.isLocked}
                 onChange={(e) => setChapterForm(prev => ({ ...prev, isLocked: e.target.checked }))}
-                className="rounded"
+                className="rounded-none"
               />
               <span className="text-sm">Locked</span>
             </label>
@@ -660,7 +666,7 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
                 type="checkbox"
                 checked={chapterForm.isPreview}
                 onChange={(e) => setChapterForm(prev => ({ ...prev, isPreview: e.target.checked }))}
-                className="rounded"
+                className="rounded-none"
               />
               <span className="text-sm">Preview</span>
             </label>
@@ -704,7 +710,10 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
           <Select
             label="Lesson Type"
             value={lessonForm.lessonType}
-            onChange={(value) => setLessonForm(prev => ({ ...prev, lessonType: value as any }))}
+            onChange={(e) => {
+              const value = (e.target as HTMLSelectElement).value;
+              setLessonForm(prev => ({ ...prev, lessonType: value as any }));
+            }}
             options={[
               { value: 'VIDEO', label: 'Video' },
               { value: 'TEXT', label: 'Text' },
@@ -753,13 +762,28 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
             />
           )}
 
-          <Textarea
-            label="Content"
-            value={lessonForm.content}
-            onChange={(e) => setLessonForm(prev => ({ ...prev, content: e.target.value }))}
-            placeholder="Enter lesson content (optional)"
-            rows={4}
-          />
+          {(lessonForm.lessonType === 'TEXT' || lessonForm.lessonType === 'QUIZ' || lessonForm.lessonType === 'ASSIGNMENT') ? (
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-[var(--foreground)]">
+                {lessonForm.lessonType === 'TEXT' ? 'Lesson Content' :
+                  lessonForm.lessonType === 'QUIZ' ? 'Quiz Instructions' :
+                    'Assignment Instructions'}
+              </label>
+              <RichTextEditor
+                value={lessonForm.content}
+                onChange={(content) => setLessonForm(prev => ({ ...prev, content }))}
+                placeholder="Enter detailed content here..."
+              />
+            </div>
+          ) : (
+            <Textarea
+              label="Additional Notes / Content"
+              value={lessonForm.content}
+              onChange={(e) => setLessonForm(prev => ({ ...prev, content: e.target.value }))}
+              placeholder="Enter lesson content (optional)"
+              rows={4}
+            />
+          )}
 
           <div className="flex items-center space-x-4">
             <label className="flex items-center space-x-2">
@@ -767,7 +791,7 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
                 type="checkbox"
                 checked={lessonForm.isLocked}
                 onChange={(e) => setLessonForm(prev => ({ ...prev, isLocked: e.target.checked }))}
-                className="rounded"
+                className="rounded-none"
               />
               <span className="text-sm">Locked</span>
             </label>
@@ -777,7 +801,7 @@ export const CurriculumBuilder: React.FC<CurriculumBuilderProps> = ({
                 type="checkbox"
                 checked={lessonForm.isPreview}
                 onChange={(e) => setLessonForm(prev => ({ ...prev, isPreview: e.target.checked }))}
-                className="rounded"
+                className="rounded-none"
               />
               <span className="text-sm">Preview</span>
             </label>

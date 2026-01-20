@@ -235,7 +235,7 @@ export const InstructorForm: React.FC<InstructorFormProps> = React.memo(({
                   type="checkbox"
                   id="featured"
                   {...register('featured')}
-                  className="rounded"
+                  className="rounded-none"
                 />
                 <label htmlFor="featured" className="text-sm font-medium text-[var(--foreground)]">
                   Featured Instructor

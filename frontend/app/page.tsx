@@ -385,7 +385,7 @@ export default function HomePage() {
                 <div>
                   <div className="flex items-center mb-4">
                     {testimonial.avatar ? (
-                      <div className="mr-4 h-12 w-12 overflow-hidden rounded-full">
+                      <div className="mr-4 h-12 w-12 overflow-hidden rounded-none">
                         <img
                           src={testimonial.avatar}
                           alt={testimonial.studentName || 'Client'}
@@ -393,7 +393,7 @@ export default function HomePage() {
                         />
                       </div>
                     ) : (
-                      <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--primary-700)] text-white text-lg font-semibold">
+                      <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-none bg-[var(--primary-700)] text-white text-lg font-semibold">
                         {testimonial.studentName?.[0] || 'S'}
                       </div>
                     )}
@@ -432,7 +432,7 @@ export default function HomePage() {
           <button
             onClick={scrollToTop}
             aria-label="Back to top"
-            className="fixed bottom-6 right-4 z-40 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-[#c01e2e] text-white shadow-lg shadow-black/20 transition hover:bg-[#a81826] hover:-translate-y-0.5 md:bottom-8 md:right-8"
+            className="fixed bottom-6 right-4 z-40 inline-flex h-12 w-12 items-center justify-center rounded-none bg-[#c01e2e] text-white shadow-lg shadow-black/20 transition hover:bg-[#a81826] hover:-translate-y-0.5 md:bottom-8 md:right-8"
             style={{ animation: 'backToTopIn 0.35s ease-out forwards' }}
           >
             <HiChevronUp className="h-6 w-6" />

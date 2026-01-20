@@ -161,7 +161,7 @@ export const Footer: React.FC = () => {
             <div className="space-y-3">
               <a
                 href="https://play.google.com"
-                className="flex items-center gap-3 rounded-lg border border-white/15 bg-white/5 px-4 py-3 text-left transition hover:border-white/30 hover:bg-white/10"
+                className="flex items-center gap-3 rounded-none border border-white/15 bg-white/5 px-4 py-3 text-left transition hover:border-white/30 hover:bg-white/10"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -173,7 +173,7 @@ export const Footer: React.FC = () => {
               </a>
               <a
                 href="https://www.apple.com/app-store/"
-                className="flex items-center gap-3 rounded-lg border border-white/15 bg-white/5 px-4 py-3 text-left transition hover:border-white/30 hover:bg-white/10"
+                className="flex items-center gap-3 rounded-none border border-white/15 bg-white/5 px-4 py-3 text-left transition hover:border-white/30 hover:bg-white/10"
                 target="_blank"
                 rel="noreferrer"
               >

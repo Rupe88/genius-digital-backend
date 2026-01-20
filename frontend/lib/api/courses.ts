@@ -115,6 +115,7 @@ export interface CreateCourseData {
   skills?: string[];
   instructorId: string;
   categoryId?: string;
+  videoUrl?: string;
   thumbnailFile?: File;
   onProgress?: (progress: number) => void;
 }
@@ -150,6 +151,7 @@ export const createCourse = async (data: CreateCourseData): Promise<Course> => {
     if (data.skills && Array.isArray(data.skills)) {
       formData.append('skills', JSON.stringify(data.skills));
     }
+    if (data.videoUrl) formData.append('videoUrl', data.videoUrl);
     formData.append('instructorId', data.instructorId);
     if (data.categoryId) formData.append('categoryId', data.categoryId);
 
@@ -218,6 +220,7 @@ export const updateCourse = async (id: string, data: Partial<CreateCourseData>):
     if (data.startDate) formData.append('startDate', data.startDate);
     if (data.endDate) formData.append('endDate', data.endDate);
     if (data.tags !== undefined) formData.append('tags', data.tags);
+    if (data.videoUrl !== undefined) formData.append('videoUrl', data.videoUrl);
 
     // Handle learningOutcomes - send as JSON string if array, empty string if undefined/null
     if (data.learningOutcomes !== undefined) {

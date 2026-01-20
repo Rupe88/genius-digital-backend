@@ -47,7 +47,7 @@ export default function AdminFinancePage() {
                 {loading ? '...' : `Rs. ${(financialOverview?.revenue?.today || 0).toLocaleString()}`}
               </p>
             </div>
-            <div className="p-3 bg-green-100 rounded-lg">
+            <div className="p-3 bg-green-100 rounded-none">
               <HiCurrencyDollar className="h-6 w-6 text-green-700" />
             </div>
           </div>
@@ -61,7 +61,7 @@ export default function AdminFinancePage() {
                 {loading ? '...' : `Rs. ${(financialOverview?.revenue?.thisMonth || 0).toLocaleString()}`}
               </p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
+            <div className="p-3 bg-blue-100 rounded-none">
               <HiTrendingUp className="h-6 w-6 text-blue-700" />
             </div>
           </div>
@@ -75,7 +75,7 @@ export default function AdminFinancePage() {
                 {loading ? '...' : `Rs. ${(financialOverview?.expenses?.today || 0).toLocaleString()}`}
               </p>
             </div>
-            <div className="p-3 bg-red-100 rounded-lg">
+            <div className="p-3 bg-red-100 rounded-none">
               <HiArrowDown className="h-6 w-6 text-red-700" />
             </div>
           </div>
@@ -89,7 +89,7 @@ export default function AdminFinancePage() {
                 {loading ? '...' : `Rs. ${(financialOverview?.profit?.today || 0).toLocaleString()}`}
               </p>
             </div>
-            <div className={`p-3 rounded-lg ${financialOverview?.profit?.today >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+            <div className={`p-3 rounded-none ${financialOverview?.profit?.today >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
               <ProfitIcon className={`h-6 w-6 ${profitColor}`} />
             </div>
           </div>
@@ -151,19 +151,19 @@ export default function AdminFinancePage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
             href={`${ROUTES.ADMIN}/finance/profit-loss`}
-            className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center"
+            className="px-4 py-3 bg-blue-600 text-white rounded-none hover:bg-blue-700 text-center"
           >
             View Profit/Loss Statement
           </Link>
           <Link
             href={`${ROUTES.ADMIN}/expenses`}
-            className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 text-center"
+            className="px-4 py-3 bg-green-600 text-white rounded-none hover:bg-green-700 text-center"
           >
             Manage Expenses
           </Link>
           <Link
             href={`${ROUTES.ADMIN}/finance/salaries`}
-            className="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-center"
+            className="px-4 py-3 bg-purple-600 text-white rounded-none hover:bg-purple-700 text-center"
           >
             Manage Salaries
           </Link>

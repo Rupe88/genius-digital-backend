@@ -101,6 +101,7 @@ async function main() {
       instructorId: instructor.id,
       categoryId: catVastu?.id,
       tags: 'Vastu,Basic,Home,Nepal',
+      videoUrl: 'https://www.youtube.com/watch?v=0_u6e6W7C5I',
       featured: true,
     },
   });

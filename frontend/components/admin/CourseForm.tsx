@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { FileUpload } from '@/components/ui/FileUpload';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { TagInput } from '@/components/ui/TagInput';
+import { BulletListInput } from '@/components/ui/BulletListInput';
 import { CurriculumBuilder } from './CurriculumBuilder';
 import { Course, Category, Instructor } from '@/lib/types/course';
 import { CreateCourseData } from '@/lib/api/courses';
@@ -36,7 +37,7 @@ const courseSchema = z.object({
   duration: z.number().min(0, 'Duration must be positive').optional(),
   language: z.enum(['en', 'ne', 'hi', 'mr', 'bn', 'te', 'ta', 'gu', 'kn', 'ml', 'pa', 'or', 'as', 'mai', 'bh']).optional(),
   tags: z.array(z.string()).optional(),
-  learningOutcomes: z.string().optional(), // JSON string or newline-separated
+  learningOutcomes: z.array(z.string()).optional(),
   skills: z.array(z.string()).optional(),
 
   // Step 3
@@ -45,6 +46,7 @@ const courseSchema = z.object({
   isOngoing: z.boolean().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
+  videoUrl: z.string().url('Invalid URL').optional().or(z.literal('')),
 });
 
 type CourseFormData = z.infer<typeof courseSchema> & {
@@ -111,8 +113,10 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
         tags: course.tags ? (Array.isArray(course.tags) ? course.tags : course.tags.split(',').map(t => t.trim()).filter(Boolean)) : [],
         originalPrice: course.originalPrice || undefined,
         learningOutcomes: Array.isArray(course.learningOutcomes)
-          ? course.learningOutcomes.join('\n')
-          : course.learningOutcomes || '',
+          ? course.learningOutcomes
+          : (course.learningOutcomes && typeof course.learningOutcomes === 'string')
+            ? (course.learningOutcomes as string).split('\n').map(l => l.trim()).filter(Boolean)
+            : [],
         skills: Array.isArray(course.skills)
           ? course.skills
           : (course.skills && typeof course.skills === 'string')
@@ -142,6 +146,7 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
   const price = watch('price');
   const watchTags = watch('tags');
   const watchSkills = watch('skills');
+  const watchLearningOutcomes = watch('learningOutcomes');
 
   // Auto-generate slug from title
   useEffect(() => {
@@ -227,22 +232,11 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
       setIsUploading(true);
       setUploadProgress(10);
 
-      // Parse learning outcomes (newline-separated or JSON)
-      let learningOutcomes: string[] | undefined;
-      if (data.learningOutcomes) {
-        try {
-          const parsed = JSON.parse(data.learningOutcomes);
-          learningOutcomes = Array.isArray(parsed) ? parsed : [data.learningOutcomes];
-        } catch {
-          // If not JSON, split by newlines
-          learningOutcomes = data.learningOutcomes.split('\n').filter(line => line.trim());
-        }
-      }
+      // Learning outcomes and Skills are already arrays from BulletListInput
+      const learningOutcomes = data.learningOutcomes;
+      const skills = data.skills;
 
       setUploadProgress(30);
-
-      // Skills are already an array from TagInput
-      const skills = data.skills;
 
       setUploadProgress(50);
 
@@ -267,6 +261,7 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
         tags: data.tags && data.tags.length > 0 ? data.tags.join(',') : undefined,
         learningOutcomes,
         skills,
+        videoUrl: data.videoUrl || undefined,
         thumbnailFile: thumbnailFile || undefined,
         onProgress: (progress: number) => {
           // Use requestAnimationFrame to avoid too many re-renders
@@ -322,8 +317,8 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
                 }}
               >
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all group-hover:scale-110 ${currentStep >= step
-                    ? 'bg-[var(--primary-700)] text-white'
+                  className={`w-10 h-10 rounded-none flex items-center justify-center font-semibold transition-all group-hover:scale-110 smooth-transition ${currentStep >= step
+                    ? 'bg-[var(--primary-700)] text-white shadow-lg'
                     : 'bg-gray-200 text-gray-600'
                     }`}
                 >
@@ -357,9 +352,9 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
                 {isUploading ? `${uploadProgress}%` : 'Please wait...'}
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-gray-200 rounded-none h-2 shadow-inner">
               <div
-                className="bg-[var(--primary-700)] h-2 rounded-full transition-all duration-300"
+                className="bg-[var(--primary-700)] h-2 rounded-none transition-all duration-300 smooth-transition shadow-sm"
                 style={{ width: isUploading ? `${uploadProgress}%` : '100%' }}
               ></div>
             </div>
@@ -435,7 +430,15 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
         <Card padding="lg">
           <h2 className="text-2xl font-bold mb-6 text-[var(--foreground)]">Details & Settings</h2>
 
-          <div className="space-y-4">
+          <div className="space-y-6">
+            <Input
+              label="Promo Video URL (YouTube)"
+              {...register('videoUrl')}
+              error={errors.videoUrl?.message}
+              helperText="Add a YouTube link for the course preview trailer"
+              placeholder="https://www.youtube.com/watch?v=..."
+            />
+
             <Textarea
               label="Short Description"
               {...register('shortDescription')}
@@ -461,7 +464,7 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
                     type="checkbox"
                     id="isFree"
                     {...register('isFree')}
-                    className="rounded"
+                    className="rounded-none"
                   />
                   <label htmlFor="isFree" className="text-sm font-medium text-[var(--foreground)]">
                     Free Course
@@ -569,60 +572,22 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
               helperText="Add relevant tags to help students find your course"
             />
 
-            <div>
-              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
-                Learning Outcomes
-              </label>
-              <Textarea
-                {...register('learningOutcomes')}
-                error={errors.learningOutcomes?.message}
-                helperText="Enter one learning outcome per line or as JSON array"
-                rows={6}
-                placeholder="What you'll learn...&#10;One outcome per line"
-              />
-            </div>
+            <BulletListInput
+              label="Learning Outcomes"
+              value={watchLearningOutcomes || []}
+              onChange={(outcomes) => setValue('learningOutcomes', outcomes)}
+              placeholder="What you'll learn... (e.g. Master Vastu principles for home)"
+              helperText="Enter one learning outcome at a time. Be specific and clear."
+              error={errors.learningOutcomes?.message}
+            />
 
-
-            <TagInput
+            <BulletListInput
               label="Skills You'll Gain"
-              value={watchSkills}
+              value={watchSkills || []}
               onChange={(skills) => setValue('skills', skills)}
-              placeholder="Add skills you'll learn..."
-              suggestions={[
-                'Vastu Consultation',
-                'Numerology Reading',
-                'Astrological Analysis',
-                'Feng Shui Principles',
-                'Energy Healing',
-                'Meditation Techniques',
-                'Yoga Practice',
-                'Crystal Healing',
-                'Tarot Reading',
-                'Palmistry',
-                'Graphology',
-                'Aura Reading',
-                'Chakra Balancing',
-                'Mantra Chanting',
-                'Ritual Practices',
-                'Space Harmonization',
-                'Color Therapy',
-                'Sound Therapy',
-                'Herbal Remedies',
-                'Spiritual Counseling',
-                'Business Vastu',
-                'Home Vastu',
-                'Office Vastu',
-                'Relationship Compatibility',
-                'Career Guidance',
-                'Wealth Attraction',
-                'Health Analysis',
-                'Remedial Measures',
-                'Sacred Geometry',
-                'Mandala Creation',
-              ]}
-              maxTags={20}
+              placeholder="Add a skill... (e.g. Vastu Consultation)"
+              helperText="Add relevant skills that students will gain from this course."
               error={errors.skills?.message}
-              helperText="Add skills that students will gain from this course"
             />
 
             {/* Special button to save basic info and jump to curriculum */}
@@ -656,9 +621,9 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
           {course ? (
             <>
               {/* Course Info Banner */}
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-none">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                  <div className="w-10 h-10 bg-green-100 rounded-none flex items-center justify-center">
                     <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
@@ -674,7 +639,7 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
           ) : (
             <div className="text-center py-12">
               {/* Visual Icon */}
-              <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+              <div className="mx-auto w-16 h-16 bg-blue-100 rounded-none flex items-center justify-center mb-4">
                 <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
@@ -687,7 +652,7 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
               </p>
 
               {/* Info Box */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 max-w-md mx-auto text-left">
+              <div className="bg-blue-50 border border-blue-200 rounded-none p-4 mb-6 max-w-md mx-auto text-left">
                 <p className="text-sm text-blue-800">
                   <strong>What happens next:</strong>
                 </p>
@@ -737,7 +702,7 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
         <Card padding="lg">
           <h2 className="text-2xl font-bold mb-6 text-[var(--foreground)]">Publish & Schedule</h2>
 
-          <div className="bg-[var(--muted)]/30 rounded-xl p-6 border border-[var(--border)] mb-8">
+          <div className="bg-[var(--muted)]/30 rounded-none p-6 border border-[var(--border)] mb-8">
             <h3 className="text-lg font-bold text-[var(--foreground)] mb-4 flex items-center gap-2">
               <svg className="w-5 h-5 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -772,7 +737,7 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
               <div className="flex flex-col gap-1">
                 <span className="text-xs text-[var(--muted-foreground)] uppercase font-semibold">Status</span>
                 <span className="text-sm font-medium">
-                  <span className={`px-2 py-0.5 rounded-full text-xs ${getValues('status') === 'PUBLISHED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                  <span className={`px-2 py-0.5 rounded-none text-xs ${getValues('status') === 'PUBLISHED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
                     }`}>
                     {getValues('status') || 'DRAFT'}
                   </span>
@@ -797,24 +762,24 @@ export const CourseForm: React.FC<CourseFormProps> = React.memo(({
               />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div className="flex items-center p-3 rounded-lg border border-[var(--border)] hover:bg-[var(--muted)]/50 transition-colors cursor-pointer">
+                <div className="flex items-center p-3 rounded-none border border-[var(--border)] hover:bg-[var(--muted)]/50 transition-colors cursor-pointer">
                   <input
                     type="checkbox"
                     id="featured"
                     {...register('featured')}
-                    className="w-4 h-4 rounded text-[var(--primary)] border-[var(--border)] focus:ring-[var(--primary)]"
+                    className="w-4 h-4 rounded-none text-[var(--primary)] border-[var(--border)] focus:ring-[var(--primary)]"
                   />
                   <label htmlFor="featured" className="ml-3 text-sm font-semibold text-[var(--foreground)]">
                     Featured Course
                   </label>
                 </div>
 
-                <div className="flex items-center p-3 rounded-lg border border-[var(--border)] hover:bg-[var(--muted)]/50 transition-colors cursor-pointer">
+                <div className="flex items-center p-3 rounded-none border border-[var(--border)] hover:bg-[var(--muted)]/50 transition-colors cursor-pointer">
                   <input
                     type="checkbox"
                     id="isOngoing"
                     {...register('isOngoing')}
-                    className="w-4 h-4 rounded text-[var(--primary)] border-[var(--border)] focus:ring-[var(--primary)]"
+                    className="w-4 h-4 rounded-none text-[var(--primary)] border-[var(--border)] focus:ring-[var(--primary)]"
                   />
                   <label htmlFor="isOngoing" className="ml-3 text-sm font-semibold text-[var(--foreground)]">
                     Ongoing Course

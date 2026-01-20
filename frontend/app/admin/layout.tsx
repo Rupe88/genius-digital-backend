@@ -188,7 +188,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         console.log('Toggling category:', category.label);
                         toggleCategory(category.label);
                       }}
-                      className={`flex items-center justify-between w-full px-4 py-2 rounded-lg transition-colors ${
+                      className={`flex items-center justify-between w-full px-4 py-2 rounded-none transition-colors ${
                         categoryActive
                           ? 'text-red-600 bg-red-50 border-l-4 border-red-600'
                           : 'text-gray-700 hover:text-red-600 hover:bg-gray-50'
@@ -215,7 +215,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             <li key={item.href}>
                               <Link
                                 href={item.href}
-                                className={`flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors ${
+                                className={`flex items-center space-x-3 px-4 py-2 rounded-none transition-colors ${
                                   isActive
                                     ? 'text-red-600 bg-red-50 border-l-4 border-red-600'
                                     : 'text-gray-700 hover:bg-gray-50 hover:text-red-600'

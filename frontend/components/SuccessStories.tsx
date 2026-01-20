@@ -67,14 +67,14 @@ export const SuccessStories: React.FC = () => {
             <>
               <button
                 onClick={() => scroll('left')}
-                className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black text-white text-xl shadow-lg ring-2 ring-black/10 transition hover:bg-black/90 md:h-12 md:w-12"
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex h-11 w-11 items-center justify-center rounded-none bg-black text-white text-xl shadow-lg ring-2 ring-black/10 transition hover:bg-black/90 md:h-12 md:w-12"
                 aria-label="Previous success story"
               >
                 &#10094;
               </button>
               <button
                 onClick={() => scroll('right')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black text-white text-xl shadow-lg ring-2 ring-black/10 transition hover:bg-black/90 md:h-12 md:w-12"
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex h-11 w-11 items-center justify-center rounded-none bg-black text-white text-xl shadow-lg ring-2 ring-black/10 transition hover:bg-black/90 md:h-12 md:w-12"
                 aria-label="Next success story"
               >
                 &#10095;

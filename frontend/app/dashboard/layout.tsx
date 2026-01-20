@@ -52,7 +52,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      className={`flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors ${
+                      className={`flex items-center space-x-3 px-4 py-2 rounded-none transition-colors ${
                         isActive
                           ? 'bg-[var(--primary-700)] text-white'
                           : 'text-[var(--foreground)] hover:bg-[var(--muted)]'

@@ -128,7 +128,7 @@ export default function AdminCategoriesPage() {
               <div className="space-y-4">
                 {category.image && (
                   <Link href={`/admin/categories/${category.id}`}>
-                    <div className="relative aspect-video rounded-lg overflow-hidden bg-[var(--muted)] mb-4">
+                    <div className="relative aspect-video rounded-none overflow-hidden bg-[var(--muted)] mb-4">
                       <Image
                         src={category.image}
                         alt={category.name}

@@ -66,7 +66,7 @@ export default function IncomeTrackingPage() {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             />
           </div>
           <div>
@@ -75,7 +75,7 @@ export default function IncomeTrackingPage() {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             />
           </div>
         </div>

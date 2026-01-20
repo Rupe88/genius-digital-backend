@@ -28,9 +28,9 @@ export const ExpenseCategoryChart: React.FC<ExpenseCategoryChartProps> = ({ data
               <span className="text-sm">{item.category.replace('_', ' ')}</span>
               <span className="text-sm font-semibold">Rs. {item.amount.toLocaleString()}</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-gray-200 rounded-none h-2">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all"
+                className="bg-blue-600 h-2 rounded-none transition-all"
                 style={{ width: `${item.percentage}%` }}
               />
             </div>

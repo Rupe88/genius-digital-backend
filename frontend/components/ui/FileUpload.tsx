@@ -105,7 +105,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
       {preview ? (
         <div className="relative inline-block">
-          <div className="relative w-40 h-24 rounded-lg overflow-hidden border-2 border-[var(--border)] shadow-sm hover:shadow-md transition-shadow">
+          <div className="relative w-40 h-24 rounded-none overflow-hidden border-2 border-[var(--border)] shadow-sm hover:shadow-md transition-shadow">
             <img
               src={preview}
               alt="Course Thumbnail"
@@ -114,7 +114,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             <button
               type="button"
               onClick={handleRemove}
-              className="absolute -top-2 -right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 shadow-lg"
+              className="absolute -top-2 -right-2 p-1 bg-red-600 text-white rounded-none hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 shadow-lg"
               aria-label="Remove thumbnail"
             >
               <HiX className="h-3 w-3" />
@@ -127,7 +127,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       ) : (
         <div
           className={classNames(
-            'relative border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer',
+            'relative border-2 border-dashed rounded-none p-4 text-center transition-colors cursor-pointer',
             dragActive
               ? 'border-[var(--primary-500)] bg-[var(--primary-50)]'
               : error

@@ -121,7 +121,7 @@ export default function VastuProductPage() {
       <div className="min-h-screen bg-gradient-to-b from-white via-[#fff5f6] to-[#fde8ea]">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
+            <div className="animate-spin rounded-none h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading Vastu products...</p>
           </div>
         </div>
@@ -155,7 +155,7 @@ export default function VastuProductPage() {
                 placeholder="Search Vastu products..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-lg"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-lg"
               />
             </div>
 
@@ -236,14 +236,14 @@ export default function VastuProductPage() {
 
                   {/* Featured Badge */}
                   {product.featured && (
-                    <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-medium">
+                    <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded-none text-xs font-medium">
                       Featured
                     </div>
                   )}
 
                   {/* Energy Type Badge */}
                   {product.energyType && (
-                    <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-medium ${getEnergyTypeColor(product.energyType)}`}>
+                    <div className={`absolute top-4 right-4 px-3 py-1 rounded-none text-xs font-medium ${getEnergyTypeColor(product.energyType)}`}>
                       {getEnergyTypeLabel(product.energyType)}
                     </div>
                   )}
@@ -319,7 +319,7 @@ export default function VastuProductPage() {
         )}
 
         {/* Vastu Information Section */}
-        <div className="mt-16 bg-white rounded-lg shadow-lg p-8">
+        <div className="mt-16 bg-white rounded-none shadow-lg p-8">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
               Understanding Vastu Products
@@ -333,7 +333,7 @@ export default function VastuProductPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="text-center">
-              <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <div className="bg-red-100 rounded-none w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">🕉️</span>
               </div>
               <h3 className="font-semibold text-gray-900 mb-2">Energy Correction</h3>
@@ -343,7 +343,7 @@ export default function VastuProductPage() {
             </div>
 
             <div className="text-center">
-              <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <div className="bg-blue-100 rounded-none w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">💎</span>
               </div>
               <h3 className="font-semibold text-gray-900 mb-2">Natural Materials</h3>
@@ -353,7 +353,7 @@ export default function VastuProductPage() {
             </div>
 
             <div className="text-center">
-              <div className="bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <div className="bg-green-100 rounded-none w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">🏠</span>
               </div>
               <h3 className="font-semibold text-gray-900 mb-2">Home Harmony</h3>
@@ -363,7 +363,7 @@ export default function VastuProductPage() {
             </div>
 
             <div className="text-center">
-              <div className="bg-yellow-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <div className="bg-yellow-100 rounded-none w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">⭐</span>
               </div>
               <h3 className="font-semibold text-gray-900 mb-2">Expert Guidance</h3>

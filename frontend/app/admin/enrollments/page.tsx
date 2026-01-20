@@ -124,7 +124,7 @@ export default function AdminEnrollmentsPage() {
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
                     <td colSpan={6} className="px-6 py-4">
-                      <div className="h-4 bg-[var(--muted)] rounded w-full"></div>
+                      <div className="h-4 bg-[var(--muted)] rounded-none w-full"></div>
                     </td>
                   </tr>
                 ))

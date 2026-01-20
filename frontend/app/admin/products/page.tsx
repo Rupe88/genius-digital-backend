@@ -126,7 +126,7 @@ export default function AdminProductsPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+        <div className="animate-spin rounded-none h-8 w-8 border-b-2 border-red-600"></div>
       </div>
     );
   }
@@ -158,7 +158,7 @@ export default function AdminProductsPage() {
               placeholder="Search products..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
             />
           </div>
 
@@ -166,7 +166,7 @@ export default function AdminProductsPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            className="px-4 py-2 border border-gray-300 rounded-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
           >
             <option value="all">All Status</option>
             <option value="ACTIVE">Active</option>
@@ -178,7 +178,7 @@ export default function AdminProductsPage() {
           <select
             value={featuredFilter}
             onChange={(e) => setFeaturedFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            className="px-4 py-2 border border-gray-300 rounded-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
           >
             <option value="all">All Products</option>
             <option value="featured">Featured</option>
@@ -239,10 +239,10 @@ export default function AdminProductsPage() {
                             alt={product.name}
                             width={40}
                             height={40}
-                            className="h-10 w-10 rounded-lg object-cover"
+                            className="h-10 w-10 rounded-none object-cover"
                           />
                         ) : (
-                          <div className="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center">
+                          <div className="h-10 w-10 rounded-none bg-gray-200 flex items-center justify-center">
                             <span className="text-gray-500 text-sm">No Image</span>
                           </div>
                         )}
@@ -271,13 +271,13 @@ export default function AdminProductsPage() {
                     <div className="text-sm text-gray-900">{product.stockQuantity}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(product.status || 'ACTIVE')}`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-none ${getStatusColor(product.status || 'ACTIVE')}`}>
                       {product.status || 'ACTIVE'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {product.featured ? (
-                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-none bg-yellow-100 text-yellow-800">
                         Featured
                       </span>
                     ) : (

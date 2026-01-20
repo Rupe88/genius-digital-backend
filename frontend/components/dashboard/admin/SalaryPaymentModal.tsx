@@ -54,7 +54,7 @@ export const SalaryPaymentModal: React.FC<SalaryPaymentModalProps> = ({
               value={formData.paidAt}
               onChange={(e) => setFormData({ ...formData, paidAt: e.target.value })}
               required
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             />
           </div>
           <div>
@@ -62,7 +62,7 @@ export const SalaryPaymentModal: React.FC<SalaryPaymentModalProps> = ({
             <select
               value={formData.paymentMethod}
               onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             >
               <option value="BANK_TRANSFER">Bank Transfer</option>
               <option value="CASH">Cash</option>
@@ -76,7 +76,7 @@ export const SalaryPaymentModal: React.FC<SalaryPaymentModalProps> = ({
               type="text"
               value={formData.transactionId}
               onChange={(e) => setFormData({ ...formData, transactionId: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             />
           </div>
           <div>
@@ -85,20 +85,20 @@ export const SalaryPaymentModal: React.FC<SalaryPaymentModalProps> = ({
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             />
           </div>
           <div className="flex gap-2">
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-none hover:bg-green-700"
             >
               Confirm Payment
             </button>
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+              className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-none hover:bg-gray-300"
             >
               Cancel
             </button>

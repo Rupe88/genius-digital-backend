@@ -40,7 +40,7 @@ export const Navbar: React.FC = () => {
                 src="/sanskar-academy-logo.jpeg"
                 alt="Sanskar Academy"
                 fill
-                className="object-contain rounded-full"
+                className="object-contain rounded-none"
                 sizes="(max-width: 768px) 64px, 80px"
                 priority
               />
@@ -64,7 +64,7 @@ export const Navbar: React.FC = () => {
               <Link href="/cart" className="relative flex items-center text-gray-700 hover:text-red-600">
                 <HiShoppingCart className="h-6 w-6" />
                 {itemCount > 0 && (
-                  <span className="absolute -right-2 -top-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white">
+                  <span className="absolute -right-2 -top-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-none bg-red-600 px-1 text-xs font-semibold text-white">
                     {itemCount > 9 ? '9+' : itemCount}
                   </span>
                 )}
@@ -72,7 +72,7 @@ export const Navbar: React.FC = () => {
 
               {/* Become Affiliate button - always visible */}
               <Link href={ROUTES.AFFILIATE}>
-                <button className="px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-600 rounded hover:bg-red-50 transition-colors whitespace-nowrap">
+                <button className="px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-600 rounded-none hover:bg-red-50 transition-colors whitespace-nowrap">
                   Become A Affiliate
                 </button>
               </Link>
@@ -89,7 +89,7 @@ export const Navbar: React.FC = () => {
                   </button>
 
                   {isUserMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-none shadow-lg py-1 z-50 border border-gray-200">
                       <Link
                         href={ROUTES.DASHBOARD}
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -136,12 +136,12 @@ export const Navbar: React.FC = () => {
               ) : (
                 <>
                   <Link href={ROUTES.LOGIN}>
-                    <button className="px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-600 rounded hover:bg-red-50 transition-colors whitespace-nowrap">
+                    <button className="px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-600 rounded-none hover:bg-red-50 transition-colors whitespace-nowrap">
                       Login
                     </button>
                   </Link>
                   <Link href={ROUTES.REGISTER}>
-                    <button className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700 transition-colors whitespace-nowrap">
+                    <button className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-none hover:bg-red-700 transition-colors whitespace-nowrap">
                       Register
                     </button>
                   </Link>
@@ -169,7 +169,7 @@ export const Navbar: React.FC = () => {
               <Link
                 key={item.href}
                 href={item.href}
-                className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md font-medium"
+                className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-none font-medium"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {item.label}
@@ -179,7 +179,7 @@ export const Navbar: React.FC = () => {
               <>
                 <Link
                   href={ROUTES.DASHBOARD}
-                  className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md"
+                  className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-none"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Dashboard
@@ -187,7 +187,7 @@ export const Navbar: React.FC = () => {
                 {user?.role === 'ADMIN' && (
                   <Link
                     href={ROUTES.ADMIN}
-                    className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md"
+                    className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-none"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Admin Panel
@@ -195,7 +195,7 @@ export const Navbar: React.FC = () => {
                 )}
                 <button
                   onClick={handleLogout}
-                  className="block w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md"
+                  className="block w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-none"
                 >
                   Logout
                 </button>
@@ -204,21 +204,21 @@ export const Navbar: React.FC = () => {
               <div className="pt-2 space-y-2">
                 <Link
                   href={ROUTES.LOGIN}
-                  className="block px-3 py-2 text-center text-sm font-medium text-red-600 bg-white border border-red-600 rounded hover:bg-red-50 transition-colors"
+                  className="block px-3 py-2 text-center text-sm font-medium text-red-600 bg-white border border-red-600 rounded-none hover:bg-red-50 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Login
                 </Link>
                 <Link
                   href={ROUTES.REGISTER}
-                  className="block px-3 py-2 text-center text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700 transition-colors"
+                  className="block px-3 py-2 text-center text-sm font-medium text-white bg-red-600 rounded-none hover:bg-red-700 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Register
                 </Link>
                 <Link
                   href={ROUTES.AFFILIATE}
-                  className="block px-3 py-2 text-center text-sm font-medium text-red-600 bg-white border border-red-600 rounded hover:bg-red-50 transition-colors"
+                  className="block px-3 py-2 text-center text-sm font-medium text-red-600 bg-white border border-red-600 rounded-none hover:bg-red-50 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Become A Affiliate

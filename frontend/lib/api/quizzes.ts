@@ -70,3 +70,40 @@ export const deleteQuiz = async (id: string): Promise<void> => {
   }
 };
 
+export interface QuizSubmissionData {
+  quizId: string;
+  answers: {
+    questionId: string;
+    answer: string | string[];
+  }[];
+}
+
+export interface QuizResult {
+  score: number;
+  totalPoints: number;
+  percentage: number;
+  passed: boolean;
+  correctAnswers: number;
+  totalQuestions: number;
+  results: {
+    questionId: string;
+    isCorrect: boolean;
+    correctAnswer: string | string[];
+    userAnswer: string | string[];
+    points: number;
+  }[];
+}
+
+export const submitQuiz = async (id: string, answers: QuizSubmissionData['answers']): Promise<QuizResult> => {
+  try {
+    const response = await apiClient.post<ApiResponse<QuizResult>>(API_ENDPOINTS.QUIZZES.SUBMIT(id), { answers });
+    const responseData = response.data;
+    if (responseData.success && responseData.data) {
+      return responseData.data;
+    }
+    throw new Error(responseData.message || 'Failed to submit quiz');
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+

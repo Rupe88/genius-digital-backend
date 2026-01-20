@@ -87,14 +87,14 @@ export const UpcomingEvents: React.FC = () => {
             <>
               <button
                 onClick={() => scroll('left')}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 md:-translate-x-8 z-10 bg-black text-white p-3 rounded-full hover:bg-gray-800 transition-all shadow-lg"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 md:-translate-x-8 z-10 bg-black text-white p-3 rounded-none hover:bg-gray-800 transition-all shadow-lg"
                 aria-label="Previous events"
               >
                 <HiChevronLeft className="h-6 w-6" />
               </button>
               <button
                 onClick={() => scroll('right')}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 md:translate-x-8 z-10 bg-black text-white p-3 rounded-full hover:bg-gray-800 transition-all shadow-lg"
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 md:translate-x-8 z-10 bg-black text-white p-3 rounded-none hover:bg-gray-800 transition-all shadow-lg"
                 aria-label="Next events"
               >
                 <HiChevronRight className="h-6 w-6" />
@@ -127,7 +127,7 @@ export const UpcomingEvents: React.FC = () => {
                 <div className="p-5">
                   {/* Date */}
                   <div className="mb-3">
-                    <span className="inline-block px-3 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-700">
+                    <span className="inline-block px-3 py-1 rounded-none bg-gray-100 text-xs font-medium text-gray-700">
                       {event.date}
                     </span>
                   </div>

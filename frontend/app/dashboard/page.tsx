@@ -24,8 +24,8 @@ export default function DashboardPage() {
   const fetchStats = async () => {
     try {
       const enrollments = await enrollmentApi.getUserEnrollments();
-      const enrolled = enrollments.data.length;
-      const completed = enrollments.data.filter((e: any) => e.status === 'COMPLETED').length;
+      const enrolled = (enrollments && enrollments.data) ? enrollments.data.length : 0;
+      const completed = (enrollments && enrollments.data) ? enrollments.data.filter((e: any) => e.status === 'COMPLETED').length : 0;
       setStats({
         enrolledCourses: enrolled,
         completedCourses: completed,
@@ -68,8 +68,8 @@ export default function DashboardPage() {
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
                 <tab.icon className="w-4 h-4 inline mr-2" />
@@ -84,7 +84,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card padding="lg">
             <div className="flex items-center">
-              <div className="p-3 bg-[var(--primary-100)] rounded-lg mr-4">
+              <div className="p-3 bg-[var(--primary-100)] rounded-none mr-4">
                 <HiBookOpen className="h-6 w-6 text-[var(--primary-700)]" />
               </div>
               <div>
@@ -98,7 +98,7 @@ export default function DashboardPage() {
 
           <Card padding="lg">
             <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-lg mr-4">
+              <div className="p-3 bg-green-100 rounded-none mr-4">
                 <HiCheckCircle className="h-6 w-6 text-green-700" />
               </div>
               <div>
@@ -112,7 +112,7 @@ export default function DashboardPage() {
 
           <Card padding="lg">
             <div className="flex items-center">
-              <div className="p-3 bg-yellow-100 rounded-lg mr-4">
+              <div className="p-3 bg-yellow-100 rounded-none mr-4">
                 <HiAcademicCap className="h-6 w-6 text-yellow-700" />
               </div>
               <div>

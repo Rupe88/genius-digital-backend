@@ -97,7 +97,7 @@ export default function AdminExpensesPage() {
         </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="px-4 py-2 bg-blue-600 text-white rounded-none hover:bg-blue-700"
         >
           {showAddForm ? 'Cancel' : 'Add Expense'}
         </button>
@@ -111,7 +111,7 @@ export default function AdminExpensesPage() {
             <select
               value={filters.category}
               onChange={(e) => setFilters({ ...filters, category: e.target.value, page: 1 })}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             >
               <option value="">All Categories</option>
               {expenseCategories.map((cat) => (
@@ -126,7 +126,7 @@ export default function AdminExpensesPage() {
             <select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value, page: 1 })}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             >
               <option value="">All Statuses</option>
               {expenseStatuses.map((status) => (
@@ -166,7 +166,7 @@ export default function AdminExpensesPage() {
                     <td className="py-3 px-4">Rs. {parseFloat(expense.amount.toString()).toLocaleString()}</td>
                     <td className="py-3 px-4">
                       <span
-                        className={`px-2 py-1 rounded text-xs ${
+                        className={`px-2 py-1 rounded-none text-xs ${
                           expense.status === 'PAID'
                             ? 'bg-green-100 text-green-800'
                             : expense.status === 'APPROVED'
@@ -224,7 +224,7 @@ export default function AdminExpensesPage() {
             <button
               onClick={() => setFilters({ ...filters, page: filters.page - 1 })}
               disabled={filters.page === 1}
-              className="px-4 py-2 border rounded-lg disabled:opacity-50"
+              className="px-4 py-2 border rounded-none disabled:opacity-50"
             >
               Previous
             </button>
@@ -234,7 +234,7 @@ export default function AdminExpensesPage() {
             <button
               onClick={() => setFilters({ ...filters, page: filters.page + 1 })}
               disabled={filters.page === pagination.pages}
-              className="px-4 py-2 border rounded-lg disabled:opacity-50"
+              className="px-4 py-2 border rounded-none disabled:opacity-50"
             >
               Next
             </button>

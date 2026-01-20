@@ -1,5 +1,6 @@
-import { apiClient } from './axios';
+import { apiClient, handleApiResponse, handleApiError } from './axios';
 import { API_ENDPOINTS } from '../utils/constants';
+import { ApiResponse } from '@/lib/types/api';
 
 export interface LessonProgress {
   id: string;
@@ -28,45 +29,58 @@ export interface UpdateProgressRequest {
   timeSpent?: number;
 }
 
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  message: string;
-}
+/**
+ * Get user's progress for all enrolled courses
+ */
+export const getUserProgress = async (): Promise<CourseProgress[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<CourseProgress[]>>(API_ENDPOINTS.PROGRESS.LIST);
+    return handleApiResponse<CourseProgress[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
 /**
- * Progress API
+ * Get progress for specific enrollment
  */
+export const getEnrollmentProgress = async (id: string): Promise<LessonProgress[]> => {
+  try {
+    const response = await apiClient.get<ApiResponse<LessonProgress[]>>(API_ENDPOINTS.PROGRESS.BY_ID(id));
+    return handleApiResponse<LessonProgress[]>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Update lesson progress
+ */
+export const updateLessonProgress = async (id: string, data: UpdateProgressRequest): Promise<LessonProgress> => {
+  try {
+    const response = await apiClient.put<ApiResponse<LessonProgress>>(API_ENDPOINTS.PROGRESS.BY_ID(id), data);
+    return handleApiResponse<LessonProgress>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Mark lesson as completed
+ */
+export const completeLesson = async (lessonId: string): Promise<LessonProgress> => {
+  try {
+    const response = await apiClient.post<ApiResponse<LessonProgress>>(`${API_ENDPOINTS.PROGRESS.LIST}/complete`, { lessonId });
+    return handleApiResponse<LessonProgress>(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+// Also export as a default object for backward compatibility if needed
 export const progressApi = {
-  /**
-   * Get user's progress for all enrolled courses
-   */
-  getUserProgress: async (): Promise<ApiResponse<CourseProgress[]>> => {
-    const response = await apiClient.get(API_ENDPOINTS.PROGRESS.LIST);
-    return response.data;
-  },
-
-  /**
-   * Get progress for specific enrollment
-   */
-  getEnrollmentProgress: async (id: string): Promise<ApiResponse<LessonProgress[]>> => {
-    const response = await apiClient.get(API_ENDPOINTS.PROGRESS.BY_ID(id));
-    return response.data;
-  },
-
-  /**
-   * Update lesson progress
-   */
-  updateLessonProgress: async (id: string, data: UpdateProgressRequest): Promise<ApiResponse<LessonProgress>> => {
-    const response = await apiClient.put(API_ENDPOINTS.PROGRESS.BY_ID(id), data);
-    return response.data;
-  },
-
-  /**
-   * Mark lesson as completed
-   */
-  completeLesson: async (lessonId: string): Promise<ApiResponse<LessonProgress>> => {
-    const response = await apiClient.post(`${API_ENDPOINTS.PROGRESS.LIST}/complete`, { lessonId });
-    return response.data;
-  },
+  getUserProgress,
+  getEnrollmentProgress,
+  updateLessonProgress,
+  completeLesson
 };

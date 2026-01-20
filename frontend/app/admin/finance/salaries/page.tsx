@@ -108,7 +108,7 @@ export default function SalaryManagementPage() {
         {selectedEarnings.length > 0 && (
           <button
             onClick={() => setShowPaymentModal(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            className="px-4 py-2 bg-green-600 text-white rounded-none hover:bg-green-700"
           >
             Mark {selectedEarnings.length} as Paid
           </button>
@@ -147,7 +147,7 @@ export default function SalaryManagementPage() {
             <select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value, page: 1 })}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             >
               <option value="">All Statuses</option>
               <option value="PENDING">Pending</option>
@@ -161,7 +161,7 @@ export default function SalaryManagementPage() {
       {/* Earnings Table */}
       <Card padding="lg">
         {selectedEarnings.length > 0 && (
-          <div className="mb-4 p-4 bg-blue-50 rounded-lg flex justify-between items-center">
+          <div className="mb-4 p-4 bg-blue-50 rounded-none flex justify-between items-center">
             <span className="font-semibold">
               {selectedEarnings.length} selected • Total: Rs. {totalSelectedAmount.toLocaleString()}
             </span>
@@ -188,7 +188,7 @@ export default function SalaryManagementPage() {
                       type="checkbox"
                       checked={selectedEarnings.length === earnings.length && earnings.length > 0}
                       onChange={selectAll}
-                      className="rounded"
+                      className="rounded-none"
                     />
                   </th>
                   <th className="text-left py-3 px-4">Instructor</th>
@@ -207,7 +207,7 @@ export default function SalaryManagementPage() {
                         type="checkbox"
                         checked={selectedEarnings.includes(earning.id)}
                         onChange={() => toggleSelection(earning.id)}
-                        className="rounded"
+                        className="rounded-none"
                       />
                     </td>
                     <td className="py-3 px-4">{earning.instructor?.name || 'N/A'}</td>
@@ -218,7 +218,7 @@ export default function SalaryManagementPage() {
                     <td className="py-3 px-4">{earning.commissionRate}%</td>
                     <td className="py-3 px-4">
                       <span
-                        className={`px-2 py-1 rounded text-xs ${earning.status === 'PAID'
+                        className={`px-2 py-1 rounded-none text-xs ${earning.status === 'PAID'
                             ? 'bg-green-100 text-green-800'
                             : earning.status === 'PENDING'
                               ? 'bg-yellow-100 text-yellow-800'
@@ -242,7 +242,7 @@ export default function SalaryManagementPage() {
             <button
               onClick={() => setFilters({ ...filters, page: filters.page - 1 })}
               disabled={filters.page === 1}
-              className="px-4 py-2 border rounded-lg disabled:opacity-50"
+              className="px-4 py-2 border rounded-none disabled:opacity-50"
             >
               Previous
             </button>
@@ -252,7 +252,7 @@ export default function SalaryManagementPage() {
             <button
               onClick={() => setFilters({ ...filters, page: filters.page + 1 })}
               disabled={filters.page === pagination.pages}
-              className="px-4 py-2 border rounded-lg disabled:opacity-50"
+              className="px-4 py-2 border rounded-none disabled:opacity-50"
             >
               Next
             </button>
@@ -272,7 +272,7 @@ export default function SalaryManagementPage() {
             <div className="flex gap-2">
               <button
                 onClick={handleMarkPaid}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-none hover:bg-green-700"
               >
                 Confirm Payment
               </button>
@@ -280,7 +280,7 @@ export default function SalaryManagementPage() {
                 onClick={() => {
                   setShowPaymentModal(false);
                 }}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-none hover:bg-gray-300"
               >
                 Cancel
               </button>

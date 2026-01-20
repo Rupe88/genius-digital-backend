@@ -83,13 +83,13 @@ export default function ProfitLossPage() {
         <div className="flex gap-2">
           <button
             onClick={() => handleExport('csv')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-600 text-white rounded-none hover:bg-blue-700"
           >
             Export CSV
           </button>
           <button
             onClick={() => handleExport('json')}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            className="px-4 py-2 bg-green-600 text-white rounded-none hover:bg-green-700"
           >
             Export JSON
           </button>
@@ -105,7 +105,7 @@ export default function ProfitLossPage() {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             />
           </div>
           <div>
@@ -114,7 +114,7 @@ export default function ProfitLossPage() {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-none"
             />
           </div>
         </div>

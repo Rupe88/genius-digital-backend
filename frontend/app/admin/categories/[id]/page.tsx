@@ -152,19 +152,19 @@ export default function CategoryDetailPage() {
             <Card padding="lg">
               <h2 className="text-xl font-bold mb-4 text-[var(--foreground)]">Statistics</h2>
               <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-[var(--muted)] rounded-lg">
+                <div className="text-center p-4 bg-[var(--muted)] rounded-none">
                   <div className="text-2xl font-bold text-[var(--foreground)]">
                     {category._count.courses || 0}
                   </div>
                   <div className="text-sm text-[var(--muted-foreground)] mt-1">Courses</div>
                 </div>
-                <div className="text-center p-4 bg-[var(--muted)] rounded-lg">
+                <div className="text-center p-4 bg-[var(--muted)] rounded-none">
                   <div className="text-2xl font-bold text-[var(--foreground)]">
                     {category._count.blogs || 0}
                   </div>
                   <div className="text-sm text-[var(--muted-foreground)] mt-1">Blogs</div>
                 </div>
-                <div className="text-center p-4 bg-[var(--muted)] rounded-lg">
+                <div className="text-center p-4 bg-[var(--muted)] rounded-none">
                   <div className="text-2xl font-bold text-[var(--foreground)]">
                     {category._count.products || 0}
                   </div>
@@ -183,7 +183,7 @@ export default function CategoryDetailPage() {
                   <Link
                     key={child.id}
                     href={`/admin/categories/${child.id}`}
-                    className="block p-3 bg-[var(--muted)] hover:bg-[var(--accent)] rounded-lg transition-colors"
+                    className="block p-3 bg-[var(--muted)] hover:bg-[var(--accent)] rounded-none transition-colors"
                   >
                     <div className="font-medium text-[var(--foreground)]">{child.name}</div>
                     <div className="text-sm text-[var(--muted-foreground)] mt-1">{child.slug}</div>
@@ -199,7 +199,7 @@ export default function CategoryDetailPage() {
           {category.image && (
             <Card padding="lg">
               <h2 className="text-xl font-bold mb-4 text-[var(--foreground)]">Image</h2>
-              <div className="relative aspect-video rounded-lg overflow-hidden bg-[var(--muted)]">
+              <div className="relative aspect-video rounded-none overflow-hidden bg-[var(--muted)]">
                 <Image
                   src={category.image}
                   alt={category.name}

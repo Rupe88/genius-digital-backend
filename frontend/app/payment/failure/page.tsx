@@ -12,9 +12,9 @@ export default function PaymentFailurePage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-            <Card className="max-w-md w-full text-center p-8 bg-white shadow-xl rounded-2xl border border-gray-100">
+            <Card className="max-w-md w-full text-center p-8 bg-white shadow-xl rounded-none border border-gray-100">
                 <div className="space-y-6">
-                    <div className="bg-red-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto">
+                    <div className="bg-red-50 w-24 h-24 rounded-none flex items-center justify-center mx-auto">
                         <HiXCircle className="w-16 h-16 text-red-500" />
                     </div>
                     <h1 className="text-3xl font-bold text-gray-900">Payment Failed</h1>

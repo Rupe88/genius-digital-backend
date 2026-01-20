@@ -148,7 +148,7 @@ export default function ViewProductPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+        <div className="animate-spin rounded-none h-8 w-8 border-b-2 border-red-600"></div>
       </div>
     );
   }
@@ -208,7 +208,7 @@ export default function ViewProductPage() {
             {product.images && product.images.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {product.images.map((image, index) => (
-                  <div key={index} className="aspect-square relative rounded-lg overflow-hidden">
+                  <div key={index} className="aspect-square relative rounded-none overflow-hidden">
                     <Image
                       src={image}
                       alt={`${product.name} - Image ${index + 1}`}
@@ -257,7 +257,7 @@ export default function ViewProductPage() {
                   {product.energyType && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Energy Type</label>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-1 ${getEnergyTypeColor(product.energyType)}`}>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-none mt-1 ${getEnergyTypeColor(product.energyType)}`}>
                         {getEnergyTypeLabel(product.energyType)}
                       </span>
                     </div>
@@ -284,7 +284,7 @@ export default function ViewProductPage() {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Status</span>
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(product.status || 'ACTIVE')}`}>
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-none ${getStatusColor(product.status || 'ACTIVE')}`}>
                   {product.status || 'ACTIVE'}
                 </span>
               </div>
