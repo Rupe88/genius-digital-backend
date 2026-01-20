@@ -23,7 +23,7 @@ export const generateSharingLinks = async (req, res, next) => {
     // Verify course exists and is published
     const course = await prisma.course.findUnique({
       where: { id: courseId },
-      select: { id: true, status: true, title: true },
+      select: { id: true, status: true, title: true, slug: true },
     });
 
     if (!course || course.status !== 'PUBLISHED') {
@@ -34,7 +34,12 @@ export const generateSharingLinks = async (req, res, next) => {
     }
 
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const sharingUrls = await referralService.generateSharingUrls(userId, courseId, baseUrl);
+    console.log(`Generating sharing links for user ${userId} and course ${courseId}`);
+
+    // Pass course slug to avoid extra DB call
+    const sharingUrls = await referralService.generateSharingUrls(userId, courseId, baseUrl, course.slug);
+
+    console.log('Sharing links generated successfully');
 
     res.json({
       success: true,

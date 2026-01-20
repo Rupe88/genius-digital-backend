@@ -485,15 +485,17 @@ export const markReferralCommissionsAsPaid = async (conversionIds) => {
 /**
  * Generate social sharing URLs
  */
-export const generateSharingUrls = async (userId, courseId, baseUrl) => {
+export const generateSharingUrls = async (userId, courseId, baseUrl, courseSlug = null) => {
   const referralLink = await createReferralLink(userId, courseId);
 
-  const course = await prisma.course.findUnique({
-    where: { id: courseId },
-    select: { slug: true }
-  });
-
-  const slug = course?.slug || courseId;
+  let slug = courseSlug;
+  if (!slug) {
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { slug: true }
+    });
+    slug = course?.slug || courseId;
+  }
   const shareUrl = `${baseUrl}/courses/${slug}?ref=${referralLink.referralCode}`;
 
   return {

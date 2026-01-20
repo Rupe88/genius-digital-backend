@@ -4,6 +4,9 @@ import React, { useState } from 'react';
 import { generateSharingLinks, SocialSharing, SharingLinks } from '@/lib/api/referrals';
 import { FaShare, FaFacebook, FaLinkedin, FaTwitter, FaWhatsapp, FaCopy, FaCheck } from 'react-icons/fa';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/lib/context/AuthContext';
+import { useRouter } from 'next/navigation';
+import { ROUTES } from '@/lib/utils/constants';
 
 interface ShareButtonProps {
   courseId: string;
@@ -24,12 +27,20 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
   size = 'md',
   className = ''
 }) => {
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [sharingData, setSharingData] = useState<SharingLinks | null>(null);
   const [copied, setCopied] = useState(false);
 
   const handleShare = async () => {
+    if (!isAuthenticated) {
+      toast.error('Please login to share and earn');
+      router.push(`${ROUTES.LOGIN}?redirect=/courses/${courseId}`);
+      return;
+    }
+
     if (!sharingData) {
       setLoading(true);
       try {
