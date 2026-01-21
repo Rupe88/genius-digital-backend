@@ -25,6 +25,7 @@ export interface CreateConsultationRequest {
   referralSource?: string;
   referralSourceOther?: string;
   message: string;
+  topic?: string;
   // preferredTime removed as it's not in backend, using consultationType instead
 }
 

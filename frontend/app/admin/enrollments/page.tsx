@@ -146,7 +146,7 @@ export default function AdminEnrollmentsPage() {
                       <div className="text-xs text-[var(--muted-foreground)]">ID: #{enrollment.id.slice(0, 8)}</div>
                     </td>
                     <td className="px-6 py-4 text-[var(--muted-foreground)]">
-                      {formatDate(enrollment.enrolledAt)}
+                      {enrollment.enrolledAt ? formatDate(enrollment.enrolledAt) : 'N/A'}
                     </td>
                     <td className="px-6 py-4">
                       <Badge variant={getStatusColor(enrollment.status)}>
@@ -154,7 +154,7 @@ export default function AdminEnrollmentsPage() {
                       </Badge>
                     </td>
                     <td className="px-6 py-4 font-medium">
-                      Rs. {enrollment.pricePaid.toLocaleString()}
+                      Rs. {(enrollment.pricePaid || 0).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Button

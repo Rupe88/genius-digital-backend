@@ -44,8 +44,10 @@ export default function ConsultationPage() {
         setSubmitting(true);
         try {
             // Prepare payload
+            const topic = data.topic ? `Topic: ${data.topic}\n` : '';
             const payload = {
                 ...data,
+                message: `${topic}${data.message}`,
                 consultationType: isOnline ? 'ONLINE' : 'OFFLINE',
                 // default status is PENDING
             };
@@ -146,11 +148,7 @@ export default function ConsultationPage() {
                          or just not include it in the strict API type but append to message. 
                          Let's append to message in onSubmit. */}
                                         <select
-                                            onChange={(e) => {
-                                                // We will handle this in onSubmit by reading the value or holding state
-                                                // For now, let's just register it as a custom field not in the interface cast
-                                            }}
-                                            ref={register('message').ref} // Hacky, better to use state or just append to message
+                                            {...register('topic')}
                                             className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--primary-700)] focus:border-transparent bg-white transition"
                                         >
                                             <option value="">Select Topic</option>
