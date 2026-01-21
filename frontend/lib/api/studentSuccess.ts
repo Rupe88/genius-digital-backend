@@ -3,39 +3,39 @@ import { API_ENDPOINTS } from '../utils/constants';
 
 export interface StudentSuccess {
   id: string;
-  title: string;
-  description: string;
   studentName: string;
-  courseName: string;
-  achievement: string;
-  imageUrl?: string;
+  studentImage?: string;
+  courseId?: string;
+  course?: { title: string }; // Assuming including course returns object
+  title: string;
+  story: string;
+  achievement?: string;
+  company?: string;
+  position?: string;
+  testimonial?: string;
+  isPublished: boolean;
   featured: boolean;
-  published: boolean;
+  order: number;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateStudentSuccessRequest {
-  title: string;
-  description: string;
   studentName: string;
-  courseName: string;
-  achievement: string;
-  imageUrl?: string;
+  studentImage?: string;
+  courseId?: string;
+  title: string;
+  story: string;
+  achievement?: string;
+  company?: string;
+  position?: string;
+  testimonial?: string;
+  isPublished?: boolean;
   featured?: boolean;
-  published?: boolean;
+  order?: number;
 }
 
-export interface UpdateStudentSuccessRequest {
-  title?: string;
-  description?: string;
-  studentName?: string;
-  courseName?: string;
-  achievement?: string;
-  imageUrl?: string;
-  featured?: boolean;
-  published?: boolean;
-}
+export interface UpdateStudentSuccessRequest extends Partial<CreateStudentSuccessRequest> { }
 
 export interface ApiResponse<T = unknown> {
   success: boolean;

@@ -4,13 +4,15 @@ import { ApiResponse } from '@/lib/types/api';
 
 export interface Consultation {
   id: string;
-  userId: string;
   name: string;
   email: string;
   phone: string;
+  consultationType?: 'ONLINE' | 'OFFLINE';
+  referralSource?: string;
+  referralSourceOther?: string;
   message: string;
-  preferredTime: string;
-  status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED' | 'CONFIRMED' | 'CANCELLED'; // Combined list to be safe
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -19,12 +21,16 @@ export interface CreateConsultationRequest {
   name: string;
   email: string;
   phone: string;
+  consultationType?: 'ONLINE' | 'OFFLINE';
+  referralSource?: string;
+  referralSourceOther?: string;
   message: string;
-  preferredTime: string;
+  // preferredTime removed as it's not in backend, using consultationType instead
 }
 
 export interface UpdateConsultationStatusRequest {
   status: Consultation['status'];
+  notes?: string;
 }
 
 /**
