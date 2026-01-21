@@ -10,20 +10,6 @@ export interface Popup {
     updatedAt: string;
 }
 
-export interface CreatePopupRequest {
-    title: string;
-    imageUrl: string;
-    linkUrl?: string;
-    isActive?: boolean;
-}
-
-export interface UpdatePopupRequest {
-    title?: string;
-    imageUrl?: string;
-    linkUrl?: string;
-    isActive?: boolean;
-}
-
 export const popupsApi = {
     /**
      * Get active popup for public
@@ -43,17 +29,23 @@ export const popupsApi = {
 
     /**
      * Create popup (Admin)
+     * data can be FormData
      */
-    create: async (data: CreatePopupRequest) => {
-        const response = await apiClient.post<{ success: boolean; data: Popup }>('/popups', data);
+    create: async (data: FormData) => {
+        const response = await apiClient.post<{ success: boolean; data: Popup }>('/popups', data, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
         return response.data;
     },
 
     /**
      * Update popup (Admin)
+     * data can be FormData
      */
-    update: async (id: string, data: UpdatePopupRequest) => {
-        const response = await apiClient.put<{ success: boolean; data: Popup }>(`/popups/${id}`, data);
+    update: async (id: string, data: FormData) => {
+        const response = await apiClient.put<{ success: boolean; data: Popup }>(`/popups/${id}`, data, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
         return response.data;
     },
 

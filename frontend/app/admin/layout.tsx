@@ -52,7 +52,7 @@ const adminMenuCategories: MenuCategory[] = [
     label: 'Content Management',
     icon: HiDocumentText,
     items: [
-      { href: `${ROUTES.ADMIN}/blog`, label: 'Blog', icon: HiDocumentText },
+      { href: `${ROUTES.ADMIN}/blogs`, label: 'Blog', icon: HiDocumentText },
       { href: `${ROUTES.ADMIN}/testimonials`, label: 'Testimonials', icon: HiStar },
       { href: `${ROUTES.ADMIN}/gallery`, label: 'Gallery', icon: HiPhotograph },
       { href: `${ROUTES.ADMIN}/faqs`, label: 'FAQs', icon: HiQuestionMarkCircle },

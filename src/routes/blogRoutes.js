@@ -17,6 +17,7 @@ import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
 import { body, param, query } from 'express-validator';
 import { validate } from '../utils/validators.js';
+import { singleUpload, processImageUpload } from '../middleware/cloudinaryUpload.js';
 
 const router = express.Router();
 
@@ -55,7 +56,7 @@ router.get(
 
 router.post(
   '/:id/comments',
-  authenticate, // Move authenticate before validate
+  authenticate,
   [
     param('id').isUUID(),
     body('content').notEmpty().trim().withMessage('Comment content is required'),
@@ -102,16 +103,19 @@ router.post(
   moderateComment
 );
 
-// Blog CRUD routes
+// Blog CRUD routes - Restricted to Admin/Instructor usually, here implementing Admin restriction for safety
 router.post(
   '/',
   authenticate,
+  requireAdmin,
+  singleUpload('featuredImage'),
+  processImageUpload,
   [
     body('title').notEmpty().trim().withMessage('Blog title is required'),
     body('slug').notEmpty().trim().withMessage('Blog slug is required'),
     body('content').notEmpty().withMessage('Blog content is required'),
     body('excerpt').optional().isString().isLength({ max: 500 }),
-    body('featuredImage').optional().isURL(),
+    // featuredImage validated in controller or skipped if upload present
     body('categoryId').optional().isUUID(),
     body('status').optional().isIn(['DRAFT', 'PUBLISHED', 'ARCHIVED']),
     body('featured').optional().isBoolean(),
@@ -126,13 +130,15 @@ router.post(
 router.put(
   '/:id',
   authenticate,
+  requireAdmin,
+  singleUpload('featuredImage'),
+  processImageUpload,
   [
     param('id').isUUID(),
     body('title').optional().notEmpty().trim(),
     body('slug').optional().notEmpty().trim(),
     body('content').optional().notEmpty(),
     body('excerpt').optional().isString().isLength({ max: 500 }),
-    body('featuredImage').optional().isURL(),
     body('categoryId').optional().isUUID(),
     body('status').optional().isIn(['DRAFT', 'PUBLISHED', 'ARCHIVED']),
     body('featured').optional().isBoolean(),
@@ -147,9 +153,9 @@ router.put(
 router.delete(
   '/:id',
   authenticate,
+  requireAdmin,
   [param('id').isUUID()],
   deleteBlog
 );
 
 export default router;
-

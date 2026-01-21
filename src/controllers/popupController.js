@@ -10,7 +10,7 @@ export const getActivePopup = async (req, res, next) => {
     try {
         const popup = await prisma.popup.findFirst({
             where: { isActive: true },
-            orderBy: { createdAt: 'desc' }, // Get the most recently created active one
+            orderBy: { createdAt: 'desc' },
         });
 
         res.json({
@@ -53,7 +53,19 @@ export const createPopup = async (req, res, next) => {
             });
         }
 
-        const { title, imageUrl, linkUrl, isActive } = req.body;
+        const { title, linkUrl, isActive } = req.body;
+        let imageUrl = req.body.imageUrl;
+
+        if (req.cloudinary && req.cloudinary.url) {
+            imageUrl = req.cloudinary.url;
+        }
+
+        if (!imageUrl) {
+            return res.status(400).json({
+                success: false,
+                message: 'Image is required (either file upload or imageUrl)',
+            });
+        }
 
         const popup = await prisma.popup.create({
             data: {
@@ -80,15 +92,20 @@ export const createPopup = async (req, res, next) => {
 export const updatePopup = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { title, imageUrl, linkUrl, isActive } = req.body;
+        const { title, linkUrl, isActive } = req.body;
+        let { imageUrl } = req.body;
+
+        if (req.cloudinary && req.cloudinary.url) {
+            imageUrl = req.cloudinary.url;
+        }
 
         const popup = await prisma.popup.update({
             where: { id },
             data: {
                 ...(title && { title }),
                 ...(imageUrl && { imageUrl }),
-                ...(linkUrl !== undefined && { linkUrl }), // allow clearing link
-                ...(isActive !== undefined && { isActive: Boolean(isActive) }),
+                ...(linkUrl !== undefined && { linkUrl }),
+                ...(isActive !== undefined && { isActive: Boolean(isActive === 'true' || isActive === true) }),
             },
         });
 

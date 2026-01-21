@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { FileUpload } from '@/components/ui/FileUpload';
-import { RichTextEditor } from '@/components/ui/RichTextEditor';
+import RichTextEditor from '@/components/ui/RichTextEditor';
 import { Lesson, CreateLessonData } from '@/lib/api/lessons';
 import { Chapter } from '@/lib/api/chapters';
 import { generateSlug } from '@/lib/utils/helpers';

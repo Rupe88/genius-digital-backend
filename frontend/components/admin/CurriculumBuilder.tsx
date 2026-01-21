@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
-import { RichTextEditor } from '@/components/ui/RichTextEditor';
+import RichTextEditor from '@/components/ui/RichTextEditor';
 import { Lesson, CreateLessonData, QuizData, QuizQuestionData } from '@/lib/api/lessons';
 import { Chapter, CreateChapterData } from '@/lib/api/chapters';
 

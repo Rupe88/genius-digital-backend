@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { FileUpload } from '@/components/ui/FileUpload';
-import { RichTextEditor } from '@/components/ui/RichTextEditor';
+import RichTextEditor from '@/components/ui/RichTextEditor';
 import { TagInput } from '@/components/ui/TagInput';
 import { BulletListInput } from '@/components/ui/BulletListInput';
 import { CurriculumBuilder } from './CurriculumBuilder';

@@ -1,8 +1,7 @@
-import { apiClient, handleApiResponse, handleApiError } from './axios';
-import { API_ENDPOINTS } from '@/lib/utils/constants';
-import { PaginatedResponse } from '@/lib/types/api';
+import { apiClient } from './axios';
 
-export interface BlogPost {
+// Matches Prisma Model
+export interface Blog {
   id: string;
   title: string;
   slug: string;
@@ -10,32 +9,65 @@ export interface BlogPost {
   excerpt?: string;
   featuredImage?: string;
   authorId: string;
-  published: boolean;
+  author?: {
+    id: string;
+    fullName: string;
+    profileImage: string;
+  };
+  categoryId?: string;
+  category?: {
+    id: string;
+    name: string;
+  };
+  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  featured: boolean;
+  views: number;
+  tags?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  publishedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export const getBlogs = async (params?: {
-  page?: number;
-  limit?: number;
-  search?: string;
-}): Promise<PaginatedResponse<BlogPost>> => {
-  try {
-    const response = await apiClient.get<{ data: PaginatedResponse<BlogPost> }>(API_ENDPOINTS.BLOG.LIST, {
-      params,
+export interface BlogListResponse {
+  success: boolean;
+  data: Blog[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
+export const blogsApi = {
+  getAll: async (params?: any) => {
+    const response = await apiClient.get<BlogListResponse>('/blogs', { params });
+    return response.data;
+  },
+
+  getById: async (id: string) => {
+    const response = await apiClient.get<{ success: boolean; data: Blog }>(`/blogs/${id}`);
+    return response.data;
+  },
+
+  create: async (data: FormData) => {
+    const response = await apiClient.post<{ success: boolean; data: Blog }>('/blogs', data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return handleApiResponse(response);
-  } catch (error) {
-    throw new Error(handleApiError(error));
-  }
-};
+    return response.data;
+  },
 
-export const getBlogById = async (id: string): Promise<BlogPost> => {
-  try {
-    const response = await apiClient.get<{ data: BlogPost }>(API_ENDPOINTS.BLOG.BY_ID(id));
-    return handleApiResponse(response);
-  } catch (error) {
-    throw new Error(handleApiError(error));
-  }
-};
+  update: async (id: string, data: FormData) => {
+    const response = await apiClient.put<{ success: boolean; data: Blog }>(`/blogs/${id}`, data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
 
+  delete: async (id: string) => {
+    const response = await apiClient.delete<{ success: boolean; message: string }>(`/blogs/${id}`);
+    return response.data;
+  },
+};

@@ -193,6 +193,11 @@ export const createBlog = async (req, res, next) => {
       });
     }
 
+    // Handle Image Upload
+    if (req.cloudinary && req.cloudinary.url) {
+      req.body.featuredImage = req.cloudinary.url;
+    }
+
     const {
       title,
       slug,
@@ -245,6 +250,7 @@ export const createBlog = async (req, res, next) => {
             id: true,
             fullName: true,
             profileImage: true,
+            fullName: true,
           },
         },
         category: true,
@@ -275,6 +281,12 @@ export const updateBlog = async (req, res, next) => {
     }
 
     const { id } = req.params;
+
+    // Handle Image Upload
+    if (req.cloudinary && req.cloudinary.url) {
+      req.body.featuredImage = req.cloudinary.url;
+    }
+
     const {
       title,
       slug,
@@ -404,4 +416,3 @@ export const deleteBlog = async (req, res, next) => {
     next(error);
   }
 };
-
