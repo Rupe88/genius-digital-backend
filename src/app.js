@@ -38,6 +38,7 @@ import faqRoutes from './routes/faqRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
 import newsletterRoutes from './routes/newsletterRoutes.js';
 import wishlistRoutes from './routes/wishlistRoutes.js';
+import popupRoutes from './routes/popupRoutes.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { useragentMiddleware } from './middleware/useragent.js';
 
@@ -176,6 +177,7 @@ app.use('/api/faqs', faqRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/newsletter', newsletterRoutes);
 app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/popups', popupRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

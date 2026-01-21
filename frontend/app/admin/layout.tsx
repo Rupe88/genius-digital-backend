@@ -58,6 +58,7 @@ const adminMenuCategories: MenuCategory[] = [
       { href: `${ROUTES.ADMIN}/faqs`, label: 'FAQs', icon: HiQuestionMarkCircle },
       { href: `${ROUTES.ADMIN}/events`, label: 'Events', icon: HiCalendar },
       { href: `${ROUTES.ADMIN}/live-classes`, label: 'Live Classes', icon: HiVideoCamera },
+      { href: `${ROUTES.ADMIN}/popups`, label: 'Popups', icon: HiPhotograph },
     ]
   },
   {
@@ -189,8 +190,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         toggleCategory(category.label);
                       }}
                       className={`flex items-center justify-between w-full px-4 py-2 rounded-none transition-colors ${categoryActive
-                          ? 'text-red-600 bg-red-50 border-l-4 border-red-600'
-                          : 'text-gray-700 hover:text-red-600 hover:bg-gray-50'
+                        ? 'text-red-600 bg-red-50 border-l-4 border-red-600'
+                        : 'text-gray-700 hover:text-red-600 hover:bg-gray-50'
                         }`}
                     >
                       <div className="flex items-center space-x-3">
@@ -215,8 +216,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                               <Link
                                 href={item.href}
                                 className={`flex items-center space-x-3 px-4 py-2 rounded-none transition-colors ${isActive
-                                    ? 'text-red-600 bg-red-50 border-l-4 border-red-600'
-                                    : 'text-gray-700 hover:bg-gray-50 hover:text-red-600'
+                                  ? 'text-red-600 bg-red-50 border-l-4 border-red-600'
+                                  : 'text-gray-700 hover:bg-gray-50 hover:text-red-600'
                                   }`}
                               >
                                 <ItemIcon className="h-4 w-4" />

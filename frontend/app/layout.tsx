@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/context/AuthContext";
 import { CartProvider } from "@/lib/context/CartContext";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import PromotionalPopup from "@/components/layout/PromotionalPopup";
 
 const roboto = Roboto({
   weight: ['300', '400', '500', '700'],
@@ -33,6 +34,7 @@ export default function RootLayout({
       <body className={`${roboto.variable} ${inter.variable} antialiased min-h-screen flex flex-col`}>
         <AuthProvider>
           <CartProvider>
+            <PromotionalPopup />
             <Navbar />
             <main className="flex-grow">
               {children}
