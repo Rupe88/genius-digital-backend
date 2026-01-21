@@ -305,9 +305,31 @@ export const getAllEnrollments = async (req, res, next) => {
       prisma.enrollment.count({ where }),
     ]);
 
+    // Fetch price paid for each enrollment
+    const enrollmentsWithPrice = await Promise.all(
+      enrollments.map(async (enrollment) => {
+        // Find successful payment for this course and user
+        const payment = await prisma.payment.findFirst({
+          where: {
+            userId: enrollment.userId,
+            courseId: enrollment.courseId,
+            status: 'COMPLETED',
+          },
+          select: {
+            finalAmount: true,
+          },
+        });
+
+        return {
+          ...enrollment,
+          pricePaid: payment ? payment.finalAmount : 0,
+        };
+      })
+    );
+
     res.json({
       success: true,
-      data: enrollments,
+      data: enrollmentsWithPrice,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
