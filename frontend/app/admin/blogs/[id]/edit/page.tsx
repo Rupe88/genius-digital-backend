@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import RichTextEditor from '@/components/ui/RichTextEditor';
-import { blogsApi, Blog } from '@/lib/api/blog';
+import { blogsApi } from '@/lib/api/blog';
 import { ROUTES } from '@/lib/utils/constants';
 
 interface BlogForm {
@@ -101,116 +101,134 @@ export default function EditBlogPage() {
             await blogsApi.update(id, formData);
             toast.success('Blog updated successfully');
             router.push(`${ROUTES.ADMIN}/blogs`);
-        } catch (error) {
-            console.error(error);
-            toast.error('Failed to update blog');
+        } catch (error: any) {
+            console.error('Update error:', error);
+            toast.error(error.message || 'Failed to update blog');
         } finally {
             setSaving(false);
         }
     };
 
-    if (loading) return <div className="p-8 text-center">Loading blog...</div>;
+    if (loading) return <div className="p-12 text-center text-gray-500">Loading blog details...</div>;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-7xl mx-auto pb-10">
             <div className="flex items-center space-x-4">
-                <Button variant="outline" size="sm" onClick={() => router.back()}>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.back()}
+                    className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
                     <HiArrowLeft className="w-4 h-4 mr-2" />
                     Back
                 </Button>
-                <h1 className="text-2xl font-bold text-gray-900">Edit Blog</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Edit Blog Post</h1>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-6">
-                    <Card className="p-6 space-y-4">
-                        <Input
-                            label="Title"
-                            {...register('title', { required: 'Title is required' })}
-                            error={errors.title?.message}
-                        />
-                        <Input
-                            label="Slug"
-                            {...register('slug', { required: 'Slug is required' })}
-                            error={errors.slug?.message}
-                            helperText="URL-friendly version of the title"
-                        />
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
-                            <RichTextEditor value={content} onChange={setContent} />
+                    <Card className="p-6 space-y-6 shadow-sm border border-gray-100">
+                        <div className="grid grid-cols-1 gap-6">
+                            <Input
+                                label="Title"
+                                {...register('title', { required: 'Title is required' })}
+                                error={errors.title?.message}
+                            />
+                            <Input
+                                label="Slug"
+                                {...register('slug', { required: 'Slug is required' })}
+                                error={errors.slug?.message}
+                                helperText="URL-friendly version of the title"
+                            />
                         </div>
+
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Excerpt</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Content</label>
+                            <div className="border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 bg-white min-h-[400px]">
+                                <RichTextEditor value={content} onChange={setContent} />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Excerpt</label>
                             <textarea
                                 {...register('excerpt')}
-                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                                rows={3}
+                                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 h-24 resize-none"
                             />
                         </div>
                     </Card>
 
-                    <Card className="p-6 space-y-4">
-                        <h3 className="text-lg font-medium">SEO Settings</h3>
-                        <Input label="SEO Title" {...register('seoTitle')} />
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">SEO Description</label>
-                            <textarea
-                                {...register('seoDescription')}
-                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                                rows={2}
-                            />
+                    <Card className="p-6 space-y-4 shadow-sm border border-gray-100">
+                        <h3 className="text-lg font-medium text-gray-900 border-b pb-2">SEO Settings</h3>
+                        <div className="space-y-4 pt-2">
+                            <Input label="SEO Title" {...register('seoTitle')} />
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">SEO Description</label>
+                                <textarea
+                                    {...register('seoDescription')}
+                                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 h-20"
+                                />
+                            </div>
                         </div>
                     </Card>
                 </div>
 
                 <div className="space-y-6">
-                    <Card className="p-6 space-y-4">
-                        <h3 className="text-lg font-medium">Publishing</h3>
+                    <Card className="p-6 space-y-6 shadow-sm border border-gray-100 sticky top-6">
+                        <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Publishing</h3>
+
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                             <select
                                 {...register('status')}
-                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2.5"
                             >
                                 <option value="DRAFT">Draft</option>
                                 <option value="PUBLISHED">Published</option>
                                 <option value="ARCHIVED">Archived</option>
                             </select>
                         </div>
-                        <div className="flex items-center space-x-2">
+
+                        <div className="flex items-center space-x-2 bg-gray-50 p-3 rounded-md border border-gray-200">
                             <input
                                 type="checkbox"
                                 id="featured"
                                 {...register('featured')}
-                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
                             />
-                            <label htmlFor="featured" className="text-sm font-medium text-gray-700">Featured Post</label>
+                            <label htmlFor="featured" className="text-sm font-medium text-gray-700 cursor-pointer">Featured Post</label>
                         </div>
-                        <div className="pt-4 border-t border-gray-200">
-                            <Button type="submit" className="w-full" disabled={saving}>
-                                {saving ? 'Saving...' : 'Update Blog'}
+
+                        <div className="pt-4">
+                            <Button type="submit" className="w-full py-2.5 text-base" disabled={saving}>
+                                {saving ? 'Saving...' : 'Update Blog Post'}
                             </Button>
                         </div>
                     </Card>
 
-                    <Card className="p-6 space-y-4">
-                        <h3 className="text-lg font-medium">Featured Image</h3>
-                        <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 hover:bg-gray-50 transition-colors">
+                    <Card className="p-6 space-y-4 shadow-sm border border-gray-100">
+                        <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Featured Image</h3>
+                        <div className={`relative flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-6 transition-all ${selectedFile || previewUrl ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:bg-gray-50'}`}>
+
                             {previewUrl ? (
-                                <div className="relative w-full h-48 mb-4">
-                                    <Image src={previewUrl} alt="Preview" fill className="object-cover rounded-md" />
+                                <div className="w-full mb-4">
+                                    <div className="relative w-full aspect-video rounded-lg overflow-hidden shadow-sm">
+                                        <Image src={previewUrl} alt="Preview" fill className="object-cover" />
+                                    </div>
                                 </div>
                             ) : (
-                                <div className="text-center mb-4">
-                                    <div className="mx-auto h-12 w-12 text-gray-400">
-                                        <HiUpload className="w-full h-full" />
+                                <div className="text-center mb-6 mt-2">
+                                    <div className="mx-auto h-12 w-12 text-indigo-400 bg-indigo-100 rounded-full flex items-center justify-center mb-3">
+                                        <HiUpload className="w-6 h-6" />
                                     </div>
-                                    <p className="mt-1 text-sm text-gray-500">Upload an image</p>
+                                    <p className="text-sm font-medium text-gray-900">Click to upload</p>
                                 </div>
                             )}
+
                             <label className="cursor-pointer">
-                                <span className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                    {previewUrl ? 'Change Image' : 'Select Image'}
+                                <span className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                    {previewUrl ? 'Replace Image' : 'Select Image'}
                                 </span>
                                 <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                             </label>

@@ -53,16 +53,12 @@ export const blogsApi = {
   },
 
   create: async (data: FormData) => {
-    const response = await apiClient.post<{ success: boolean; data: Blog }>('/blogs', data, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const response = await apiClient.post<{ success: boolean; data: Blog }>('/blogs', data);
     return response.data;
   },
 
   update: async (id: string, data: FormData) => {
-    const response = await apiClient.put<{ success: boolean; data: Blog }>(`/blogs/${id}`, data, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const response = await apiClient.put<{ success: boolean; data: Blog }>(`/blogs/${id}`, data);
     return response.data;
   },
 

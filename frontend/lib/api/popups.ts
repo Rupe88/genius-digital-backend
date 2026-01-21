@@ -32,9 +32,7 @@ export const popupsApi = {
      * data can be FormData
      */
     create: async (data: FormData) => {
-        const response = await apiClient.post<{ success: boolean; data: Popup }>('/popups', data, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const response = await apiClient.post<{ success: boolean; data: Popup }>('/popups', data);
         return response.data;
     },
 
@@ -43,9 +41,7 @@ export const popupsApi = {
      * data can be FormData
      */
     update: async (id: string, data: FormData) => {
-        const response = await apiClient.put<{ success: boolean; data: Popup }>(`/popups/${id}`, data, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const response = await apiClient.put<{ success: boolean; data: Popup }>(`/popups/${id}`, data);
         return response.data;
     },
 
