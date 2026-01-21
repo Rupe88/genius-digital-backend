@@ -18,7 +18,7 @@ interface ProductWithCategory {
   shortDescription?: string;
   price: number;
   originalPrice?: number;
-  category?: string;
+  category?: string | { name: string;[key: string]: any };
   images: string[];
   featured: boolean;
   published: boolean;
@@ -92,13 +92,13 @@ export default function AdminProductsPage() {
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+      product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.sku?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === 'all' || product.status === statusFilter;
     const matchesFeatured = featuredFilter === 'all' ||
-                           (featuredFilter === 'featured' && product.featured) ||
-                           (featuredFilter === 'not-featured' && !product.featured);
+      (featuredFilter === 'featured' && product.featured) ||
+      (featuredFilter === 'not-featured' && !product.featured);
 
     return matchesSearch && matchesStatus && matchesFeatured;
   });
@@ -252,7 +252,11 @@ export default function AdminProductsPage() {
                           {product.name}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {product.categoryDetails?.name || product.category || 'No Category'}
+                          {product.categoryDetails?.name ||
+                            (typeof product.category === 'object' && product.category !== null
+                              ? (product.category as any).name
+                              : product.category) ||
+                            'No Category'}
                         </div>
                       </div>
                     </div>
