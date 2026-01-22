@@ -78,7 +78,7 @@ services:
     http_path: /health
   # CORS Configuration for production
   - key: CORS_ORIGINS
-    value: "${FRONTEND_URL},https://your-frontend-domain.com"
+    value: "${FRONTEND_URL}"
 databases:
 - name: postgres
   engine: PG

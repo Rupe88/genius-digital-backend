@@ -1,7 +1,8 @@
 import express from 'express';
 import { body } from 'express-validator';
 import * as popupController from '../controllers/popupController.js';
-import { protect, authorize } from '../middleware/authMiddleware.js';
+import { authenticate } from '../middleware/auth.js';
+import { requireAdmin } from '../middleware/role.js';
 import { singleUpload, processImageUpload } from '../middleware/cloudinaryUpload.js';
 
 const router = express.Router();
@@ -10,12 +11,12 @@ const router = express.Router();
 router.get('/active', popupController.getActivePopup);
 
 // Admin routes
-router.get('/', protect, authorize('ADMIN'), popupController.getAllPopups);
+router.get('/', authenticate, requireAdmin, popupController.getAllPopups);
 
 router.post(
     '/',
-    protect,
-    authorize('ADMIN'),
+    authenticate,
+    requireAdmin,
     singleUpload('image'),
     processImageUpload,
     [
@@ -27,8 +28,8 @@ router.post(
 
 router.put(
     '/:id',
-    protect,
-    authorize('ADMIN'),
+    authenticate,
+    requireAdmin,
     singleUpload('image'),
     processImageUpload,
     [
@@ -40,8 +41,8 @@ router.put(
 
 router.delete(
     '/:id',
-    protect,
-    authorize('ADMIN'),
+    authenticate,
+    requireAdmin,
     popupController.deletePopup
 );
 
