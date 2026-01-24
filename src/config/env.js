@@ -17,7 +17,7 @@ export const config = {
   // Frontend URL - Smart default based on environment
   frontendUrl: process.env.FRONTEND_URL ||
     (process.env.NODE_ENV === 'production'
-      ? 'https://aacharyarajbabu.vercel.app'
+      ? 'https://dp-vaastu-lms.vercel.app'
       : 'http://localhost:3000'),
   appName: process.env.APP_NAME || 'Sanskar Academy',
 
@@ -27,7 +27,8 @@ export const config = {
     : [
       'http://localhost:3000',
       'http://localhost:3001',
-      'https://aacharyarajbabu.vercel.app'
+      'https://aacharyarajbabu.vercel.app',
+      'https://dp-vaastu-lms.vercel.app'
     ],
 
   // Email
