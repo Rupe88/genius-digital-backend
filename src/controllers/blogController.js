@@ -97,8 +97,12 @@ export const getBlogById = async (req, res, next) => {
   try {
     const id = (req.params.id || '').trim();
     const normalizedSlug = generateSlug(id);
-    const orConditions = [{ id }, { slug: id }];
+    const orConditions = [
+      { id },
+      { slug: { equals: id, mode: 'insensitive' } },
+    ];
     if (normalizedSlug) orConditions.push({ slug: { equals: normalizedSlug, mode: 'insensitive' } });
+    if (/\s/.test(id)) orConditions.push({ title: { equals: id, mode: 'insensitive' } });
 
     const blog = await prisma.blog.findFirst({
       where: {
