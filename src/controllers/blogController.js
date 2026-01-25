@@ -79,7 +79,7 @@ export const getAllBlogs = async (req, res, next) => {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
-        pages: Math.ceil(total / parseInt(limit)),
+        pages: Math.ceil(total / parseInt(limit)) || 1,
       },
     });
   } catch (error) {

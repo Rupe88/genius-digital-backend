@@ -56,7 +56,7 @@ export const getAllCourses = async (req, res, next) => {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
-        pages: Math.ceil(total / parseInt(limit)),
+        pages: Math.ceil(total / parseInt(limit)) || 1,
       },
     });
   } catch (error) {
@@ -208,7 +208,7 @@ export const filterCourses = async (req, res, next) => {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
-        pages: Math.ceil(total / parseInt(limit)),
+        pages: Math.ceil(total / parseInt(limit)) || 1,
       },
     });
   } catch (error) {
@@ -261,7 +261,7 @@ export const getOngoingCourses = async (req, res, next) => {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
-        pages: Math.ceil(total / parseInt(limit)),
+        pages: Math.ceil(total / parseInt(limit)) || 1,
       },
     });
   } catch (error) {

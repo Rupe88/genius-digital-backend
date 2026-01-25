@@ -101,7 +101,7 @@ export const getAuditLogs = async (filters = {}) => {
       page,
       limit,
       total,
-      pages: Math.ceil(total / limit),
+      pages: Math.ceil(total / limit) || 1,
     },
   };
 };

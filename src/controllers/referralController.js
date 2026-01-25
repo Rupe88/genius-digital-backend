@@ -265,7 +265,7 @@ export const getReferralLinks = async (req, res, next) => {
           page: parseInt(page),
           limit: parseInt(limit),
           total,
-          pages: Math.ceil(total / parseInt(limit)),
+          pages: Math.ceil(total / parseInt(limit)) || 1,
         },
       },
     });
@@ -370,7 +370,7 @@ export const getReferralConversions = async (req, res, next) => {
           page: parseInt(page),
           limit: parseInt(limit),
           total,
-          pages: Math.ceil(total / parseInt(limit)),
+          pages: Math.ceil(total / parseInt(limit)) || 1,
         },
       },
     });

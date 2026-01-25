@@ -166,7 +166,7 @@ export const getAllUsers = asyncHandler(async (req, res) => {
         page,
         limit,
         total,
-        pages: Math.ceil(total / limit),
+        pages: Math.ceil(total / limit) || 1,
       },
     },
   });
@@ -426,7 +426,7 @@ export const getAllPayments = asyncHandler(async (req, res) => {
       page: parseInt(page),
       limit: parseInt(limit),
       total,
-      pages: Math.ceil(total / parseInt(limit)),
+      pages: Math.ceil(total / parseInt(limit)) || 1,
     },
   });
 });
@@ -674,7 +674,7 @@ export const getAllTransactions = asyncHandler(async (req, res) => {
       page: parseInt(page),
       limit: parseInt(limit),
       total,
-      pages: Math.ceil(total / parseInt(limit)),
+      pages: Math.ceil(total / parseInt(limit)) || 1,
     },
   });
 });

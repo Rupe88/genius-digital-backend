@@ -13,7 +13,7 @@ import {
   deleteBlogComment,
   moderateComment,
 } from '../controllers/blogCommentController.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, optionalAuthenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
 import { body, param, query } from 'express-validator';
 import { validate } from '../utils/validators.js';
@@ -21,9 +21,10 @@ import { singleUpload, processImageUpload } from '../middleware/cloudinaryUpload
 
 const router = express.Router();
 
-// Public routes
+// Public routes (optionalAuthenticate: admins get req.user so they can see all statuses)
 router.get(
   '/',
+  optionalAuthenticate,
   [
     query('status').optional().isIn(['DRAFT', 'PUBLISHED', 'ARCHIVED']),
     query('featured').optional().isBoolean(),

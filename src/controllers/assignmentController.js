@@ -231,7 +231,7 @@ export const getSubmissions = async (req, res, next) => {
         page,
         limit,
         total,
-        pages: Math.ceil(total / limit),
+        pages: Math.ceil(total / limit) || 1,
       },
     });
   } catch (error) {

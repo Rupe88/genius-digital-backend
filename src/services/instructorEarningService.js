@@ -173,7 +173,7 @@ export const getInstructorEarnings = async (filters = {}) => {
       page: parseInt(page),
       limit: parseInt(limit),
       total,
-      pages: Math.ceil(total / parseInt(limit)),
+      pages: Math.ceil(total / parseInt(limit)) || 1,
     },
   };
 };
