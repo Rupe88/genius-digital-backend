@@ -37,6 +37,7 @@ router.get(
 
 router.get(
   '/:id',
+  optionalAuthenticate,
   [param('id').notEmpty()],
   getBlogById
 );

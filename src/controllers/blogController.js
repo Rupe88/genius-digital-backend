@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { validationResult } from 'express-validator';
 import { sanitizeSearch } from '../utils/sanitize.js';
+import { generateSlug } from '../utils/helpers.js';
 
 const prisma = new PrismaClient();
 
@@ -95,13 +96,13 @@ export const getAllBlogs = async (req, res, next) => {
 export const getBlogById = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const normalizedSlug = generateSlug(id);
+    const orConditions = [{ id }, { slug: id }];
+    if (normalizedSlug) orConditions.push({ slug: normalizedSlug });
 
     const blog = await prisma.blog.findFirst({
       where: {
-        OR: [
-          { id },
-          { slug: id },
-        ],
+        OR: orConditions,
         // Only show published blogs to public
         ...(req.user?.role !== 'ADMIN' ? { status: 'PUBLISHED' } : {}),
       },
