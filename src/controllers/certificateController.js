@@ -20,6 +20,44 @@ export const getUserCertificates = async (req, res, next) => {
 };
 
 /**
+ * Get all certificates (admin only)
+ */
+export const getAllCertificatesAdmin = async (req, res, next) => {
+  try {
+    const certificates = await certificateService.getAllCertificates();
+    res.json({
+      success: true,
+      data: certificates,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Issue certificate for a user (admin only)
+ */
+export const issueCertificateForUser = async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+      });
+    }
+    const { userId, courseId } = req.body;
+    const certificate = await certificateService.issueCertificate(userId, courseId);
+    res.status(201).json({
+      success: true,
+      data: certificate,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Issue certificate
  */
 export const issueCertificate = async (req, res, next) => {

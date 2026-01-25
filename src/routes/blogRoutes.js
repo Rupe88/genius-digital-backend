@@ -110,20 +110,18 @@ router.post(
   requireAdmin,
   singleUpload('featuredImage'),
   processImageUpload,
-  [
+  validate([
     body('title').notEmpty().trim().withMessage('Blog title is required'),
     body('slug').notEmpty().trim().withMessage('Blog slug is required'),
     body('content').notEmpty().withMessage('Blog content is required'),
     body('excerpt').optional().isString().isLength({ max: 500 }),
-    // featuredImage validated in controller or skipped if upload present
     body('categoryId').optional().isUUID(),
     body('status').optional().isIn(['DRAFT', 'PUBLISHED', 'ARCHIVED']),
     body('featured').optional().isBoolean(),
     body('tags').optional().isString(),
     body('seoTitle').optional().isString().isLength({ max: 255 }),
     body('seoDescription').optional().isString().isLength({ max: 500 }),
-  ],
-  validate,
+  ]),
   createBlog
 );
 
@@ -133,7 +131,7 @@ router.put(
   requireAdmin,
   singleUpload('featuredImage'),
   processImageUpload,
-  [
+  validate([
     param('id').isUUID(),
     body('title').optional().notEmpty().trim(),
     body('slug').optional().notEmpty().trim(),
@@ -145,8 +143,7 @@ router.put(
     body('tags').optional().isString(),
     body('seoTitle').optional().isString().isLength({ max: 255 }),
     body('seoDescription').optional().isString().isLength({ max: 500 }),
-  ],
-  validate,
+  ]),
   updateBlog
 );
 

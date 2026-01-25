@@ -157,6 +157,30 @@ export const getUserCertificates = async (userId) => {
 };
 
 /**
+ * Get all certificates (admin only)
+ */
+export const getAllCertificates = async () => {
+  return prisma.certificate.findMany({
+    include: {
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+        },
+      },
+      course: {
+        select: {
+          id: true,
+          title: true,
+        },
+      },
+    },
+    orderBy: { issuedAt: 'desc' },
+  });
+};
+
+/**
  * Verify certificate
  */
 export const verifyCertificate = async (certificateId) => {
@@ -185,6 +209,7 @@ export const verifyCertificate = async (certificateId) => {
 export default {
   issueCertificate,
   getUserCertificates,
+  getAllCertificates,
   verifyCertificate,
   checkCertificateEligibility,
 };
