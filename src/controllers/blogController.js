@@ -19,7 +19,9 @@ export const getAllBlogs = async (req, res, next) => {
       limit = 10,
     } = req.query;
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
+    const skip = (pageNum - 1) * limitNum;
     const where = {};
 
     // Only show published blogs to public, admins can see all
@@ -64,7 +66,7 @@ export const getAllBlogs = async (req, res, next) => {
           },
         },
         skip,
-        take: parseInt(limit),
+        take: limitNum,
         orderBy: {
           publishedAt: 'desc',
         },
@@ -76,10 +78,10 @@ export const getAllBlogs = async (req, res, next) => {
       success: true,
       data: blogs,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: pageNum,
+        limit: limitNum,
         total,
-        pages: Math.ceil(total / parseInt(limit)) || 1,
+        pages: Math.ceil(total / limitNum) || 1,
       },
     });
   } catch (error) {

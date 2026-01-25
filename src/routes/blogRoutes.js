@@ -25,15 +25,13 @@ const router = express.Router();
 router.get(
   '/',
   optionalAuthenticate,
-  [
-    query('status').optional().isIn(['DRAFT', 'PUBLISHED', 'ARCHIVED']),
-    query('featured').optional().isBoolean(),
-    query('categoryId').optional().isUUID(),
-    query('authorId').optional().isUUID(),
-    query('search').optional().isString(),
-    query('page').optional().isInt({ min: 1 }),
-    query('limit').optional().isInt({ min: 1, max: 100 }),
-  ],
+  query('status').optional().isIn(['DRAFT', 'PUBLISHED', 'ARCHIVED']),
+  query('featured').optional().isBoolean(),
+  query('categoryId').optional().isUUID(),
+  query('authorId').optional().isUUID(),
+  query('search').optional().isString(),
+  query('page').optional().isInt({ min: 1 }),
+  query('limit').optional().isInt({ min: 1, max: 100 }),
   getAllBlogs
 );
 
