@@ -14,6 +14,10 @@ import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
 import { body, param, query } from 'express-validator';
 import { validate } from '../utils/validators.js';
+import {
+  multipleUpload,
+  processMultipleImagesUpload
+} from '../middleware/cloudinaryUpload.js';
 
 const router = express.Router();
 
@@ -92,6 +96,8 @@ router.post(
   '/',
   authenticate,
   requireAdmin,
+  multipleUpload('images', 5),
+  processMultipleImagesUpload,
   [
     body('name').notEmpty().trim().withMessage('Product name is required'),
     body('slug').notEmpty().trim().withMessage('Product slug is required'),
@@ -129,6 +135,8 @@ router.put(
   '/:id',
   authenticate,
   requireAdmin,
+  multipleUpload('images', 5),
+  processMultipleImagesUpload,
   [
     param('id').isUUID(),
     body('name').optional().notEmpty().trim(),

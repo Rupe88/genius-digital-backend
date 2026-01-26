@@ -135,6 +135,49 @@ export const processImageUpload = async (req, res, next) => {
 };
 
 /**
+ * Process multiple images upload
+ */
+export const processMultipleImagesUpload = async (req, res, next) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return next();
+    }
+
+    const folder = req.body.folder || 'lms/products';
+    const uploadPromises = req.files.map(async (file) => {
+      // Validate file size (max 5MB for product images)
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        throw new Error(`File ${file.originalname} exceeds 5MB limit`);
+      }
+
+      const result = await uploadImage(file.buffer, {
+        folder,
+        mimeType: file.mimetype,
+      });
+
+      return result.secure_url;
+    });
+
+    const imageUrls = await Promise.all(uploadPromises);
+
+    req.cloudinary = {
+      ...(req.cloudinary || {}),
+      imageUrls,
+    };
+
+    console.log(`✓ ${imageUrls.length} images uploaded successfully`);
+    next();
+  } catch (error) {
+    console.error('Multiple images upload error:', error);
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Failed to upload images',
+    });
+  }
+};
+
+/**
  * Upload video to Cloudinary after multer processing
  */
 export const processVideoUpload = async (req, res, next) => {
@@ -302,5 +345,3 @@ export const processLessonFiles = async (req, res, next) => {
 };
 
 export default upload;
-
-

@@ -232,14 +232,25 @@ export const createProduct = async (req, res, next) => {
 
     // Validate images format
     let imagesArray = [];
+
+    // Add uploaded images if any
+    if (req.cloudinary?.imageUrls && req.cloudinary.imageUrls.length > 0) {
+      imagesArray = [...imagesArray, ...req.cloudinary.imageUrls];
+    }
+
     if (images) {
       if (Array.isArray(images)) {
-        imagesArray = images;
+        imagesArray = [...imagesArray, ...images];
       } else if (typeof images === 'string') {
         try {
-          imagesArray = JSON.parse(images);
+          const parsed = JSON.parse(images);
+          if (Array.isArray(parsed)) {
+            imagesArray = [...imagesArray, ...parsed];
+          } else {
+            imagesArray.push(parsed);
+          }
         } catch {
-          imagesArray = [images];
+          imagesArray.push(images);
         }
       }
     }
@@ -362,16 +373,37 @@ export const updateProduct = async (req, res, next) => {
 
     // Handle images
     let imagesArray = product.images;
-    if (images !== undefined) {
-      if (Array.isArray(images)) {
-        imagesArray = images;
-      } else if (typeof images === 'string') {
-        try {
-          imagesArray = JSON.parse(images);
-        } catch {
-          imagesArray = [images];
+
+    // Check if we have image updates (either files uploaded or images field provided)
+    if (req.cloudinary?.imageUrls || images !== undefined) {
+      let newImages = [];
+
+      // Add existing images provided in body
+      if (images !== undefined) {
+        if (Array.isArray(images)) {
+          newImages = images;
+        } else if (typeof images === 'string') {
+          try {
+            const parsed = JSON.parse(images);
+            if (Array.isArray(parsed)) newImages = parsed;
+            else newImages = [parsed];
+          } catch {
+            newImages = [images];
+          }
         }
+      } else {
+        // If images field not provided but files uploaded, keep existing images? 
+        // Or assume we are adding to existing?
+        // Let's assume if images undefined, we keep existing + new.
+        newImages = product.images;
       }
+
+      // Add newly uploaded images
+      if (req.cloudinary?.imageUrls && req.cloudinary.imageUrls.length > 0) {
+        newImages = [...newImages, ...req.cloudinary.imageUrls];
+      }
+
+      imagesArray = newImages;
     }
 
     // Handle dimensions

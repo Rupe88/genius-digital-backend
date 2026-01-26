@@ -207,11 +207,11 @@ export const courseValidation = [
   body('featured').optional().isBoolean().withMessage('featured must be a boolean'),
   body('isOngoing').optional().isBoolean().withMessage('isOngoing must be a boolean'),
   body('startDate')
-    .optional()
+    .optional({ checkFalsy: true })
     .isISO8601()
     .withMessage('Start date must be a valid ISO 8601 date'),
   body('endDate')
-    .optional()
+    .optional({ checkFalsy: true })
     .isISO8601()
     .withMessage('End date must be a valid ISO 8601 date')
     .custom((value, { req }) => {
