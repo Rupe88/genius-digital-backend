@@ -42,6 +42,7 @@ import referralRoutes from './routes/referralRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import studentSuccessRoutes from './routes/studentSuccessRoutes.js';
 import testimonialRoutes from './routes/testimonialRoutes.js';
+import uploadRoutes from './routes/uploadRoutes.js';
 import wishlistRoutes from './routes/wishlistRoutes.js';
 
 const app = express();
@@ -114,6 +115,7 @@ app.use('/api/referrals', referralRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/student-success', studentSuccessRoutes);
 app.use('/api/testimonials', testimonialRoutes);
+app.use('/api/upload', uploadRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 
 // 404 handler
