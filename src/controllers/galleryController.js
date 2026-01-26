@@ -114,6 +114,14 @@ export const createGalleryItem = async (req, res, next) => {
       }
     }
 
+    // Convert string booleans from FormData to actual booleans
+    const isPublishedBool = typeof isPublished === 'string' 
+      ? isPublished === 'true' 
+      : Boolean(isPublished);
+    const featuredBool = typeof featured === 'string'
+      ? featured === 'true'
+      : Boolean(featured);
+
     const galleryItem = await prisma.gallery.create({
       data: {
         title,
@@ -122,9 +130,9 @@ export const createGalleryItem = async (req, res, next) => {
         videoUrl: finalVideoUrl,
         type: finalType,
         category,
-        isPublished: isPublished || false,
-        featured: featured || false,
-        order: order || 0,
+        isPublished: isPublishedBool,
+        featured: featuredBool,
+        order: order ? parseInt(order) : 0,
       },
     });
 
@@ -181,9 +189,19 @@ export const updateGalleryItem = async (req, res, next) => {
       if (type) updateData.type = type;
     }
     if (category !== undefined) updateData.category = category;
-    if (isPublished !== undefined) updateData.isPublished = isPublished;
-    if (featured !== undefined) updateData.featured = featured;
-    if (order !== undefined) updateData.order = order;
+    if (isPublished !== undefined) {
+      updateData.isPublished = typeof isPublished === 'string' 
+        ? isPublished === 'true' 
+        : Boolean(isPublished);
+    }
+    if (featured !== undefined) {
+      updateData.featured = typeof featured === 'string'
+        ? featured === 'true'
+        : Boolean(featured);
+    }
+    if (order !== undefined) {
+      updateData.order = typeof order === 'string' ? parseInt(order) : order;
+    }
 
     const galleryItem = await prisma.gallery.update({
       where: { id },
