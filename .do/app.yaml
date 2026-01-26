@@ -78,7 +78,7 @@ services:
     http_path: /health
   # CORS Configuration for production
   - key: CORS_ORIGINS
-    value: "${FRONTEND_URL}"
+    value: "https://vaastulms.vercel.app,https://aacharyarajbabu.vercel.app,http://localhost:3000"
 databases:
 - name: postgres
   engine: PG
