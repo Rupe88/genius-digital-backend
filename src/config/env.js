@@ -23,12 +23,12 @@ export const config = {
 
   // CORS - Multiple origins separated by commas
   corsOrigins: process.env.CORS_ORIGINS
-    ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+    ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim()).filter(Boolean)
     : [
       'http://localhost:3000',
       'http://localhost:3001',
       'https://aacharyarajbabu.vercel.app',
-      'https://vaastulms.vercel.app'
+      'https://vaastulms.vercel.app',
     ],
 
   // Email
