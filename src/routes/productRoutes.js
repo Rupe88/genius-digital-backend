@@ -103,8 +103,23 @@ router.post(
     body('sku').optional().isString().trim(),
     body('stock').optional().isInt({ min: 0 }),
     body('status').optional().isIn(['ACTIVE', 'INACTIVE', 'OUT_OF_STOCK']),
-    body('featured').optional().isBoolean(),
-    body('categoryId').optional().isUUID(),
+    body('featured').optional().custom((value) => {
+      if (value === undefined || value === null) return true;
+      return typeof value === 'boolean' || value === 'true' || value === 'false';
+    }).withMessage('Featured must be a boolean'),
+    body('categoryId').optional().custom((value) => {
+      if (value === undefined || value === null || value === '') return true;
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+    }).withMessage('Category ID must be a valid UUID'),
+    // Vastu specific fields
+    body('productType').optional().isIn(['VASTU_ITEM', 'CONSULTATION_PACKAGE', 'DIGITAL_PRODUCT', 'PHYSICAL_PRODUCT']),
+    body('vastuPurpose').optional().isString().trim(),
+    body('energyType').optional().isIn(['POSITIVE', 'NEGATIVE', 'NEUTRAL', 'BALANCED']),
+    body('material').optional().isString().trim(),
+    body('dimensions').optional().isObject(),
+    body('dimensions.length').optional().isFloat({ min: 0 }),
+    body('dimensions.width').optional().isFloat({ min: 0 }),
+    body('dimensions.height').optional().isFloat({ min: 0 }),
   ],
   validate,
   createProduct
@@ -126,8 +141,23 @@ router.put(
     body('sku').optional().isString().trim(),
     body('stock').optional().isInt({ min: 0 }),
     body('status').optional().isIn(['ACTIVE', 'INACTIVE', 'OUT_OF_STOCK']),
-    body('featured').optional().isBoolean(),
-    body('categoryId').optional().isUUID(),
+    body('featured').optional().custom((value) => {
+      if (value === undefined || value === null) return true;
+      return typeof value === 'boolean' || value === 'true' || value === 'false';
+    }).withMessage('Featured must be a boolean'),
+    body('categoryId').optional().custom((value) => {
+      if (value === undefined || value === null || value === '') return true;
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+    }).withMessage('Category ID must be a valid UUID'),
+    // Vastu specific fields
+    body('productType').optional().isIn(['VASTU_ITEM', 'CONSULTATION_PACKAGE', 'DIGITAL_PRODUCT', 'PHYSICAL_PRODUCT']),
+    body('vastuPurpose').optional().isString().trim(),
+    body('energyType').optional().isIn(['POSITIVE', 'NEGATIVE', 'NEUTRAL', 'BALANCED']),
+    body('material').optional().isString().trim(),
+    body('dimensions').optional().isObject(),
+    body('dimensions.length').optional().isFloat({ min: 0 }),
+    body('dimensions.width').optional().isFloat({ min: 0 }),
+    body('dimensions.height').optional().isFloat({ min: 0 }),
   ],
   validate,
   updateProduct

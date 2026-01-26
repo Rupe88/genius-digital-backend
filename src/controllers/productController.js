@@ -266,8 +266,8 @@ export const createProduct = async (req, res, next) => {
         sku,
         stock: parseInt(stock) || 0,
         status: status || 'ACTIVE',
-        featured: featured === true || featured === 'true',
-        categoryId: categoryId || null,
+        featured: typeof featured === 'boolean' ? featured : featured === 'true' || featured === true,
+        categoryId: categoryId && categoryId.trim() !== '' ? categoryId : null,
         // Vastu specific fields
         productType: productType || null,
         vastuPurpose: vastuPurpose || null,
