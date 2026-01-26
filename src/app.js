@@ -53,34 +53,34 @@ app.use(helmet());
 
 // CORS configuration with wildcard support for Vercel
 app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, Postman, etc.)
-      if (!origin) {
-        return callback(null, true);
-      }
-      
-      // Check if origin is in allowed list
-      if (config.corsOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      
-      // Allow any Vercel subdomain (for preview deployments)
-      if (origin.endsWith('.vercel.app')) {
-        return callback(null, true);
-      }
-      
-      // Log for debugging
-      console.warn(`CORS blocked origin: ${origin}. Allowed origins:`, config.corsOrigins);
-      callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-    exposedHeaders: ['Content-Range', 'X-Content-Range'],
-    preflightContinue: false,
-    optionsSuccessStatus: 204,
-  })
+    cors({
+        origin: (origin, callback) => {
+            // Allow requests with no origin (like mobile apps, Postman, etc.)
+            if (!origin) {
+                return callback(null, true);
+            }
+
+            // Check if origin is in allowed list
+            if (config.corsOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+
+            // Allow any Vercel subdomain (for preview deployments)
+            if (origin.endsWith('.vercel.app')) {
+                return callback(null, true);
+            }
+
+            // Log for debugging
+            console.warn(`CORS blocked origin: ${origin}. Allowed origins:`, config.corsOrigins);
+            callback(new Error('Not allowed by CORS'));
+        },
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+        exposedHeaders: ['Content-Range', 'X-Content-Range'],
+        preflightContinue: false,
+        optionsSuccessStatus: 204,
+    })
 );
 
 // Body parsing middleware
@@ -96,11 +96,11 @@ app.use(generalLimiter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Server is running',
-    timestamp: new Date().toISOString(),
-  });
+    res.status(200).json({
+        success: true,
+        message: 'Server is running',
+        timestamp: new Date().toISOString(),
+    });
 });
 
 // API routes
