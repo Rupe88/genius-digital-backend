@@ -6,7 +6,7 @@ This is the **backend-only** repository for the Vaastu LMS platform. It provides
 
 - **This repository contains ONLY backend code** (Express.js API server)
 - **Frontend code is in a separate repository** (`vaastu` folder)
-- Do not add any frontend code (React, Next.js, HTML, CSS) to this repository
+- - Do not add any frontend code (React, Next.js, HTML, CSS) to this repository
 
 ## Tech Stack
 
