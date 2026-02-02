@@ -210,7 +210,7 @@ export const createBlog = async (req, res, next) => {
       slug,
       excerpt,
       content,
-      featuredImage,
+      featuredImage: rawFeaturedImage,
       categoryId,
       status,
       featured,
@@ -220,6 +220,12 @@ export const createBlog = async (req, res, next) => {
     } = req.body;
 
     const authorId = req.user.id;
+
+    // Prisma expects featuredImage as String or Null (not object)
+    const featuredImage =
+      typeof rawFeaturedImage === 'string' && rawFeaturedImage.trim() !== ''
+        ? rawFeaturedImage.trim()
+        : null;
 
     // Check if slug already exists
     const existing = await prisma.blog.findUnique({
@@ -299,7 +305,7 @@ export const updateBlog = async (req, res, next) => {
       slug,
       excerpt,
       content,
-      featuredImage,
+      featuredImage: rawFeaturedImage,
       categoryId,
       status,
       featured,
@@ -307,6 +313,14 @@ export const updateBlog = async (req, res, next) => {
       seoTitle,
       seoDescription,
     } = req.body;
+
+    // Prisma expects featuredImage as String or Null (not object)
+    const featuredImage =
+      typeof rawFeaturedImage === 'string' && rawFeaturedImage.trim() !== ''
+        ? rawFeaturedImage.trim()
+        : rawFeaturedImage === undefined
+          ? undefined
+          : null;
 
     const blog = await prisma.blog.findUnique({
       where: { id },
