@@ -14,7 +14,7 @@ export const validate = (validations) => {
 
     return res.status(400).json({
       success: false,
-      message: 'Validation failed',
+      message: errors.array()[0]?.msg || 'Validation failed',
       errors: errors.array(),
     });
   };

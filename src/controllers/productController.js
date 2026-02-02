@@ -1,98 +1,25 @@
 import { PrismaClient } from '@prisma/client';
-import { validationResult } from 'express-validator';
-import { sanitizeSearch } from '../utils/sanitize.js';
 
 const prisma = new PrismaClient();
 
-/**
- * Get all products with filtering
- */
+/** GET /api/products - list products */
 export const getAllProducts = async (req, res, next) => {
   try {
-    const {
-      status,
-      featured,
-      categoryId,
-      search,
-      minPrice,
-      maxPrice,
-      inStock,
-      page = 1,
-      limit = 10,
-      sortBy = 'newest',
-    } = req.query;
-
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    const skip = (page - 1) * limit;
     const where = {};
-
-    if (status) where.status = status;
-    if (featured === 'true') where.featured = true;
-    if (categoryId) where.categoryId = categoryId;
-
-    // Price range filter
-    if (minPrice || maxPrice) {
-      where.price = {};
-      if (minPrice) where.price.gte = parseFloat(minPrice);
-      if (maxPrice) where.price.lte = parseFloat(maxPrice);
-    }
-
-    // Stock filter
-    if (inStock === 'true') {
-      where.stock = { gt: 0 };
-    } else if (inStock === 'false') {
-      where.stock = { lte: 0 };
-    }
-
-    // Search filter
-    if (search) {
-      const sanitizedSearch = sanitizeSearch(search);
-      if (sanitizedSearch) {
-        where.OR = [
-          { name: { contains: sanitizedSearch, mode: 'insensitive' } },
-          { description: { contains: sanitizedSearch, mode: 'insensitive' } },
-          { shortDescription: { contains: sanitizedSearch, mode: 'insensitive' } },
-          { sku: { contains: sanitizedSearch, mode: 'insensitive' } },
-        ];
-      }
-    }
-
-    // Sort options
-    let orderBy = {};
-    switch (sortBy) {
-      case 'newest':
-        orderBy = { createdAt: 'desc' };
-        break;
-      case 'oldest':
-        orderBy = { createdAt: 'asc' };
-        break;
-      case 'price-low':
-        orderBy = { price: 'asc' };
-        break;
-      case 'price-high':
-        orderBy = { price: 'desc' };
-        break;
-      case 'name':
-        orderBy = { name: 'asc' };
-        break;
-      default:
-        orderBy = { createdAt: 'desc' };
-    }
+    if (req.query.status) where.status = req.query.status;
+    if (req.query.featured === 'true') where.featured = true;
+    if (req.query.categoryId) where.categoryId = req.query.categoryId;
 
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
-        include: {
-          category: true,
-          _count: {
-            select: {
-              reviews: true,
-              cartItems: true,
-            },
-          },
-        },
+        include: { category: true },
+        orderBy: { createdAt: 'desc' },
         skip,
-        take: parseInt(limit),
-        orderBy,
+        take: limit,
       }),
       prisma.product.count({ where }),
     ]);
@@ -100,656 +27,305 @@ export const getAllProducts = async (req, res, next) => {
     res.json({
       success: true,
       data: products,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / parseInt(limit)) || 1,
-      },
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) || 1 },
     });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Get product by ID or slug
- */
+/** GET /api/products/:id - get one product by id or slug */
 export const getProductById = async (req, res, next) => {
   try {
     const { id } = req.params;
-
     const product = await prisma.product.findFirst({
-      where: {
-        OR: [
-          { id },
-          { slug: id },
-        ],
-      },
-      include: {
-        category: true,
-        reviews: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                fullName: true,
-                profileImage: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-          take: 10,
-        },
-        _count: {
-          select: {
-            reviews: true,
-          },
-        },
-      },
+      where: { OR: [{ id }, { slug: id }] },
+      include: { category: true },
     });
-
     if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found',
-      });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
-
-    // Calculate average rating
-    const reviews = await prisma.productReview.findMany({
-      where: { productId: product.id },
-      select: { rating: true },
-    });
-
-    const avgRating =
-      reviews.length > 0
-        ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-        : null;
-
-    res.json({
-      success: true,
-      data: {
-        ...product,
-        averageRating: avgRating,
-        totalReviews: reviews.length,
-      },
-    });
+    res.json({ success: true, data: product });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Create product (Admin only)
- */
+/** POST /api/products - create product (admin, JSON body) */
 export const createProduct = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
+    const body = req.body || {};
+    const name = body.name != null ? String(body.name).trim() : '';
+    const slug = body.slug != null ? String(body.slug).trim() : '';
+    const price = body.price != null ? Number(body.price) : NaN;
+
+    if (!name) {
+      return res.status(400).json({ success: false, message: 'Product name is required' });
+    }
+    if (!slug) {
+      return res.status(400).json({ success: false, message: 'Product slug is required' });
+    }
+    if (isNaN(price) || price < 0) {
+      return res.status(400).json({ success: false, message: 'Price must be a positive number' });
     }
 
-    const {
-      name,
-      slug,
-      description,
-      shortDescription,
-      images,
-      price,
-      comparePrice,
-      sku,
-      stock,
-      status,
-      featured,
-      categoryId,
-      // Vastu specific fields
-      productType,
-      vastuPurpose,
-      energyType,
-      material,
-      dimensions,
-    } = req.body;
-
-    // Check if slug or SKU already exists
+    const orSlugSku = [{ slug }];
+    if (body.sku && String(body.sku).trim()) orSlugSku.push({ sku: String(body.sku).trim() });
     const existing = await prisma.product.findFirst({
-      where: {
-        OR: [{ slug }, sku ? { sku } : {}],
-      },
+      where: { OR: orSlugSku },
     });
-
     if (existing) {
-      return res.status(400).json({
-        success: false,
-        message: 'Product with this slug or SKU already exists',
-      });
+      return res.status(400).json({ success: false, message: 'Product with this slug or SKU already exists' });
     }
 
-    // Validate images format
-    let imagesArray = [];
-
-    // Add uploaded images if any
-    if (req.cloudinary?.imageUrls && req.cloudinary.imageUrls.length > 0) {
-      imagesArray = [...imagesArray, ...req.cloudinary.imageUrls];
+    let images = req.cloudinary?.imageUrls && req.cloudinary.imageUrls.length > 0 ? [...req.cloudinary.imageUrls] : [];
+    if (body.images) {
+      const fromBody = Array.isArray(body.images) ? body.images : (typeof body.images === 'string' ? (() => { try { const p = JSON.parse(body.images); return Array.isArray(p) ? p : [p]; } catch { return [body.images]; } })() : [body.images]);
+      images = [...images, ...fromBody];
     }
-
-    if (images) {
-      if (Array.isArray(images)) {
-        imagesArray = [...imagesArray, ...images];
-      } else if (typeof images === 'string') {
-        try {
-          const parsed = JSON.parse(images);
-          if (Array.isArray(parsed)) {
-            imagesArray = [...imagesArray, ...parsed];
-          } else {
-            imagesArray.push(parsed);
-          }
-        } catch {
-          imagesArray.push(images);
-        }
-      }
-    }
-
-    // Handle dimensions
-    let dimensionsData = null;
-    if (dimensions && (dimensions.length || dimensions.width || dimensions.height)) {
-      dimensionsData = {
-        length: dimensions.length ? parseFloat(dimensions.length) : null,
-        width: dimensions.width ? parseFloat(dimensions.width) : null,
-        height: dimensions.height ? parseFloat(dimensions.height) : null,
-      };
-    }
+    const dimensions = body.dimensions && typeof body.dimensions === 'object'
+      ? body.dimensions
+      : (typeof body.dimensions === 'string' && body.dimensions.trim() ? (() => { try { return JSON.parse(body.dimensions); } catch { return null; } })() : null);
 
     const product = await prisma.product.create({
       data: {
         name,
         slug,
-        description,
-        shortDescription,
-        images: imagesArray,
-        price: parseFloat(price),
-        comparePrice: comparePrice ? parseFloat(comparePrice) : null,
-        sku,
-        stock: parseInt(stock) || 0,
-        status: status || 'ACTIVE',
-        featured: typeof featured === 'boolean' ? featured : featured === 'true' || featured === true,
-        categoryId: categoryId && categoryId.trim() !== '' ? categoryId : null,
-        // Vastu specific fields
-        productType: productType || null,
-        vastuPurpose: vastuPurpose || null,
-        energyType: energyType || null,
-        material: material || null,
-        dimensions: dimensionsData,
+        description: body.description ? String(body.description).trim() : null,
+        shortDescription: body.shortDescription ? String(body.shortDescription).trim() : null,
+        images: images.length ? images : [],
+        price,
+        comparePrice: body.comparePrice != null && body.comparePrice !== '' ? Number(body.comparePrice) : null,
+        sku: body.sku ? String(body.sku).trim() : null,
+        stock: Number.isInteger(Number(body.stock)) && Number(body.stock) >= 0 ? Number(body.stock) : 0,
+        status: ['ACTIVE', 'INACTIVE', 'OUT_OF_STOCK'].includes(body.status) ? body.status : 'ACTIVE',
+        featured: body.featured === true || body.featured === 'true' || body.featured === '1',
+        categoryId: body.categoryId && String(body.categoryId).trim() ? String(body.categoryId).trim() : null,
+        productType: body.productType || null,
+        vastuPurpose: body.vastuPurpose || null,
+        energyType: body.energyType || null,
+        material: body.material || null,
+        dimensions,
       },
-      include: {
-        category: true,
-      },
+      include: { category: true },
     });
 
-    res.status(201).json({
-      success: true,
-      message: 'Product created successfully',
-      data: product,
-    });
+    res.status(201).json({ success: true, message: 'Product created successfully', data: product });
   } catch (error) {
+    if (error.code === 'P2002') {
+      return res.status(400).json({ success: false, message: 'A product with this slug or SKU already exists' });
+    }
+    if (error.code === 'P2003') {
+      return res.status(400).json({ success: false, message: 'Invalid category' });
+    }
     next(error);
   }
 };
 
-/**
- * Update product (Admin only)
- */
+/** PUT /api/products/:id - update product (admin, JSON body) */
 export const updateProduct = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
-
     const { id } = req.params;
-    const {
-      name,
-      slug,
-      description,
-      shortDescription,
-      images,
-      price,
-      comparePrice,
-      sku,
-      stock,
-      status,
-      featured,
-      categoryId,
-      // Vastu specific fields
-      productType,
-      vastuPurpose,
-      energyType,
-      material,
-      dimensions,
-    } = req.body;
+    const body = req.body || {};
 
-    const product = await prisma.product.findUnique({
-      where: { id },
-    });
-
+    const product = await prisma.product.findUnique({ where: { id } });
     if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found',
-      });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    // Check if slug or SKU already exists (excluding current product)
-    if (slug || sku) {
+    const slug = body.slug != null ? String(body.slug).trim() : product.slug;
+    const sku = body.sku != null ? String(body.sku).trim() : product.sku;
+    const orSlugSku = [{ slug }];
+    if (sku) orSlugSku.push({ sku });
+    if (slug !== product.slug || (sku && sku !== product.sku)) {
       const existing = await prisma.product.findFirst({
-        where: {
-          AND: [
-            { id: { not: id } },
-            {
-              OR: [
-                slug ? { slug } : {},
-                sku ? { sku } : {},
-              ],
-            },
-          ],
-        },
+        where: { id: { not: id }, OR: orSlugSku },
       });
-
       if (existing) {
-        return res.status(400).json({
-          success: false,
-          message: 'Product with this slug or SKU already exists',
-        });
+        return res.status(400).json({ success: false, message: 'Product with this slug or SKU already exists' });
       }
     }
 
-    // Handle images
-    let imagesArray = product.images;
-
-    // Check if we have image updates (either files uploaded or images field provided)
-    if (req.cloudinary?.imageUrls || images !== undefined) {
-      let newImages = [];
-
-      // Add existing images provided in body
-      if (images !== undefined) {
-        if (Array.isArray(images)) {
-          newImages = images;
-        } else if (typeof images === 'string') {
-          try {
-            const parsed = JSON.parse(images);
-            if (Array.isArray(parsed)) newImages = parsed;
-            else newImages = [parsed];
-          } catch {
-            newImages = [images];
-          }
-        }
-      } else {
-        // If images field not provided but files uploaded, keep existing images? 
-        // Or assume we are adding to existing?
-        // Let's assume if images undefined, we keep existing + new.
-        newImages = product.images;
-      }
-
-      // Add newly uploaded images
-      if (req.cloudinary?.imageUrls && req.cloudinary.imageUrls.length > 0) {
-        newImages = [...newImages, ...req.cloudinary.imageUrls];
-      }
-
-      imagesArray = newImages;
+    let imagesArray = product.images || [];
+    const existingFromBody = body.existingImages ?? body.images;
+    if (existingFromBody !== undefined) {
+      const b = existingFromBody;
+      imagesArray = Array.isArray(b) ? b : (typeof b === 'string' && b.trim() ? (() => { try { const p = JSON.parse(b); return Array.isArray(p) ? p : [p]; } catch { return [b]; } })() : []);
+    }
+    if (req.cloudinary?.imageUrls?.length) {
+      imagesArray = [...imagesArray, ...req.cloudinary.imageUrls];
     }
 
-    // Handle dimensions
-    let dimensionsData = product.dimensions;
-    if (dimensions !== undefined) {
-      if (dimensions && (dimensions.length || dimensions.width || dimensions.height)) {
-        dimensionsData = {
-          length: dimensions.length ? parseFloat(dimensions.length) : null,
-          width: dimensions.width ? parseFloat(dimensions.width) : null,
-          height: dimensions.height ? parseFloat(dimensions.height) : null,
-        };
-      } else {
-        dimensionsData = null;
-      }
-    }
+    const data = {};
+    if (body.name != null) data.name = String(body.name).trim();
+    if (body.slug != null) data.slug = String(body.slug).trim();
+    if (body.description !== undefined) data.description = body.description ? String(body.description).trim() : null;
+    if (body.shortDescription !== undefined) data.shortDescription = body.shortDescription ? String(body.shortDescription).trim() : null;
+    data.images = imagesArray;
+    if (body.price != null) data.price = Number(body.price);
+    if (body.comparePrice !== undefined) data.comparePrice = body.comparePrice != null && body.comparePrice !== '' ? Number(body.comparePrice) : null;
+    if (body.sku !== undefined) data.sku = body.sku ? String(body.sku).trim() : null;
+    if (body.stock !== undefined) data.stock = Math.max(0, parseInt(body.stock, 10) || 0);
+    if (body.status != null && ['ACTIVE', 'INACTIVE', 'OUT_OF_STOCK'].includes(body.status)) data.status = body.status;
+    if (body.featured !== undefined) data.featured = body.featured === true || body.featured === 'true' || body.featured === '1';
+    if (body.categoryId !== undefined) data.categoryId = body.categoryId && String(body.categoryId).trim() ? String(body.categoryId).trim() : null;
+    if (body.productType !== undefined) data.productType = body.productType || null;
+    if (body.vastuPurpose !== undefined) data.vastuPurpose = body.vastuPurpose || null;
+    if (body.energyType !== undefined) data.energyType = body.energyType || null;
+    if (body.material !== undefined) data.material = body.material || null;
+    if (body.dimensions !== undefined) data.dimensions = body.dimensions && typeof body.dimensions === 'object' ? body.dimensions : null;
 
-    const updatedProduct = await prisma.product.update({
+    const updated = await prisma.product.update({
       where: { id },
-      data: {
-        ...(name && { name }),
-        ...(slug && { slug }),
-        ...(description !== undefined && { description }),
-        ...(shortDescription !== undefined && { shortDescription }),
-        ...(images !== undefined && { images: imagesArray }),
-        ...(price !== undefined && { price: parseFloat(price) }),
-        ...(comparePrice !== undefined && {
-          comparePrice: comparePrice ? parseFloat(comparePrice) : null,
-        }),
-        ...(sku !== undefined && { sku }),
-        ...(stock !== undefined && { stock: parseInt(stock) }),
-        ...(status && { status }),
-        ...(featured !== undefined && { featured: featured === true || featured === 'true' }),
-        ...(categoryId !== undefined && { categoryId: categoryId || null }),
-        // Vastu specific fields
-        ...(productType !== undefined && { productType }),
-        ...(vastuPurpose !== undefined && { vastuPurpose }),
-        ...(energyType !== undefined && { energyType }),
-        ...(material !== undefined && { material }),
-        ...(dimensions !== undefined && { dimensions: dimensionsData }),
-      },
-      include: {
-        category: true,
-      },
+      data,
+      include: { category: true },
     });
 
-    res.json({
-      success: true,
-      message: 'Product updated successfully',
-      data: updatedProduct,
-    });
+    res.json({ success: true, message: 'Product updated successfully', data: updated });
   } catch (error) {
+    if (error.code === 'P2002') {
+      return res.status(400).json({ success: false, message: 'A product with this slug or SKU already exists' });
+    }
+    if (error.code === 'P2003') {
+      return res.status(400).json({ success: false, message: 'Invalid category' });
+    }
     next(error);
   }
 };
 
-/**
- * Delete product (Admin only)
- */
+/** DELETE /api/products/:id - delete product (admin) */
 export const deleteProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
-
     const product = await prisma.product.findUnique({
       where: { id },
-      include: {
-        _count: {
-          select: {
-            orderItems: true,
-            cartItems: true,
-          },
-        },
-      },
+      include: { _count: { select: { orderItems: true } } },
     });
-
     if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found',
-      });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
-
-    // Check if product is in any orders
     if (product._count.orderItems > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete product that has been ordered',
-      });
+      return res.status(400).json({ success: false, message: 'Cannot delete product that has been ordered' });
     }
-
-    await prisma.product.delete({
-      where: { id },
-    });
-
-    res.json({
-      success: true,
-      message: 'Product deleted successfully',
-    });
+    await prisma.product.delete({ where: { id } });
+    res.json({ success: true, message: 'Product deleted successfully' });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Get product reviews
- */
+/** GET /api/products/:id/reviews */
 export const getProductReviews = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { page = 1, limit = 10 } = req.query;
-
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    const product = await prisma.product.findUnique({
-      where: { id },
-      select: { id: true },
-    });
-
+    const product = await prisma.product.findUnique({ where: { id }, select: { id: true } });
     if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found',
-      });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
-
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    const skip = (page - 1) * limit;
     const [reviews, total] = await Promise.all([
       prisma.productReview.findMany({
         where: { productId: id },
-        include: {
-          user: {
-            select: {
-              id: true,
-              fullName: true,
-              profileImage: true,
-            },
-          },
-        },
+        include: { user: { select: { id: true, fullName: true, profileImage: true } } },
+        orderBy: { createdAt: 'desc' },
         skip,
-        take: parseInt(limit),
-        orderBy: {
-          createdAt: 'desc',
-        },
+        take: limit,
       }),
       prisma.productReview.count({ where: { productId: id } }),
     ]);
-
     res.json({
       success: true,
       data: reviews,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / parseInt(limit)) || 1,
-      },
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) || 1 },
     });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Create product review
- */
+/** POST /api/products/:id/reviews - create review (auth) */
 export const createProductReview = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
-
     const { id } = req.params;
-    const { rating, comment } = req.body;
-    const userId = req.user.id;
-
-    const product = await prisma.product.findUnique({
-      where: { id },
-      select: { id: true },
-    });
-
+    const rating = parseInt(req.body.rating, 10);
+    const comment = req.body.comment ? String(req.body.comment).trim() : null;
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, message: 'Rating must be between 1 and 5' });
+    }
+    const product = await prisma.product.findUnique({ where: { id }, select: { id: true } });
     if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found',
-      });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
-
-    // Check if user already reviewed this product
-    const existingReview = await prisma.productReview.findUnique({
-      where: {
-        userId_productId: {
-          userId,
-          productId: id,
-        },
-      },
+    const userId = req.user.id;
+    const existing = await prisma.productReview.findUnique({
+      where: { userId_productId: { userId, productId: id } },
     });
-
-    if (existingReview) {
-      return res.status(400).json({
-        success: false,
-        message: 'You have already reviewed this product',
-      });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'You have already reviewed this product' });
     }
-
     const review = await prisma.productReview.create({
-      data: {
-        userId,
-        productId: id,
-        rating: parseInt(rating),
-        comment: comment || null,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            fullName: true,
-            profileImage: true,
-          },
-        },
-      },
+      data: { userId, productId: id, rating, comment },
+      include: { user: { select: { id: true, fullName: true, profileImage: true } } },
     });
-
-    res.status(201).json({
-      success: true,
-      message: 'Review created successfully',
-      data: review,
-    });
+    res.status(201).json({ success: true, message: 'Review created successfully', data: review });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Update product review
- */
+/** PUT /api/products/:id/reviews/:reviewId */
 export const updateProductReview = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
-
     const { id, reviewId } = req.params;
-    const { rating, comment } = req.body;
-    const userId = req.user.id;
-
-    const review = await prisma.productReview.findUnique({
-      where: { id: reviewId },
-    });
-
+    const review = await prisma.productReview.findUnique({ where: { id: reviewId } });
     if (!review) {
-      return res.status(404).json({
-        success: false,
-        message: 'Review not found',
-      });
+      return res.status(404).json({ success: false, message: 'Review not found' });
     }
-
-    if (review.userId !== userId && req.user.role !== 'ADMIN') {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to update this review',
-      });
-    }
-
     if (review.productId !== id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Review does not belong to this product',
-      });
+      return res.status(400).json({ success: false, message: 'Review does not belong to this product' });
     }
-
-    const updatedReview = await prisma.productReview.update({
+    if (review.userId !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'Not authorized to update this review' });
+    }
+    const data = {};
+    if (req.body.rating != null) {
+      const r = parseInt(req.body.rating, 10);
+      if (!Number.isInteger(r) || r < 1 || r > 5) {
+        return res.status(400).json({ success: false, message: 'Rating must be between 1 and 5' });
+      }
+      data.rating = r;
+    }
+    if (req.body.comment !== undefined) data.comment = req.body.comment ? String(req.body.comment).trim() : null;
+    const updated = await prisma.productReview.update({
       where: { id: reviewId },
-      data: {
-        ...(rating !== undefined && { rating: parseInt(rating) }),
-        ...(comment !== undefined && { comment }),
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            fullName: true,
-            profileImage: true,
-          },
-        },
-      },
+      data,
+      include: { user: { select: { id: true, fullName: true, profileImage: true } } },
     });
-
-    res.json({
-      success: true,
-      message: 'Review updated successfully',
-      data: updatedReview,
-    });
+    res.json({ success: true, message: 'Review updated successfully', data: updated });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Delete product review
- */
+/** DELETE /api/products/:id/reviews/:reviewId */
 export const deleteProductReview = async (req, res, next) => {
   try {
     const { id, reviewId } = req.params;
-    const userId = req.user.id;
-
-    const review = await prisma.productReview.findUnique({
-      where: { id: reviewId },
-    });
-
+    const review = await prisma.productReview.findUnique({ where: { id: reviewId } });
     if (!review) {
-      return res.status(404).json({
-        success: false,
-        message: 'Review not found',
-      });
+      return res.status(404).json({ success: false, message: 'Review not found' });
     }
-
-    if (review.userId !== userId && req.user.role !== 'ADMIN') {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to delete this review',
-      });
-    }
-
     if (review.productId !== id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Review does not belong to this product',
-      });
+      return res.status(400).json({ success: false, message: 'Review does not belong to this product' });
     }
-
-    await prisma.productReview.delete({
-      where: { id: reviewId },
-    });
-
-    res.json({
-      success: true,
-      message: 'Review deleted successfully',
-    });
+    if (review.userId !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this review' });
+    }
+    await prisma.productReview.delete({ where: { id: reviewId } });
+    res.json({ success: true, message: 'Review deleted successfully' });
   } catch (error) {
     next(error);
   }
 };
-

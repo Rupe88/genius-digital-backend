@@ -43,6 +43,23 @@ export const multipleUpload = (fieldName, maxCount = 10) =>
   upload.array(fieldName, maxCount);
 
 /**
+ * Run multer + processMultipleImages only when Content-Type is multipart.
+ * Prevents multer from hanging when client sends JSON or no body.
+ */
+export const optionalMultipleUpload = (fieldName, maxCount, processImagesFn) => {
+  const multerMw = upload.array(fieldName, maxCount);
+  return (req, res, next) => {
+    if (!req.is('multipart/form-data')) {
+      return next();
+    }
+    multerMw(req, res, (err) => {
+      if (err) return next(err);
+      Promise.resolve(processImagesFn(req, res, next)).catch(next);
+    });
+  };
+};
+
+/**
  * Middleware for mixed file uploads
  */
 export const fieldsUpload = (fields) => upload.fields(fields);
