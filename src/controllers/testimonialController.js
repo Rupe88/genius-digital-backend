@@ -94,8 +94,10 @@ export const createTestimonial = async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      const firstMsg = errors.array()[0]?.msg || 'Validation failed';
       return res.status(400).json({
         success: false,
+        message: firstMsg,
         errors: errors.array(),
       });
     }
@@ -113,18 +115,25 @@ export const createTestimonial = async (req, res, next) => {
       order,
     } = req.body;
 
+    // Multipart sends all fields as strings; coerce for Prisma
+    const ratingNum = rating != null && rating !== '' ? parseInt(rating, 10) : 5;
+    const orderNum = order != null && order !== '' ? parseInt(order, 10) : 0;
+    const isPublishedBool = isPublished === true || isPublished === 'true' || isPublished === '1';
+    const featuredBool = featured === true || featured === 'true' || featured === '1';
+    const courseIdVal = courseId && String(courseId).trim() ? String(courseId).trim() : null;
+
     const testimonial = await prisma.testimonial.create({
       data: {
-        name,
-        image: req.cloudinary?.url || image,
-        designation,
-        company,
-        rating: rating || 5,
-        comment,
-        courseId,
-        isPublished: isPublished || false,
-        featured: featured || false,
-        order: order || 0,
+        name: String(name).trim(),
+        image: req.cloudinary?.url || (image && String(image).trim()) || null,
+        designation: designation ? String(designation).trim() : null,
+        company: company ? String(company).trim() : null,
+        rating: Number.isInteger(ratingNum) && ratingNum >= 1 && ratingNum <= 5 ? ratingNum : 5,
+        comment: String(comment).trim(),
+        courseId: courseIdVal,
+        isPublished: isPublishedBool,
+        featured: featuredBool,
+        order: Number.isInteger(orderNum) && orderNum >= 0 ? orderNum : 0,
       },
       include: {
         course: true,
@@ -137,6 +146,12 @@ export const createTestimonial = async (req, res, next) => {
       message: 'Testimonial created successfully',
     });
   } catch (error) {
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid course. Please select a valid course or leave empty for general testimonial.',
+      });
+    }
     next(error);
   }
 };
@@ -148,8 +163,10 @@ export const updateTestimonial = async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      const firstMsg = errors.array()[0]?.msg || 'Validation failed';
       return res.status(400).json({
         success: false,
+        message: firstMsg,
         errors: errors.array(),
       });
     }
@@ -169,18 +186,24 @@ export const updateTestimonial = async (req, res, next) => {
     } = req.body;
 
     const updateData = {};
-    if (name) updateData.name = name;
-    if (req.cloudinary?.url || image) {
-      updateData.image = req.cloudinary?.url || image;
+    if (name != null) updateData.name = String(name).trim();
+    if (req.cloudinary?.url || (image && String(image).trim())) {
+      updateData.image = req.cloudinary?.url || (image && String(image).trim()) || null;
     }
-    if (designation !== undefined) updateData.designation = designation;
-    if (company !== undefined) updateData.company = company;
-    if (rating !== undefined) updateData.rating = rating;
-    if (comment) updateData.comment = comment;
-    if (courseId !== undefined) updateData.courseId = courseId;
-    if (isPublished !== undefined) updateData.isPublished = isPublished;
-    if (featured !== undefined) updateData.featured = featured;
-    if (order !== undefined) updateData.order = order;
+    if (designation !== undefined) updateData.designation = designation ? String(designation).trim() : null;
+    if (company !== undefined) updateData.company = company ? String(company).trim() : null;
+    if (rating !== undefined) {
+      const ratingNum = parseInt(rating, 10);
+      updateData.rating = Number.isInteger(ratingNum) && ratingNum >= 1 && ratingNum <= 5 ? ratingNum : 5;
+    }
+    if (comment != null) updateData.comment = String(comment).trim();
+    if (courseId !== undefined) updateData.courseId = courseId && String(courseId).trim() ? String(courseId).trim() : null;
+    if (isPublished !== undefined) updateData.isPublished = isPublished === true || isPublished === 'true' || isPublished === '1';
+    if (featured !== undefined) updateData.featured = featured === true || featured === 'true' || featured === '1';
+    if (order !== undefined) {
+      const orderNum = parseInt(order, 10);
+      updateData.order = Number.isInteger(orderNum) && orderNum >= 0 ? orderNum : 0;
+    }
 
     const testimonial = await prisma.testimonial.update({
       where: { id },
