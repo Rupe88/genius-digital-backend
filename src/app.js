@@ -103,43 +103,57 @@ app.get('/health', (req, res) => {
     });
 });
 
-// API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/affiliates', affiliateRoutes);
-app.use('/api/assignments', assignmentRoutes);
-app.use('/api/audit-logs', auditLogRoutes);
-app.use('/api/blogs', blogRoutes);
-app.use('/api/cart', cartRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/certificates', certificateRoutes);
-app.use('/api/chapters', chapterRoutes);
-app.use('/api/consultations', consultationRoutes);
-app.use('/api/contact', contactRoutes);
-app.use('/api/coupons', couponRoutes);
-app.use('/api/courses', courseRoutes);
-app.use('/api/enrollments', enrollmentRoutes);
-app.use('/api/events', eventRoutes);
-app.use('/api/faqs', faqRoutes);
-app.use('/api/gallery', galleryRoutes);
-app.use('/api/instructors', instructorRoutes);
-app.use('/api/lessons', lessonRoutes);
-app.use('/api/live-classes', liveClassRoutes);
-app.use('/api/newsletter', newsletterRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/payment-analytics', paymentAnalyticsRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/popups', popupRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/progress', progressRoutes);
-app.use('/api/quizzes', quizRoutes);
-app.use('/api/referrals', referralRoutes);
-app.use('/api/reviews', reviewRoutes);
-app.use('/api/student-success', studentSuccessRoutes);
-app.use('/api/testimonials', testimonialRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/wishlist', wishlistRoutes);
+// API base path - use empty string when deployed behind a proxy that strips /api (e.g. DigitalOcean)
+const API_BASE = process.env.API_BASE_PATH !== undefined ? process.env.API_BASE_PATH : '/api';
+
+// API routes (mounted at both /api/* and /* so they work with or without proxy path stripping)
+const apiRoutes = [
+  ['auth', authRoutes],
+  ['admin', adminRoutes],
+  ['affiliates', affiliateRoutes],
+  ['assignments', assignmentRoutes],
+  ['audit-logs', auditLogRoutes],
+  ['blogs', blogRoutes],
+  ['cart', cartRoutes],
+  ['categories', categoryRoutes],
+  ['certificates', certificateRoutes],
+  ['chapters', chapterRoutes],
+  ['consultations', consultationRoutes],
+  ['contact', contactRoutes],
+  ['coupons', couponRoutes],
+  ['courses', courseRoutes],
+  ['enrollments', enrollmentRoutes],
+  ['events', eventRoutes],
+  ['faqs', faqRoutes],
+  ['gallery', galleryRoutes],
+  ['instructors', instructorRoutes],
+  ['lessons', lessonRoutes],
+  ['live-classes', liveClassRoutes],
+  ['newsletter', newsletterRoutes],
+  ['notifications', notificationRoutes],
+  ['orders', orderRoutes],
+  ['payment-analytics', paymentAnalyticsRoutes],
+  ['payments', paymentRoutes],
+  ['popups', popupRoutes],
+  ['products', productRoutes],
+  ['progress', progressRoutes],
+  ['quizzes', quizRoutes],
+  ['referrals', referralRoutes],
+  ['reviews', reviewRoutes],
+  ['student-success', studentSuccessRoutes],
+  ['testimonials', testimonialRoutes],
+  ['upload', uploadRoutes],
+  ['wishlist', wishlistRoutes],
+];
+apiRoutes.forEach(([path, router]) => {
+  app.use(`${API_BASE}/${path}`, router);
+});
+// When API_BASE is /api, also mount without prefix for proxies that strip /api (e.g. DigitalOcean)
+if (API_BASE === '/api') {
+  apiRoutes.forEach(([path, router]) => {
+    app.use(`/${path}`, router);
+  });
+}
 
 // 404 handler
 app.use(notFoundHandler);
