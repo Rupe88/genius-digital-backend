@@ -51,37 +51,31 @@ const app = express();
 // Security middleware
 app.use(helmet());
 
-// CORS configuration with wildcard support for Vercel
+// CORS configuration
 app.use(
     cors({
         origin: (origin, callback) => {
-            // Allow requests with no origin (Postman, curl, mobile apps, etc.)
+            // Development: allow all origins (browser, Postman, file://, etc.)
+            if (config.nodeEnv === 'development') {
+                return callback(null, true);
+            }
+
+            // No origin (Postman, curl, mobile apps)
             if (!origin) {
                 return callback(null, true);
             }
 
-            // In development, allow any localhost or 127.0.0.1 (any port) for manual testing
-            if (config.nodeEnv === 'development') {
-                try {
-                    const u = new URL(origin);
-                    if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
-                        return callback(null, true);
-                    }
-                } catch (_) {}
-            }
-
-            // Check if origin is in allowed list
+            // Allowed list
             if (config.corsOrigins.includes(origin)) {
                 return callback(null, true);
             }
 
-            // Allow any Vercel subdomain (for preview deployments)
+            // Any Vercel subdomain
             if (origin.endsWith('.vercel.app')) {
                 return callback(null, true);
             }
 
-            // Log for debugging
-            console.warn(`CORS blocked origin: ${origin}. Allowed origins:`, config.corsOrigins);
+            console.warn(`CORS blocked origin: ${origin}. Allowed:`, config.corsOrigins);
             callback(new Error('Not allowed by CORS'));
         },
         credentials: true,
