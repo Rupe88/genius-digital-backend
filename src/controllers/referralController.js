@@ -51,13 +51,7 @@ export const generateSharingLinks = async (req, res, next) => {
     // Smart URL detection: Use production URL if request comes from production domain
     // This allows local backend to generate production links when called from production frontend
     const origin = req.get('origin') || req.get('referer') || '';
-    const isProductionRequest = origin.includes('aacharyarajbabu.vercel.app') ||
-      origin.includes('vercel.app') ||
-      config.nodeEnv === 'production';
-
-    const baseUrl = isProductionRequest
-      ? 'https://aacharyarajbabu.vercel.app'
-      : config.frontendUrl;
+    const baseUrl = config.frontendUrl;
 
     console.log(`Request origin: ${origin}, using baseUrl: ${baseUrl}`);
     console.log(`Generating sharing links for user ${userId} and course ${courseId}`);
