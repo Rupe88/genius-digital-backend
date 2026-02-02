@@ -55,9 +55,19 @@ app.use(helmet());
 app.use(
     cors({
         origin: (origin, callback) => {
-            // Allow requests with no origin (like mobile apps, Postman, etc.)
+            // Allow requests with no origin (Postman, curl, mobile apps, etc.)
             if (!origin) {
                 return callback(null, true);
+            }
+
+            // In development, allow any localhost or 127.0.0.1 (any port) for manual testing
+            if (config.nodeEnv === 'development') {
+                try {
+                    const u = new URL(origin);
+                    if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
+                        return callback(null, true);
+                    }
+                } catch (_) {}
             }
 
             // Check if origin is in allowed list
