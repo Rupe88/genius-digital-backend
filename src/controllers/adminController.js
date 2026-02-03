@@ -832,6 +832,19 @@ export const createManualSalaryPayment = asyncHandler(async (req, res) => {
     },
   });
 
+  // Create instructor earning record so it shows in salary section
+  const earning = await prisma.instructorEarning.create({
+    data: {
+      instructorId: instructorId,
+      amount: parsedAmount,
+      commissionRate: 0, // Manual payment, not commission-based
+      status: 'PAID',
+      paidAt: paymentDate ? new Date(paymentDate) : new Date(),
+      paymentMethod: paymentMethod || 'BANK_TRANSFER',
+      notes: description || `Manual salary payment`,
+    },
+  });
+
   // Create transaction record
   await prisma.transaction.create({
     data: {
@@ -841,13 +854,17 @@ export const createManualSalaryPayment = asyncHandler(async (req, res) => {
       description: expense.title,
       transactionDate: expense.paymentDate,
       expenseId: expense.id,
+      instructorEarningId: earning.id,
     },
   });
 
-  // Update instructor's paid earnings
+  // Update instructor's earnings (both total and paid)
   await prisma.instructor.update({
     where: { id: instructorId },
     data: {
+      totalEarnings: {
+        increment: parsedAmount,
+      },
       paidEarnings: {
         increment: parsedAmount,
       },
@@ -859,6 +876,7 @@ export const createManualSalaryPayment = asyncHandler(async (req, res) => {
     message: 'Salary payment created and recorded as expense',
     data: {
       expense,
+      earning,
       instructor: {
         id: instructor.id,
         name: instructor.name,
