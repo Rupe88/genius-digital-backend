@@ -835,7 +835,9 @@ export const createManualSalaryPayment = asyncHandler(async (req, res) => {
   // Create instructor earning record so it shows in salary section
   const earning = await prisma.instructorEarning.create({
     data: {
-      instructorId: instructorId,
+      instructor: {
+        connect: { id: instructorId },
+      },
       amount: parsedAmount,
       commissionRate: 0, // Manual payment, not commission-based
       status: 'PAID',
