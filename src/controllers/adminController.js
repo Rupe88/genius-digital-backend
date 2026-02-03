@@ -785,3 +785,87 @@ export const getAccountStatement = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Create manual salary payment (creates expense + updates instructor)
+ */
+export const createManualSalaryPayment = asyncHandler(async (req, res) => {
+  const { instructorId, amount, paymentDate, description, paymentMethod } = req.body;
+
+  if (!instructorId || !amount) {
+    return res.status(400).json({
+      success: false,
+      message: 'Instructor ID and amount are required',
+    });
+  }
+
+  // Verify instructor exists
+  const instructor = await prisma.instructor.findUnique({
+    where: { id: instructorId },
+    select: { id: true, name: true },
+  });
+
+  if (!instructor) {
+    return res.status(404).json({
+      success: false,
+      message: 'Instructor not found',
+    });
+  }
+
+  const parsedAmount = parseFloat(amount);
+  if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid amount',
+    });
+  }
+
+  // Create expense entry for this salary payment
+  const expense = await prisma.expense.create({
+    data: {
+      title: `Salary Payment - ${instructor.name}`,
+      description: description || `Manual salary payment for ${instructor.name}`,
+      amount: parsedAmount,
+      category: 'SALARY',
+      status: 'PAID',
+      paidAt: paymentDate ? new Date(paymentDate) : new Date(),
+      instructorId: instructorId,
+    },
+  });
+
+  // Create transaction record
+  await prisma.transaction.create({
+    data: {
+      type: 'SALARY',
+      category: 'OPERATIONAL',
+      amount: parsedAmount,
+      description: expense.title,
+      transactionDate: expense.paidAt,
+      expenseId: expense.id,
+    },
+  });
+
+  // Update instructor's paid earnings
+  await prisma.instructor.update({
+    where: { id: instructorId },
+    data: {
+      paidEarnings: {
+        increment: parsedAmount,
+      },
+    },
+  });
+
+  res.json({
+    success: true,
+    message: 'Salary payment created and recorded as expense',
+    data: {
+      expense,
+      instructor: {
+        id: instructor.id,
+        name: instructor.name,
+      },
+      amount: parsedAmount,
+      paymentDate: expense.paidAt,
+    },
+  });
+});
+

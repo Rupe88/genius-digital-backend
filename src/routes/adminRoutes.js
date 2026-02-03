@@ -19,6 +19,7 @@ import {
   getAllTransactions,
   getAccountBalance,
   getAccountStatement,
+  createManualSalaryPayment,
 } from '../controllers/adminController.js';
 import {
   createExpense,
@@ -153,6 +154,17 @@ router.put(
   '/instructors/:instructorId/commission-rate',
   validate([body('commissionRate').isFloat({ min: 0, max: 100 })]),
   updateInstructorCommissionRate
+);
+router.post(
+  '/instructors/salaries/create',
+  validate([
+    body('instructorId').isUUID().withMessage('Valid instructor ID is required'),
+    body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
+    body('paymentDate').optional().isISO8601().withMessage('Valid payment date is required'),
+    body('description').optional().isString(),
+    body('paymentMethod').optional().isString(),
+  ]),
+  createManualSalaryPayment
 );
 
 // ==================== ACCOUNT MANAGEMENT ====================
