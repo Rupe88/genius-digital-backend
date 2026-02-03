@@ -174,14 +174,11 @@ export const processImageUpload = async (req, res, next) => {
 export const processMultipleImagesUpload = async (req, res, next) => {
   try {
     if (!req.files || req.files.length === 0) {
-      console.log('No files received in processMultipleImagesUpload');
       return next();
     }
 
-    console.log(`Processing ${req.files.length} images for Cloudinary upload`);
     const folder = req.body.folder || 'lms/products';
-    const uploadPromises = req.files.map(async (file, index) => {
-      console.log(`- Uploading [${index}]: ${file.originalname}, size: ${file.size} bytes, type: ${file.mimetype}`);
+    const uploadPromises = req.files.map(async (file) => {
       // Validate file size (max 5MB for product images)
       const maxSize = 5 * 1024 * 1024;
       if (file.size > maxSize) {

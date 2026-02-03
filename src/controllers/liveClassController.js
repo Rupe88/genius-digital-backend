@@ -136,13 +136,7 @@ export const getLiveClassById = async (req, res, next) => {
  */
 export const createLiveClass = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
+    // Validation is now handled by the route middleware
 
     const {
       title,
@@ -271,13 +265,7 @@ export const createLiveClass = async (req, res, next) => {
  */
 export const updateLiveClass = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
+    // Validation is now handled by the route middleware
 
     const { id } = req.params;
     const {

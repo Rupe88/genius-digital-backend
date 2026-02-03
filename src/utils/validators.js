@@ -3,21 +3,39 @@ import { body, query, param, validationResult } from 'express-validator';
 // Re-export express-validator functions for convenience
 export { body, query, param };
 
-export const validate = (validations) => {
-  return async (req, res, next) => {
-    await Promise.all(validations.map((validation) => validation.run(req)));
+export const validate = (reqOrValidations, res, next) => {
+  // If it's an array, it's being used as validate([rules])
+  if (Array.isArray(reqOrValidations)) {
+    const validations = reqOrValidations;
+    return async (req, res, next) => {
+      await Promise.all(validations.map((validation) => validation.run(req)));
 
-    const errors = validationResult(req);
-    if (errors.isEmpty()) {
-      return next();
-    }
+      const errors = validationResult(req);
+      if (errors.isEmpty()) {
+        return next();
+      }
 
-    return res.status(400).json({
-      success: false,
-      message: errors.array()[0]?.msg || 'Validation failed',
-      errors: errors.array(),
-    });
-  };
+      return res.status(400).json({
+        success: false,
+        message: errors.array()[0]?.msg || 'Validation failed',
+        errors: errors.array(),
+      });
+    };
+  }
+
+  // Otherwise, it's being used as a direct middleware: router.post('/', [rules], validate, handler)
+  // In this case, reqOrValidations is the request object
+  const req = reqOrValidations;
+  const errors = validationResult(req);
+  if (errors.isEmpty()) {
+    return next();
+  }
+
+  return res.status(400).json({
+    success: false,
+    message: errors.array()[0]?.msg || 'Validation failed',
+    errors: errors.array(),
+  });
 };
 
 export const registerValidation = [

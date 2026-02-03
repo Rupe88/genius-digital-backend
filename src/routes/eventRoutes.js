@@ -57,7 +57,7 @@ router.get(
   getEventRegistrations
 );
 
-router.post(
+router.get(
   '/:id/attendance/:registrationId',
   authenticate,
   requireAdmin,
@@ -77,11 +77,11 @@ router.post(
     body('title').notEmpty().trim().withMessage('Event title is required'),
     body('slug').notEmpty().trim().withMessage('Event slug is required'),
     body('startDate').isISO8601().withMessage('Valid start date is required'),
+    body('endDate').optional({ checkFalsy: true }).isISO8601().withMessage('Valid end date is required'),
     body('description').optional().isString(),
-    body('shortDescription').optional().isString().isLength({ max: 500 }),
-    body('venue').optional().isString(),
+    body('shortDescription').optional().isString(),
     body('location').optional().isString(),
-    body('endDate').optional().isISO8601(),
+    body('venue').optional().isString(),
     body('price').optional().isFloat({ min: 0 }),
     body('isFree').optional().isBoolean(),
     body('maxAttendees').optional().isInt({ min: 1 }),
@@ -100,11 +100,11 @@ router.put(
     body('title').optional().notEmpty().trim(),
     body('slug').optional().notEmpty().trim(),
     body('startDate').optional().isISO8601(),
+    body('endDate').optional({ checkFalsy: true }).isISO8601(),
     body('description').optional().isString(),
-    body('shortDescription').optional().isString().isLength({ max: 500 }),
-    body('venue').optional().isString(),
+    body('shortDescription').optional().isString(),
     body('location').optional().isString(),
-    body('endDate').optional().isISO8601(),
+    body('venue').optional().isString(),
     body('price').optional().isFloat({ min: 0 }),
     body('isFree').optional().isBoolean(),
     body('maxAttendees').optional().isInt({ min: 1 }),
@@ -123,4 +123,3 @@ router.delete(
 );
 
 export default router;
-
