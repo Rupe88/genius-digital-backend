@@ -155,7 +155,6 @@ export const getInstructorEarnings = async (filters = {}) => {
             id: true,
             createdAt: true,
           },
-          required: false,
         },
       },
       orderBy: {
