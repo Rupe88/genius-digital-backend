@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
+
 import { validationResult } from 'express-validator';
 import * as orderService from '../services/orderService.js';
 
-const prisma = new PrismaClient();
 
 /**
  * Get all orders (User sees own orders, Admin sees all)

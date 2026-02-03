@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
+
 import { validationResult } from 'express-validator';
 import { generateSlug, generateUniqueSlug } from '../utils/helpers.js';
 
-const prisma = new PrismaClient();
 
 /**
  * Get all chapters for a course

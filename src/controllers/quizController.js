@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
+
 import { validationResult } from 'express-validator';
 import * as quizService from '../services/quizService.js';
 
-const prisma = new PrismaClient();
 
 /**
  * Get quiz by lesson ID

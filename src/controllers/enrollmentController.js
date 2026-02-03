@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
+
 import { validationResult } from 'express-validator';
 import * as referralService from '../services/referralService.js';
 
-const prisma = new PrismaClient();
 
 /**
  * Enroll in a course

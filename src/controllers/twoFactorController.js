@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
+
 import { validationResult } from 'express-validator';
 import { generateTwoFactorSecret, generateBackupCodes, verifyTwoFactorToken, verifyBackupCode } from '../services/twoFactorService.js';
 
-const prisma = new PrismaClient();
 
 /**
  * Setup 2FA (generate secret and QR code)

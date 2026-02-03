@@ -1,9 +1,9 @@
+import { prisma } from '../config/database.js';
 import { validationResult } from 'express-validator';
 import * as referralService from '../services/referralService.js';
-import { PrismaClient } from '@prisma/client';
+
 import { config } from '../config/env.js';
 
-const prisma = new PrismaClient();
 
 /**
  * Generate sharing links for a course

@@ -1,6 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
 
-const prisma = new PrismaClient();
+
 
 /** GET /api/products - list products */
 export const getAllProducts = async (req, res, next) => {
@@ -128,6 +128,15 @@ export const updateProduct = async (req, res, next) => {
     const { id } = req.params;
     const body = req.body || {};
 
+    console.log(`Updating product ${id}`);
+    console.log('Request body keys:', Object.keys(body));
+    if (req.cloudinary) {
+      console.log('Cloudinary data present:', {
+        url: req.cloudinary.url,
+        imageUrls: req.cloudinary.imageUrls?.length || 0
+      });
+    }
+
     const product = await prisma.product.findUnique({ where: { id } });
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
@@ -173,7 +182,11 @@ export const updateProduct = async (req, res, next) => {
     if (body.vastuPurpose !== undefined) data.vastuPurpose = body.vastuPurpose || null;
     if (body.energyType !== undefined) data.energyType = body.energyType || null;
     if (body.material !== undefined) data.material = body.material || null;
-    if (body.dimensions !== undefined) data.dimensions = body.dimensions && typeof body.dimensions === 'object' ? body.dimensions : null;
+    if (body.dimensions !== undefined) {
+      data.dimensions = body.dimensions && typeof body.dimensions === 'object'
+        ? body.dimensions
+        : (typeof body.dimensions === 'string' && body.dimensions.trim() ? (() => { try { return JSON.parse(body.dimensions); } catch { return null; } })() : null);
+    }
 
     const updated = await prisma.product.update({
       where: { id },

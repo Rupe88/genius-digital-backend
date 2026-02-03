@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
+
 import { validationResult } from 'express-validator';
 
-const prisma = new PrismaClient();
 
 /**
  * Get active popup for public display

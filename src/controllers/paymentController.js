@@ -1,3 +1,4 @@
+import { prisma } from '../config/database.js';
 import { validationResult } from 'express-validator';
 import * as paymentService from '../services/paymentService.js';
 import * as cardPaymentService from '../services/cardPaymentService.js';
@@ -34,7 +35,6 @@ export const initiatePayment = async (req, res, next) => {
     // Validate that user is not trying to pay for someone else's order/course
     if (orderId) {
       const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
       const order = await prisma.order.findUnique({
         where: { id: orderId },
       });
@@ -49,7 +49,6 @@ export const initiatePayment = async (req, res, next) => {
 
     if (courseId) {
       const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
       const course = await prisma.course.findUnique({
         where: { id: courseId },
       });
@@ -247,7 +246,6 @@ export const getUserPayments = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const { PrismaClient } = await import('@prisma/client');
-    const prisma = new PrismaClient();
 
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -394,6 +392,76 @@ export const getAvailableGateways = async (req, res, next) => {
     res.json({
       success: true,
       data: gateways,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get all payments (Admin only)
+ */
+export const getAllPaymentsAdmin = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const skip = (page - 1) * limit;
+    const { status, search } = req.query;
+
+    const where = {};
+
+    if (status && status !== 'ALL') {
+      where.status = status;
+    }
+
+    if (search) {
+      where.OR = [
+        { transactionId: { contains: search, mode: 'insensitive' } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { user: { fullName: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [payments, total] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+            },
+          },
+          course: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          order: {
+            select: {
+              id: true,
+              orderNumber: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.payment.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      data: payments,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit) || 1,
+      },
     });
   } catch (error) {
     next(error);

@@ -9,6 +9,7 @@ import {
   refundPayment,
   getAvailableGateways,
   retryPayment,
+  getAllPaymentsAdmin,
 } from '../controllers/paymentController.js';
 import {
   getPaymentAnalytics,
@@ -109,6 +110,33 @@ router.get(
       .toInt(),
   ],
   getUserPayments
+);
+
+router.get(
+  '/admin',
+  authenticate,
+  requireAdmin,
+  [
+    query('page')
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage('Page must be a positive integer')
+      .toInt(),
+    query('limit')
+      .optional()
+      .isInt({ min: 1, max: 100 })
+      .withMessage('Limit must be between 1 and 100')
+      .toInt(),
+    query('status')
+      .optional()
+      .isIn(['ALL', 'PENDING', 'COMPLETED', 'FAILED', 'REFUNDED'])
+      .withMessage('Invalid status filter'),
+    query('search')
+      .optional()
+      .isString()
+      .withMessage('Search must be a string'),
+  ],
+  getAllPaymentsAdmin
 );
 
 router.get(

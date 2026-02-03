@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
+
 import { validationResult } from 'express-validator';
 import * as zoomService from '../services/zoomService.js';
 
-const prisma = new PrismaClient();
 
 /**
  * Get all live classes with filtering

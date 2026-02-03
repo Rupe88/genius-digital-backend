@@ -1,9 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
+
 import { validationResult } from 'express-validator';
 import { sanitizeSearch } from '../utils/sanitize.js';
 import { generateSlug } from '../utils/helpers.js';
 
-const prisma = new PrismaClient();
 
 /**
  * Get all blogs with filtering

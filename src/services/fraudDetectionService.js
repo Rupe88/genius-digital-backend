@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
+
 import { calculateRiskScore } from './auditLogService.js';
 
-const prisma = new PrismaClient();
 
 /**
  * Check for fraudulent payment patterns

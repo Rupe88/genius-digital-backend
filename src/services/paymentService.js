@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
+
 import { validateCoupon, applyCoupon } from './couponService.js';
 import * as esewaService from './esewaService.js';
 import * as mobileBankingService from './mobileBankingService.js';
@@ -11,7 +12,6 @@ import { confirmOrderPayment } from './orderService.js';
 import { config } from '../config/env.js';
 import crypto from 'crypto';
 
-const prisma = new PrismaClient();
 
 /**
  * Generate unique transaction ID

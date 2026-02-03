@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
+
 import { validateCoupon, applyCoupon } from './couponService.js';
 
-const prisma = new PrismaClient();
 
 /**
  * Generate unique order number

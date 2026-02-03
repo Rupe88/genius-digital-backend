@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
+
 import { validationResult } from 'express-validator';
 import { validateCoupon } from '../services/couponService.js';
 
-const prisma = new PrismaClient();
 
 /**
  * Validate coupon code (Public)

@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
+
 import crypto from 'crypto';
 import { createHash } from 'crypto';
 
-const prisma = new PrismaClient();
 
 /**
  * Generate unique referral code
