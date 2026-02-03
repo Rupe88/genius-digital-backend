@@ -827,7 +827,7 @@ export const createManualSalaryPayment = asyncHandler(async (req, res) => {
       amount: parsedAmount,
       category: 'SALARY',
       status: 'PAID',
-      paidAt: paymentDate ? new Date(paymentDate) : new Date(),
+      paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
       instructorId: instructorId,
     },
   });
@@ -839,7 +839,7 @@ export const createManualSalaryPayment = asyncHandler(async (req, res) => {
       category: 'OPERATIONAL',
       amount: parsedAmount,
       description: expense.title,
-      transactionDate: expense.paidAt,
+      transactionDate: expense.paymentDate,
       expenseId: expense.id,
     },
   });
@@ -864,7 +864,7 @@ export const createManualSalaryPayment = asyncHandler(async (req, res) => {
         name: instructor.name,
       },
       amount: parsedAmount,
-      paymentDate: expense.paidAt,
+      paymentDate: expense.paymentDate,
     },
   });
 });
