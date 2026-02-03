@@ -1,63 +1,82 @@
-import { PrismaClient } from '@prisma/client';
-import { validationResult } from 'express-validator';
+import { prisma } from '../config/database.js';
 
-const prisma = new PrismaClient();
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
 
-/**
- * Get all events with filtering
- */
+function safePageLimit(query) {
+  const page = Math.max(1, parseInt(query.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 10));
+  return { page, limit, skip: (page - 1) * limit, take: limit };
+}
+
+function parseEventBody(body) {
+  const startDate = body.startDate ? new Date(body.startDate) : null;
+  const endDate =
+    body.endDate !== undefined && body.endDate !== ''
+      ? new Date(body.endDate)
+      : undefined;
+  const price =
+    body.price !== undefined && body.price !== ''
+      ? parseFloat(body.price)
+      : undefined;
+  const isFree = body.isFree === true || body.isFree === 'true';
+  const maxAttendees =
+    body.maxAttendees !== undefined && body.maxAttendees !== ''
+      ? parseInt(body.maxAttendees, 10)
+      : undefined;
+  const featured = body.featured === true || body.featured === 'true';
+  return { startDate, endDate, price, isFree, maxAttendees, featured };
+}
+
+const EVENT_LIST_SELECT = {
+  id: true,
+  title: true,
+  slug: true,
+  shortDescription: true,
+  image: true,
+  venue: true,
+  location: true,
+  startDate: true,
+  endDate: true,
+  price: true,
+  isFree: true,
+  maxAttendees: true,
+  status: true,
+  featured: true,
+  createdAt: true,
+  updatedAt: true,
+  _count: { select: { registrations: true } },
+};
+
+// -----------------------------------------------------------------------------
+// Public: List events
+// -----------------------------------------------------------------------------
+
 export const getAllEvents = async (req, res, next) => {
   try {
-    const {
-      status,
-      featured,
-      upcoming,
-      past,
-      page = 1,
-      limit = 10,
-    } = req.query;
+    const { status, featured, upcoming, past } = req.query;
+    const { page, limit, skip, take } = safePageLimit(req.query);
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
     const where = {};
-
     if (status) where.status = status;
     if (featured === 'true') where.featured = true;
-
-    // Filter upcoming events
     if (upcoming === 'true') {
-      where.startDate = {
-        gte: new Date(),
-      };
-      where.status = {
-        in: ['UPCOMING', 'ONGOING'],
-      };
+      where.startDate = { gte: new Date() };
+      where.status = { in: ['UPCOMING', 'ONGOING'] };
     }
-
-    // Filter past events
     if (past === 'true') {
-      where.endDate = {
-        lt: new Date(),
-      };
-      where.status = {
-        in: ['COMPLETED', 'CANCELLED'],
-      };
+      where.endDate = { lt: new Date() };
+      where.status = { in: ['COMPLETED', 'CANCELLED'] };
     }
 
     const [events, total] = await Promise.all([
       prisma.event.findMany({
         where,
-        include: {
-          _count: {
-            select: {
-              registrations: true,
-            },
-          },
-        },
         skip,
-        take: parseInt(limit),
-        orderBy: {
-          startDate: 'asc',
-        },
+        take,
+        orderBy: { startDate: 'asc' },
+        select: EVENT_LIST_SELECT,
       }),
       prisma.event.count({ where }),
     ]);
@@ -66,37 +85,31 @@ export const getAllEvents = async (req, res, next) => {
       success: true,
       data: events,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         total,
-        pages: Math.ceil(total / parseInt(limit)) || 1,
+        pages: total > 0 ? Math.ceil(total / limit) : 1,
       },
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
 
-/**
- * Get event by ID or slug
- */
+// -----------------------------------------------------------------------------
+// Public: Get single event by id or slug
+// -----------------------------------------------------------------------------
+
 export const getEventById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
     const event = await prisma.event.findFirst({
       where: {
-        OR: [
-          { id },
-          { slug: id },
-        ],
+        OR: [{ id }, { slug: id }],
       },
       include: {
-        _count: {
-          select: {
-            registrations: true,
-          },
-        },
+        _count: { select: { registrations: true } },
       },
     });
 
@@ -107,67 +120,42 @@ export const getEventById = async (req, res, next) => {
       });
     }
 
-    // Check if user is registered (if authenticated)
     let isRegistered = false;
-    if (req.user) {
-      const registration = await prisma.eventRegistration.findFirst({
+    if (req.user?.id || req.user?.email) {
+      const reg = await prisma.eventRegistration.findFirst({
         where: {
           eventId: event.id,
           OR: [
-            { userId: req.user.id },
-            { email: req.user.email },
+            ...(req.user?.id ? [{ userId: req.user.id }] : []),
+            ...(req.user?.email ? [{ email: req.user.email }] : []),
           ],
         },
       });
-      isRegistered = !!registration;
+      isRegistered = !!reg;
     }
 
     res.json({
       success: true,
-      data: {
-        ...event,
-        isRegistered,
-      },
+      data: { ...event, isRegistered },
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
 
-/**
- * Create event (Admin only)
- */
+// -----------------------------------------------------------------------------
+// Admin: Create event (image via upload only: req.cloudinary?.url)
+// -----------------------------------------------------------------------------
+
 export const createEvent = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
+    const body = req.body;
+    const { title, slug, description, shortDescription, venue, location } = body;
+    const { startDate, endDate, price, isFree, maxAttendees, featured } = parseEventBody(body);
 
-    const {
-      title,
-      slug,
-      description,
-      shortDescription,
-      image,
-      venue,
-      location,
-      startDate,
-      endDate,
-      price,
-      isFree,
-      maxAttendees,
-      featured,
-    } = req.body;
-
-    // Check if slug already exists
     const existing = await prisma.event.findUnique({
       where: { slug },
     });
-
     if (existing) {
       return res.status(400).json({
         success: false,
@@ -175,22 +163,24 @@ export const createEvent = async (req, res, next) => {
       });
     }
 
+    const imageUrl = req.cloudinary?.url ?? null;
+
     const event = await prisma.event.create({
       data: {
         title,
         slug,
-        description,
-        shortDescription,
-        image,
-        venue,
-        location,
-        startDate: new Date(startDate),
-        endDate: endDate ? new Date(endDate) : null,
-        price: parseFloat(price) || 0,
-        isFree: isFree === true || isFree === 'true',
-        maxAttendees: maxAttendees ? parseInt(maxAttendees) : null,
+        description: description ?? null,
+        shortDescription: shortDescription ?? null,
+        image: imageUrl,
+        venue: venue ?? null,
+        location: location ?? null,
+        startDate,
+        endDate: endDate ?? null,
+        price: price ?? 0,
+        isFree: isFree ?? false,
+        maxAttendees: maxAttendees ?? null,
         status: 'UPCOMING',
-        featured: featured === true || featured === 'true',
+        featured: featured ?? false,
       },
     });
 
@@ -199,46 +189,23 @@ export const createEvent = async (req, res, next) => {
       message: 'Event created successfully',
       data: event,
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
 
-/**
- * Update event (Admin only)
- */
+// -----------------------------------------------------------------------------
+// Admin: Update event (image via upload only; omit to keep existing)
+// -----------------------------------------------------------------------------
+
 export const updateEvent = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
-
     const { id } = req.params;
-    const {
-      title,
-      slug,
-      description,
-      shortDescription,
-      image,
-      venue,
-      location,
-      startDate,
-      endDate,
-      price,
-      isFree,
-      maxAttendees,
-      status,
-      featured,
-    } = req.body;
+    const body = req.body;
 
     const event = await prisma.event.findUnique({
       where: { id },
     });
-
     if (!event) {
       return res.status(404).json({
         success: false,
@@ -246,12 +213,11 @@ export const updateEvent = async (req, res, next) => {
       });
     }
 
-    // Check if slug already exists (excluding current event)
+    const slug = body.slug?.trim();
     if (slug && slug !== event.slug) {
       const existing = await prisma.event.findUnique({
         where: { slug },
       });
-
       if (existing) {
         return res.status(400).json({
           success: false,
@@ -260,24 +226,28 @@ export const updateEvent = async (req, res, next) => {
       }
     }
 
+    const { startDate, endDate, price, isFree, maxAttendees, featured } = parseEventBody(body);
+    const imageUrl = req.cloudinary?.url;
+
+    const updateData = {};
+    if (body.title !== undefined) updateData.title = body.title.trim();
+    if (slug !== undefined) updateData.slug = slug;
+    if (body.description !== undefined) updateData.description = body.description;
+    if (body.shortDescription !== undefined) updateData.shortDescription = body.shortDescription;
+    if (imageUrl !== undefined) updateData.image = imageUrl;
+    if (body.venue !== undefined) updateData.venue = body.venue;
+    if (body.location !== undefined) updateData.location = body.location;
+    if (startDate) updateData.startDate = startDate;
+    if (endDate !== undefined) updateData.endDate = endDate;
+    if (price !== undefined) updateData.price = price;
+    if (body.isFree !== undefined) updateData.isFree = body.isFree === true || body.isFree === 'true';
+    if (maxAttendees !== undefined) updateData.maxAttendees = maxAttendees;
+    if (body.status) updateData.status = body.status;
+    if (body.featured !== undefined) updateData.featured = body.featured === true || body.featured === 'true';
+
     const updatedEvent = await prisma.event.update({
       where: { id },
-      data: {
-        ...(title && { title }),
-        ...(slug && { slug }),
-        ...(description !== undefined && { description }),
-        ...(shortDescription !== undefined && { shortDescription }),
-        ...(image !== undefined && { image }),
-        ...(venue !== undefined && { venue }),
-        ...(location !== undefined && { location }),
-        ...(startDate && { startDate: new Date(startDate) }),
-        ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
-        ...(price !== undefined && { price: parseFloat(price) }),
-        ...(isFree !== undefined && { isFree: isFree === true || isFree === 'true' }),
-        ...(maxAttendees !== undefined && { maxAttendees: maxAttendees ? parseInt(maxAttendees) : null }),
-        ...(status && { status }),
-        ...(featured !== undefined && { featured: featured === true || featured === 'true' }),
-      },
+      data: updateData,
     });
 
     res.json({
@@ -285,29 +255,22 @@ export const updateEvent = async (req, res, next) => {
       message: 'Event updated successfully',
       data: updatedEvent,
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
 
-/**
- * Delete event (Admin only)
- */
+// -----------------------------------------------------------------------------
+// Admin: Delete event
+// -----------------------------------------------------------------------------
+
 export const deleteEvent = async (req, res, next) => {
   try {
     const { id } = req.params;
 
     const event = await prisma.event.findUnique({
       where: { id },
-      include: {
-        _count: {
-          select: {
-            registrations: true,
-          },
-        },
-      },
     });
-
     if (!event) {
       return res.status(404).json({
         success: false,
@@ -323,32 +286,24 @@ export const deleteEvent = async (req, res, next) => {
       success: true,
       message: 'Event deleted successfully',
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
 
-/**
- * Register for event
- */
+// -----------------------------------------------------------------------------
+// Auth: Register for event
+// -----------------------------------------------------------------------------
+
 export const registerForEvent = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
-
-    const { id } = req.params;
+    const { id: eventId } = req.params;
     const { name, email, phone } = req.body;
-    const userId = req.user?.id || null;
+    const userId = req.user?.id ?? null;
 
     const event = await prisma.event.findUnique({
-      where: { id },
+      where: { id: eventId },
     });
-
     if (!event) {
       return res.status(404).json({
         success: false,
@@ -356,7 +311,6 @@ export const registerForEvent = async (req, res, next) => {
       });
     }
 
-    // Check if event is open for registration
     if (!['UPCOMING', 'ONGOING'].includes(event.status)) {
       return res.status(400).json({
         success: false,
@@ -364,13 +318,11 @@ export const registerForEvent = async (req, res, next) => {
       });
     }
 
-    // Check max attendees
-    if (event.maxAttendees) {
-      const registrationCount = await prisma.eventRegistration.count({
-        where: { eventId: id },
+    if (event.maxAttendees != null) {
+      const count = await prisma.eventRegistration.count({
+        where: { eventId },
       });
-
-      if (registrationCount >= event.maxAttendees) {
+      if (count >= event.maxAttendees) {
         return res.status(400).json({
           success: false,
           message: 'Event is full',
@@ -378,17 +330,20 @@ export const registerForEvent = async (req, res, next) => {
       }
     }
 
-    // Check if already registered
-    const existingRegistration = await prisma.eventRegistration.findUnique({
+    const regEmail = (email || req.user?.email || '').trim();
+    if (!regEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required for registration',
+      });
+    }
+
+    const existingReg = await prisma.eventRegistration.findUnique({
       where: {
-        eventId_email: {
-          eventId: id,
-          email: email || req.user?.email || '',
-        },
+        eventId_email: { eventId, email: regEmail },
       },
     });
-
-    if (existingRegistration) {
+    if (existingReg) {
       return res.status(400).json({
         success: false,
         message: 'Already registered for this event',
@@ -397,22 +352,16 @@ export const registerForEvent = async (req, res, next) => {
 
     const registration = await prisma.eventRegistration.create({
       data: {
-        userId: userId || null,
-        eventId: id,
-        name: name || req.user?.fullName || '',
-        email: email || req.user?.email || '',
-        phone: phone || req.user?.phone || '',
+        userId,
+        eventId,
+        name: (name || req.user?.fullName || '').trim() || regEmail,
+        email: regEmail,
+        phone: (phone || req.user?.phone || '').trim() || null,
       },
       include: {
         event: true,
         user: userId
-          ? {
-              select: {
-                id: true,
-                fullName: true,
-                email: true,
-              },
-            }
+          ? { select: { id: true, fullName: true, email: true } }
           : false,
       },
     });
@@ -422,25 +371,24 @@ export const registerForEvent = async (req, res, next) => {
       message: 'Registered for event successfully',
       data: registration,
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
 
-/**
- * Get event registrations (Admin only)
- */
+// -----------------------------------------------------------------------------
+// Admin: List event registrations
+// -----------------------------------------------------------------------------
+
 export const getEventRegistrations = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const { page = 1, limit = 10 } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const { id: eventId } = req.params;
+    const { page, limit, skip, take } = safePageLimit(req.query);
 
     const event = await prisma.event.findUnique({
-      where: { id },
+      where: { id: eventId },
       select: { id: true },
     });
-
     if (!event) {
       return res.status(404).json({
         success: false,
@@ -450,72 +398,57 @@ export const getEventRegistrations = async (req, res, next) => {
 
     const [registrations, total] = await Promise.all([
       prisma.eventRegistration.findMany({
-        where: { eventId: id },
+        where: { eventId },
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
         include: {
           user: {
-            select: {
-              id: true,
-              fullName: true,
-              email: true,
-              profileImage: true,
-            },
+            select: { id: true, fullName: true, email: true, profileImage: true },
           },
         },
-        skip,
-        take: parseInt(limit),
-        orderBy: {
-          createdAt: 'desc',
-        },
       }),
-      prisma.eventRegistration.count({ where: { eventId: id } }),
+      prisma.eventRegistration.count({ where: { eventId } }),
     ]);
 
     res.json({
       success: true,
       data: registrations,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         total,
-        pages: Math.ceil(total / parseInt(limit)) || 1,
+        pages: total > 0 ? Math.ceil(total / limit) : 1,
       },
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
 
-/**
- * Mark event attendance (Admin only)
- */
+// -----------------------------------------------------------------------------
+// Admin: Mark registration as attended
+// -----------------------------------------------------------------------------
+
 export const markEventAttendance = async (req, res, next) => {
   try {
-    const { id, registrationId } = req.params;
+    const { id: eventId, registrationId } = req.params;
 
     const registration = await prisma.eventRegistration.findUnique({
       where: { id: registrationId },
     });
-
-    if (!registration || registration.eventId !== id) {
+    if (!registration || registration.eventId !== eventId) {
       return res.status(404).json({
         success: false,
         message: 'Registration not found',
       });
     }
 
-    const updatedRegistration = await prisma.eventRegistration.update({
+    const updated = await prisma.eventRegistration.update({
       where: { id: registrationId },
-      data: {
-        attended: true,
-      },
+      data: { attended: true },
       include: {
-        user: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        },
+        user: { select: { id: true, fullName: true, email: true } },
         event: true,
       },
     });
@@ -523,10 +456,9 @@ export const markEventAttendance = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Attendance marked successfully',
-      data: updatedRegistration,
+      data: updated,
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
-

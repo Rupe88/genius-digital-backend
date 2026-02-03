@@ -60,6 +60,23 @@ export const optionalMultipleUpload = (fieldName, maxCount, processImagesFn) => 
 };
 
 /**
+ * Run multer single file + processImageUpload only when Content-Type is multipart.
+ * When client sends JSON (no image), skip multer so req.body stays from express.json().
+ */
+export const optionalSingleUpload = (fieldName, processImageFn) => {
+  const multerMw = upload.single(fieldName);
+  return (req, res, next) => {
+    if (!req.is('multipart/form-data')) {
+      return next();
+    }
+    multerMw(req, res, (err) => {
+      if (err) return next(err);
+      Promise.resolve(processImageFn(req, res, next)).catch(next);
+    });
+  };
+};
+
+/**
  * Middleware for mixed file uploads
  */
 export const fieldsUpload = (fields) => upload.fields(fields);
