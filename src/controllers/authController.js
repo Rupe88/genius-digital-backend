@@ -573,10 +573,13 @@ export const googleCallback = asyncHandler(async (req, res) => {
   const refreshTokenJwt = generateRefreshToken({ userId: user.id });
   await saveRefreshToken(user.id, refreshTokenJwt);
 
-  const frontendUrl = new URL(config.frontendUrl + '/login');
-  frontendUrl.searchParams.set('accessToken', accessTokenJwt);
-  frontendUrl.searchParams.set('refreshToken', refreshTokenJwt);
-  if (state) frontendUrl.searchParams.set('state', state);
-  res.redirect(302, frontendUrl.toString());
+  // Use hash fragment for tokens to avoid URL length limits and proxy stripping (hash is client-only)
+  const hash = new URLSearchParams({
+    accessToken: accessTokenJwt,
+    refreshToken: refreshTokenJwt,
+    ...(state && { state }),
+  }).toString();
+  const redirectTo = `${config.frontendUrl.replace(/\/$/, '')}/login#${hash}`;
+  res.redirect(302, redirectTo);
 });
 
