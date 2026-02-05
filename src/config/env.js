@@ -19,6 +19,8 @@ export const config = {
     (process.env.NODE_ENV === 'production'
       ? 'https://vaastulms.vercel.app'
       : 'http://localhost:3000'),
+  // Backend URL - used for OAuth redirect_uri (must match Google Cloud Console). No trailing slash.
+  backendUrl: process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 4000}`,
   appName: process.env.APP_NAME || 'Sanskar Academy',
 
   // CORS - Multiple origins separated by commas
@@ -84,5 +86,17 @@ export const config = {
     clientId: process.env.ZOOM_CLIENT_ID,
     clientSecret: process.env.ZOOM_CLIENT_SECRET,
     hostEmail: process.env.ZOOM_HOST_EMAIL,
+  },
+
+  // Sparrow SMS (Nepal) - optional; when set, OTP is also sent to phone during registration
+  sparrowSms: {
+    token: process.env.SPARROW_SMS_TOKEN?.trim() || null,
+    from: process.env.SPARROW_SMS_FROM?.trim() || null, // Sender ID (NTA-approved), optional
+  },
+
+  // Google OAuth - optional; when set, "Login with Google" is enabled. Get credentials from Google Cloud Console.
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID?.trim() || null,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET?.trim() || null,
   },
 };

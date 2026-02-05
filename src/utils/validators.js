@@ -52,6 +52,11 @@ export const registerValidation = [
     .trim()
     .isLength({ min: 2, max: 255 })
     .withMessage('Full name must be between 2 and 255 characters'),
+  body('phone')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 50 })
+    .withMessage('Phone must be at most 50 characters'),
 ];
 
 export const loginValidation = [

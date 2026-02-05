@@ -2,6 +2,7 @@ import { prisma } from '../config/database.js';
 import { hashPassword, comparePassword } from '../utils/hashPassword.js';
 import { createOTP, verifyOTP, canResendOTP } from '../services/otpService.js';
 import { sendOTPEmail, sendWelcomeEmail } from '../services/emailService.js';
+import { sendOTPSms, isSmsConfigured } from '../services/smsService.js';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -12,9 +13,11 @@ import {
 } from '../services/tokenService.js';
 import { OtpType } from '@prisma/client';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { config } from '../config/env.js';
+import crypto from 'crypto';
 
 export const register = asyncHandler(async (req, res) => {
-  const { email, password, fullName } = req.body;
+  const { email, password, fullName, phone } = req.body;
 
   // Check if user already exists
   const existingUser = await prisma.user.findUnique({
@@ -30,6 +33,9 @@ export const register = asyncHandler(async (req, res) => {
       if (canResend.canResend) {
         const otp = await createOTP(existingUser.id, OtpType.EMAIL_VERIFICATION);
         await sendOTPEmail(email, otp, 'verification');
+        if (existingUser.phone && isSmsConfigured()) {
+          await sendOTPSms(existingUser.phone, otp);
+        }
       }
 
       return res.status(200).json({
@@ -41,6 +47,7 @@ export const register = asyncHandler(async (req, res) => {
         data: {
           userId: existingUser.id,
           email: existingUser.email,
+          phone: existingUser.phone ?? undefined,
         },
       });
     }
@@ -55,25 +62,35 @@ export const register = asyncHandler(async (req, res) => {
   // Hash password
   const hashedPassword = await hashPassword(password);
 
-  // Create user
+  // Create user (phone is optional)
   const user = await prisma.user.create({
     data: {
       email,
       password: hashedPassword,
       fullName,
+      ...(phone != null && phone !== '' && { phone: String(phone).trim() }),
     },
   });
 
-  // Generate and send OTP
+  // Generate and send OTP to email and optionally to phone (Sparrow SMS)
   const otp = await createOTP(user.id, OtpType.EMAIL_VERIFICATION);
   await sendOTPEmail(email, otp, 'verification');
+  if (user.phone && isSmsConfigured()) {
+    await sendOTPSms(user.phone, otp);
+  }
+
+  const message =
+    user.phone && isSmsConfigured()
+      ? 'Registration successful. Please check your email and phone for OTP verification.'
+      : 'Registration successful. Please check your email for OTP verification.';
 
   res.status(201).json({
     success: true,
-    message: 'Registration successful. Please check your email for OTP verification.',
+    message,
     data: {
       userId: user.id,
       email: user.email,
+      phone: user.phone ?? undefined,
     },
   });
 });
@@ -175,13 +192,21 @@ export const resendOtp = asyncHandler(async (req, res) => {
     });
   }
 
-  // Generate and send new OTP
+  // Generate and send new OTP (email + SMS if phone and Sparrow configured)
   const otp = await createOTP(user.id, OtpType.EMAIL_VERIFICATION);
   await sendOTPEmail(email, otp, 'verification');
+  if (user.phone && isSmsConfigured()) {
+    await sendOTPSms(user.phone, otp);
+  }
+
+  const resendMessage =
+    user.phone && isSmsConfigured()
+      ? 'OTP resent successfully. Please check your email and phone.'
+      : 'OTP resent successfully. Please check your email.';
 
   res.json({
     success: true,
-    message: 'OTP resent successfully. Please check your email.',
+    message: resendMessage,
   });
 });
 
@@ -400,5 +425,129 @@ export const getMe = asyncHandler(async (req, res) => {
       user: req.user,
     },
   });
+});
+
+// --- Google OAuth (optional; enabled when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set)
+
+const isGoogleAuthConfigured = () =>
+  Boolean(config.google?.clientId && config.google?.clientSecret);
+
+export const googleRedirect = asyncHandler((req, res) => {
+  if (!isGoogleAuthConfigured()) {
+    const redirectUrl = new URL(config.frontendUrl + '/login');
+    redirectUrl.searchParams.set('error', 'Google login is not configured');
+    return res.redirect(redirectUrl.toString());
+  }
+  const redirectUri = `${config.backendUrl}/api/auth/google/callback`;
+  const scope = 'openid email profile';
+  const state = req.query.state ? String(req.query.state) : '';
+  const params = new URLSearchParams({
+    client_id: config.google.clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope,
+    access_type: 'offline',
+    prompt: 'consent',
+    ...(state && { state }),
+  });
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  res.redirect(url);
+});
+
+export const googleCallback = asyncHandler(async (req, res) => {
+  const redirectToLogin = (error) => {
+    const url = new URL(config.frontendUrl + '/login');
+    if (error) url.searchParams.set('error', error);
+    res.redirect(url.toString());
+  };
+
+  if (!isGoogleAuthConfigured()) {
+    return redirectToLogin('Google login is not configured');
+  }
+
+  const { code, state } = req.query;
+  if (!code || typeof code !== 'string') {
+    return redirectToLogin('Missing authorization code');
+  }
+
+  const redirectUri = `${config.backendUrl}/api/auth/google/callback`;
+
+  // Exchange code for tokens
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code,
+      client_id: config.google.clientId,
+      client_secret: config.google.clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code',
+    }).toString(),
+  });
+
+  if (!tokenRes.ok) {
+    const err = await tokenRes.text();
+    console.error('Google token exchange failed:', tokenRes.status, err);
+    return redirectToLogin('Google sign-in failed');
+  }
+
+  const tokenData = await tokenRes.json();
+  const accessToken = tokenData.access_token;
+  if (!accessToken) {
+    return redirectToLogin('Google sign-in failed');
+  }
+
+  // Get user info from Google
+  const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!userInfoRes.ok) {
+    console.error('Google userinfo failed:', userInfoRes.status);
+    return redirectToLogin('Google sign-in failed');
+  }
+  const profile = await userInfoRes.json();
+  const { email, name, picture } = profile;
+  if (!email) {
+    return redirectToLogin('Google account has no email');
+  }
+
+  let user = await prisma.user.findUnique({ where: { email } });
+
+  if (!user) {
+    const randomPassword = crypto.randomBytes(32).toString('hex');
+    const hashedPassword = await hashPassword(randomPassword);
+    user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        fullName: name || email.split('@')[0],
+        profileImage: picture || null,
+        isEmailVerified: true,
+      },
+    });
+  } else {
+    if (!user.isActive) {
+      return redirectToLogin('Your account has been blocked.');
+    }
+    // Update profile image / name if we have newer from Google (optional)
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        ...(name && user.fullName !== name && { fullName: name }),
+        ...(picture && user.profileImage !== picture && { profileImage: picture }),
+      },
+    });
+    user = await prisma.user.findUnique({ where: { id: user.id } });
+  }
+
+  const accessTokenJwt = generateAccessToken({ userId: user.id, role: user.role });
+  const refreshTokenJwt = generateRefreshToken({ userId: user.id });
+  await saveRefreshToken(user.id, refreshTokenJwt);
+
+  const frontendUrl = new URL(config.frontendUrl + '/login');
+  frontendUrl.searchParams.set('accessToken', accessTokenJwt);
+  frontendUrl.searchParams.set('refreshToken', refreshTokenJwt);
+  if (state) frontendUrl.searchParams.set('state', state);
+  res.redirect(frontendUrl.toString());
 });
 
