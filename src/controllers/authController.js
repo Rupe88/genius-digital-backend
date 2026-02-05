@@ -450,7 +450,7 @@ function getGoogleCallbackUrl(req) {
 export const googleRedirect = asyncHandler((req, res) => {
   if (!isGoogleAuthConfigured()) {
     const redirectUrl = new URL(config.frontendUrl + '/login');
-    redirectUrl.searchParams.set('error', encodeURIComponent('Google login is not configured'));
+    redirectUrl.searchParams.set('error', 'Google login is not configured');
     return res.redirect(302, redirectUrl.toString());
   }
   const redirectUri = getGoogleCallbackUrl(req);
@@ -472,7 +472,7 @@ export const googleRedirect = asyncHandler((req, res) => {
 export const googleCallback = asyncHandler(async (req, res) => {
   const redirectToLogin = (error) => {
     const url = new URL(config.frontendUrl + '/login');
-    if (error) url.searchParams.set('error', encodeURIComponent(error));
+    if (error) url.searchParams.set('error', error);
     res.redirect(302, url.toString());
   };
 
