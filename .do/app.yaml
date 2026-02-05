@@ -55,7 +55,16 @@ services:
   - key: APP_NAME
     value: "Vaastu LMS Platform"
   - key: FRONTEND_URL
-    value: "${FRONTEND_URL}"
+    value: "https://vaastu-lms-dp.vercel.app"
+  - key: BACKEND_URL
+    value: "https://goldfish-app-d9t4j.ondigitalocean.app"
+  # Google OAuth Configuration
+  - key: GOOGLE_CLIENT_ID
+    type: SECRET
+    value: "${GOOGLE_CLIENT_ID}"
+  - key: GOOGLE_CLIENT_SECRET
+    type: SECRET
+    value: "${GOOGLE_CLIENT_SECRET}"
   # Cloudinary Configuration
   - key: CLOUDINARY_CLOUD_NAME
     value: dtrfe6xfl
@@ -78,7 +87,7 @@ services:
     http_path: /health
   # CORS Configuration for production
   - key: CORS_ORIGINS
-    value: "https://vaastulms.vercel.app,https://aacharyarajbabu.vercel.app,http://localhost:3000"
+    value: "https://vaastu-lms-dp.vercel.app,https://vaastulms.vercel.app,https://aacharyarajbabu.vercel.app,http://localhost:3000"
 databases:
 - name: postgres
   engine: PG

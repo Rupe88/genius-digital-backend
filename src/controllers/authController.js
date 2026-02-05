@@ -447,9 +447,70 @@ function getGoogleCallbackUrl(req) {
   return `${protocol}://${host}${base}/auth/google/callback`;
 }
 
+/** Detect frontend URL from request headers (Origin/Referer) or use config fallback. */
+function getFrontendUrl(req) {
+  // Check if we're on production backend - if so, use production frontend
+  const backendHost = req.get('x-forwarded-host') || req.get('host') || '';
+  if (backendHost.includes('ondigitalocean.app') || backendHost.includes('goldfish-app')) {
+    return 'https://vaastu-lms-dp.vercel.app';
+  }
+
+  // Check Origin header (set by browser when frontend makes request)
+  const origin = req.get('origin');
+  if (origin) {
+    try {
+      const originUrl = new URL(origin);
+      // Only use if it's a known production domain or matches CORS origins
+      const allowedDomains = [
+        'vaastu-lms-dp.vercel.app',
+        'vaastulms.vercel.app',
+        'aacharyarajbabu.vercel.app',
+        'localhost:3000',
+        'localhost:3001',
+      ];
+      const hostname = originUrl.hostname;
+      if (allowedDomains.some(domain => hostname === domain || hostname.endsWith('.' + domain))) {
+        return origin;
+      }
+    } catch (e) {
+      // Invalid origin, continue to fallback
+    }
+  }
+
+  // Check Referer header as fallback
+  const referer = req.get('referer');
+  if (referer) {
+    try {
+      const refererUrl = new URL(referer);
+      const allowedDomains = [
+        'vaastu-lms-dp.vercel.app',
+        'vaastulms.vercel.app',
+        'aacharyarajbabu.vercel.app',
+        'localhost:3000',
+        'localhost:3001',
+      ];
+      const hostname = refererUrl.hostname;
+      if (allowedDomains.some(domain => hostname === domain || hostname.endsWith('.' + domain))) {
+        return `${refererUrl.protocol}//${refererUrl.host}`;
+      }
+    } catch (e) {
+      // Invalid referer, continue to fallback
+    }
+  }
+
+  // Fallback to config (which should be set correctly, but this is a safety net)
+  // If config is still localhost but we're in production, override it
+  if (process.env.NODE_ENV === 'production' || backendHost.includes('ondigitalocean')) {
+    return 'https://vaastu-lms-dp.vercel.app';
+  }
+  
+  return config.frontendUrl;
+}
+
 export const googleRedirect = asyncHandler((req, res) => {
   if (!isGoogleAuthConfigured()) {
-    const redirectUrl = new URL(config.frontendUrl + '/login');
+    const frontendUrl = getFrontendUrl(req);
+    const redirectUrl = new URL(frontendUrl + '/login');
     redirectUrl.searchParams.set('error', 'Google login is not configured');
     return res.redirect(302, redirectUrl.toString());
   }
@@ -471,7 +532,8 @@ export const googleRedirect = asyncHandler((req, res) => {
 
 export const googleCallback = asyncHandler(async (req, res) => {
   const redirectToLogin = (error) => {
-    const url = new URL(config.frontendUrl + '/login');
+    const frontendUrl = getFrontendUrl(req);
+    const url = new URL(frontendUrl + '/login');
     if (error) url.searchParams.set('error', error);
     res.redirect(302, url.toString());
   };
@@ -579,7 +641,8 @@ export const googleCallback = asyncHandler(async (req, res) => {
     refreshToken: refreshTokenJwt,
     ...(state && { state }),
   }).toString();
-  const redirectTo = `${config.frontendUrl.replace(/\/$/, '')}/login#${hash}`;
+  const frontendUrl = getFrontendUrl(req);
+  const redirectTo = `${frontendUrl.replace(/\/$/, '')}/login#${hash}`;
   res.redirect(302, redirectTo);
 });
 
