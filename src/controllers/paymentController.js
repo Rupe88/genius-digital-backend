@@ -129,6 +129,52 @@ export const verifyPayment = async (req, res, next) => {
 };
 
 /**
+ * Public: Verify payment from success page (eSewa redirect).
+ * No auth required – we verify using eSewa callback signature.
+ */
+export const verifyPaymentCallback = async (req, res, next) => {
+  try {
+    const { transactionId, paymentMethod = 'ESEWA', verificationData = {} } = req.body;
+
+    const tid = transactionId || verificationData.transaction_uuid;
+    if (!tid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing transaction ID',
+      });
+    }
+
+    if (paymentMethod === 'ESEWA') {
+      const isValid = esewaService.verifyEsewaCallback(verificationData);
+      if (!isValid) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid eSewa signature',
+        });
+      }
+    }
+
+    const result = await paymentService.verifyPayment({
+      transactionId: tid,
+      paymentMethod,
+      verificationData,
+    });
+    if (result.success) {
+      return res.json({
+        success: true,
+        data: result.payment,
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: result.message || 'Payment verification failed',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * eSewa webhook/callback handler
  */
 export const esewaWebhook = async (req, res, next) => {

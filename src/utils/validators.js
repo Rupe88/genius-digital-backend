@@ -295,6 +295,7 @@ export const consultationValidation = [
   body('name').notEmpty().trim().isLength({ min: 1, max: 255 }).withMessage('Name is required'),
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
   body('phone').notEmpty().isString().withMessage('Phone number is required'),
+  body('categoryId').optional({ checkFalsy: true }).isUUID().withMessage('Invalid category ID'),
   body('eventId').optional().isUUID().withMessage('Invalid event ID'),
   body('consultationType').isIn(['ONLINE', 'OFFLINE']).withMessage('Consultation type must be ONLINE or OFFLINE'),
   body('referralSource').optional().isIn(['GOOGLE_SEARCH', 'FACEBOOK', 'INSTAGRAM', 'YOUTUBE', 'FRIEND_REFERRAL', 'EVENT', 'OTHER']).withMessage('Invalid referral source'),

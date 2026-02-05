@@ -217,6 +217,42 @@ export const filterCourses = async (req, res, next) => {
 };
 
 /**
+ * Get featured (popular) courses for homepage.
+ * Returns courses marked as popular (featured) that are PUBLISHED or ONGOING.
+ */
+export const getFeaturedCourses = async (req, res, next) => {
+  try {
+    const limit = Math.min(100, parseInt(req.query.limit, 10) || 20);
+    const whereFeatured = {
+      status: { in: ['PUBLISHED', 'ONGOING'] },
+      featured: true,
+    };
+    const courses = await prisma.course.findMany({
+      where: whereFeatured,
+      include: {
+        instructor: true,
+        category: true,
+        _count: {
+          select: {
+            enrollments: true,
+            lessons: true,
+          },
+        },
+      },
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({
+      success: true,
+      data: courses || [],
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get ongoing courses
  */
 export const getOngoingCourses = async (req, res, next) => {
@@ -224,12 +260,13 @@ export const getOngoingCourses = async (req, res, next) => {
     const { page = 1, limit = 10 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
+    const whereOngoing = {
+      status: { in: ['PUBLISHED', 'ONGOING'] },
+      isOngoing: true,
+    };
     const [courses, total] = await Promise.all([
       prisma.course.findMany({
-        where: {
-          status: 'PUBLISHED',
-          isOngoing: true,
-        },
+        where: whereOngoing,
         include: {
           instructor: true,
           category: true,
@@ -247,10 +284,7 @@ export const getOngoingCourses = async (req, res, next) => {
         },
       }),
       prisma.course.count({
-        where: {
-          status: 'PUBLISHED',
-          isOngoing: true,
-        },
+        where: whereOngoing,
       }),
     ]);
 
@@ -774,6 +808,78 @@ export const updateCourse = async (req, res, next) => {
       });
     }
     console.error('Error updating course:', error);
+    next(error);
+  }
+};
+
+const VALID_STATUSES = ['DRAFT', 'PUBLISHED', 'ONGOING', 'ARCHIVED'];
+
+/**
+ * Update course status only (Admin only) - for quick status toggle from list.
+ * Syncs isOngoing: true when status is ONGOING so homepage "Ongoing Courses" stays in sync.
+ */
+export const updateCourseStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!status || !VALID_STATUSES.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Must be one of: DRAFT, PUBLISHED, ONGOING, ARCHIVED',
+      });
+    }
+    const isOngoing = status === 'ONGOING';
+    const course = await prisma.course.update({
+      where: { id },
+      data: { status, isOngoing },
+      include: {
+        instructor: true,
+        category: true,
+      },
+    });
+    res.json({
+      success: true,
+      data: course,
+      message: 'Course status updated successfully',
+    });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found',
+      });
+    }
+    next(error);
+  }
+};
+
+/**
+ * Update course featured (Popular) flag only (Admin only)
+ */
+export const updateCourseFeatured = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const featured = req.body.featured === true || req.body.featured === 'true';
+    const course = await prisma.course.update({
+      where: { id },
+      data: { featured },
+      include: {
+        instructor: true,
+        category: true,
+      },
+    });
+    res.json({
+      success: true,
+      data: course,
+      message: course.featured ? 'Course marked as popular' : 'Course unmarked as popular',
+    });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found',
+      });
+    }
     next(error);
   }
 };

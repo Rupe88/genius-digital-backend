@@ -188,7 +188,28 @@ async function main() {
     },
   });
 
-  // 8. PRODUCTS
+  // 8. CONSULTATION CATEGORIES
+  console.log('📋 Seeding consultation categories...');
+  const consultationCategories = [
+    { name: 'Business', slug: 'business', order: 1, image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600' },
+    { name: 'Career', slug: 'career', order: 2, image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600' },
+    { name: 'Vastu', slug: 'vastu', order: 3, image: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=600' },
+    { name: 'Numerology', slug: 'numerology', order: 4, image: 'https://images.unsplash.com/photo-1518495978642-83e6f612a6ad?w=600' },
+    { name: 'Astrology', slug: 'astrology', order: 5, image: 'https://images.unsplash.com/photo-1532601224476-15c79f2f7a51?w=600' },
+    { name: 'Relationship', slug: 'relationship', order: 6, image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600' },
+    { name: 'Health & Wellness', slug: 'health-wellness', order: 7, image: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600' },
+    { name: 'Other', slug: 'other', order: 8, image: 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=600' },
+  ];
+  for (const cat of consultationCategories) {
+    await prisma.consultationCategory.upsert({
+      where: { slug: cat.slug },
+      update: { name: cat.name, image: cat.image, order: cat.order },
+      create: { name: cat.name, slug: cat.slug, image: cat.image, order: cat.order, isActive: true },
+    });
+  }
+  console.log(`✅ ${consultationCategories.length} consultation categories seeded`);
+
+  // 9. PRODUCTS
   console.log('🛍️ Seeding products...');
   const catItems = await prisma.category.findUnique({ where: { slug: 'vastu-items' } });
   await prisma.product.upsert({

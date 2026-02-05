@@ -2,6 +2,7 @@ import express from 'express';
 import {
   initiatePayment,
   verifyPayment,
+  verifyPaymentCallback,
   esewaWebhook,
   khaltiWebhook,
   getPayment,
@@ -26,6 +27,9 @@ const router = express.Router();
 router.post('/webhook/esewa', esewaWebhook);
 router.post('/webhook/khalti', khaltiWebhook);
 
+// Public: verify payment from success page (eSewa redirect; no auth, verified by signature)
+router.post('/verify-callback', verifyPaymentCallback);
+
 // Public route - Get available payment gateways
 router.get('/gateways', getAvailableGateways);
 
@@ -35,6 +39,7 @@ router.post(
   authenticate,
   [
     body('amount')
+      .toFloat()
       .isFloat({ min: 0.01 })
       .withMessage('Amount must be greater than 0'),
     body('paymentMethod')
@@ -63,12 +68,14 @@ router.post(
       .isLength({ max: 255 })
       .withMessage('Product name must be less than 255 characters'),
     body('successUrl')
-      .optional()
-      .isURL()
+      .optional({ checkFalsy: true })
+      .trim()
+      .custom((value) => !value || value.startsWith('http://') || value.startsWith('https://'))
       .withMessage('Invalid success URL format'),
     body('failureUrl')
-      .optional()
-      .isURL()
+      .optional({ checkFalsy: true })
+      .trim()
+      .custom((value) => !value || value.startsWith('http://') || value.startsWith('https://'))
       .withMessage('Invalid failure URL format'),
   ],
   initiatePayment

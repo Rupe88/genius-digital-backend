@@ -13,9 +13,10 @@ import { body, param } from 'express-validator';
 
 const router = express.Router();
 
-// Public routes
+// Public routes (course lessons list can be used for landing page; optional auth for progress)
 router.get('/course/:courseId', getCourseLessons);
-router.get('/:id', [param('id').isUUID()], getLessonById);
+// Single lesson requires auth so we can verify enrollment
+router.get('/:id', authenticate, [param('id').isUUID()], getLessonById);
 
 // Admin routes
 router.post(

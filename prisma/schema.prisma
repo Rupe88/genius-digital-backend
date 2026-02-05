@@ -494,13 +494,31 @@ model LessonProgress {
 }
 
 // CONSULTATION SYSTEM
+model ConsultationCategory {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(255)
+  slug      String   @unique @db.VarChar(255)
+  image     String?  @db.VarChar(500)
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  consultations Consultation[]
+
+  @@index([isActive])
+  @@index([order])
+  @@map("consultation_categories")
+}
+
 model Consultation {
-  id      String  @id @default(uuid())
-  name    String  @db.VarChar(255)
-  email   String  @db.VarChar(255)
-  phone   String  @db.VarChar(50)
-  eventId String?
-  event   Event?  @relation(fields: [eventId], references: [id])
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(255)
+  email       String   @db.VarChar(255)
+  phone       String   @db.VarChar(50)
+  categoryId  String?
+  category    ConsultationCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  eventId     String?
+  event       Event?   @relation(fields: [eventId], references: [id])
 
   // Consultation type (ONLINE or OFFLINE)
   consultationType ConsultationType?
@@ -524,6 +542,7 @@ model Consultation {
   @@index([status])
   @@index([email])
   @@index([consultationType])
+  @@index([categoryId])
   @@map("consultations")
 }
 
@@ -1546,9 +1565,24 @@ model Popup {
   imageUrl  String   @db.VarChar(500)
   linkUrl   String?  @db.VarChar(500)
   isActive  Boolean  @default(true)
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("popups")
+}
+
+// HERO CAROUSEL (home page slides) - each slide has either image OR video (not both)
+model HeroCarouselSlide {
+  id            String   @id @default(uuid())
+  image         String?  @db.VarChar(500)  // optional: use when slide is image-only
+  altText       String   @db.VarChar(255)  @default("")
+  videoEmbedUrl String?  @db.VarChar(1000) // optional: YouTube/Vimeo embed URL
+  videoUrl      String?  @db.VarChar(500)  // optional: uploaded video URL
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([sortOrder])
+  @@map("hero_carousel_slides")
 }

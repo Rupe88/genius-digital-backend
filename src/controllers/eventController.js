@@ -35,7 +35,7 @@ const EVENT_LIST_SELECT = {
   slug: true,
   shortDescription: true,
   image: true,
-  venue: true,
+venue: true,
   location: true,
   startDate: true,
   endDate: true,

@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+  getConsultationCategories,
   submitConsultation,
   getAllConsultations,
   getConsultationById,
@@ -13,7 +14,10 @@ import { body, param, query } from 'express-validator';
 
 const router = express.Router();
 
-// Public route
+// Public: get consultation categories (must be before /:id)
+router.get('/categories', getConsultationCategories);
+
+// Public: submit consultation form
 router.post('/', consultationValidation, submitConsultation);
 
 // Admin routes

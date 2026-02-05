@@ -181,30 +181,60 @@ export const verifyEsewaPayment = async (amount, transactionId, productCode = nu
 };
 
 /**
- * Verify eSewa callback data
- * @param {Object} callbackData - Callback data from eSewa
+ * Verify eSewa callback data.
+ * eSewa redirect sends signed_field_names in the callback; the signature is built from
+ * those fields in that order (see developer.esewa.com.np Epay-V2).
+ * @param {Object} callbackData - Callback data from eSewa (decoded from success URL ?data=)
  * @returns {boolean} True if signature is valid
  */
 export const verifyEsewaCallback = (callbackData) => {
-  if (!config.esewa.secretKey) {
+  if (!callbackData || typeof callbackData !== 'object') {
+    return false;
+  }
+
+  const environment = config.esewa.environment || 'sandbox';
+  let secretKey = config.esewa.secretKey;
+  if (environment === 'sandbox') {
+    secretKey = '8gBm/:&EnhH.1/q';
+  }
+  if (!secretKey) {
+    return false;
+  }
+
+  const signature = callbackData.signature;
+  const signedFieldNames = callbackData.signed_field_names;
+  if (signature == null) {
     return false;
   }
 
   try {
-    const { total_amount, transaction_uuid, product_code, signature } = callbackData;
+    // Build message in the same order as signed_field_names (eSewa callback format)
+    let message;
+    if (signedFieldNames && typeof signedFieldNames === 'string' && signedFieldNames.trim()) {
+      const fields = signedFieldNames.split(',').map((f) => f.trim()).filter(Boolean);
+      const parts = fields.map((name) => {
+        const value = callbackData[name];
+        return `${name}=${value == null ? '' : value}`;
+      });
+      message = parts.join(',');
+    } else {
+      // Fallback: request-style (total_amount, transaction_uuid, product_code only)
+      const total_amount = callbackData.total_amount;
+      const transaction_uuid = callbackData.transaction_uuid;
+      const product_code = callbackData.product_code || config.esewaProductCode || 'EPAYTEST';
+      if (transaction_uuid == null || total_amount == null) return false;
+      message = `total_amount=${total_amount},transaction_uuid=${transaction_uuid},product_code=${product_code}`;
+    }
 
-    // Recreate signature
-    const message = `total_amount=${total_amount},transaction_uuid=${transaction_uuid},product_code=${product_code}`;
     const expectedSignature = crypto
-      .createHmac('sha256', config.esewa.secretKey)
+      .createHmac('sha256', secretKey)
       .update(message)
       .digest('base64');
 
-    // Compare signatures (constant-time comparison for security)
-    return crypto.timingSafeEqual(
-      Buffer.from(signature || ''),
-      Buffer.from(expectedSignature)
-    );
+    const sigStr = String(signature).trim();
+    const expStr = String(expectedSignature).trim();
+    if (sigStr.length !== expStr.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(sigStr, 'utf8'), Buffer.from(expStr, 'utf8'));
   } catch (error) {
     return false;
   }

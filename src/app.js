@@ -5,8 +5,8 @@ import cookieParser from 'cookie-parser';
 import { useragentMiddleware } from './middleware/useragent.js';
 import { config } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
-import { generalLimiter } from './middleware/enhancedRateLimit.js';
-
+// Rate limiting disabled for now (was: generalLimiter)
+// import { generalLimiter } from './middleware/enhancedRateLimit.js';
 
 // Import all routes
 import authRoutes from './routes/authRoutes.js';
@@ -15,6 +15,7 @@ import affiliateRoutes from './routes/affiliateRoutes.js';
 import assignmentRoutes from './routes/assignmentRoutes.js';
 import auditLogRoutes from './routes/auditLogRoutes.js';
 import blogRoutes from './routes/blogRoutes.js';
+import carouselRoutes from './routes/carouselRoutes.js';
 import cartRoutes from './routes/cartRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import certificateRoutes from './routes/certificateRoutes.js';
@@ -95,8 +96,8 @@ app.use(cookieParser());
 // User agent middleware
 app.use(useragentMiddleware);
 
-// Rate limiting
-app.use(generalLimiter);
+// Rate limiting disabled for now
+// app.use(generalLimiter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -118,6 +119,7 @@ const apiRoutes = [
   ['assignments', assignmentRoutes],
   ['audit-logs', auditLogRoutes],
   ['blogs', blogRoutes],
+  ['carousel', carouselRoutes],
   ['cart', cartRoutes],
   ['categories', categoryRoutes],
   ['certificates', certificateRoutes],

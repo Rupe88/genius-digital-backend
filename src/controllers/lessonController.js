@@ -121,7 +121,7 @@ export const getLessonById = async (req, res, next) => {
             enrollments: userId ? {
               where: {
                 userId,
-                status: 'ACTIVE',
+                status: { in: ['ACTIVE', 'COMPLETED'] },
               },
             } : false,
           },

@@ -21,7 +21,7 @@ export const getQuizByLesson = async (req, res, next) => {
             enrollments: {
               where: {
                 userId,
-                status: 'ACTIVE',
+                status: { in: ['ACTIVE', 'COMPLETED'] },
               },
             },
           },
@@ -102,7 +102,7 @@ export const submitQuiz = async (req, res, next) => {
                 enrollments: {
                   where: {
                     userId,
-                    status: 'ACTIVE',
+                    status: { in: ['ACTIVE', 'COMPLETED'] },
                   },
                 },
               },
