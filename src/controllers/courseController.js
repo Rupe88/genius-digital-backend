@@ -80,13 +80,16 @@ export const filterCourses = async (req, res, next) => {
       featured,
       instructor,
       search,
+      searchRegex,
       sortBy = 'newest',
       order = 'desc',
       page = 1,
       limit = 10,
     } = req.query;
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
+    const skip = (pageNumber - 1) * limitNumber;
     const where = {
       status: 'PUBLISHED',
     };
@@ -148,8 +151,9 @@ export const filterCourses = async (req, res, next) => {
       where.instructorId = instructor;
     }
 
-    // Search filter
-    if (search) {
+    // Search filter (simple case-insensitive contains).
+    // If searchRegex is provided, we handle it separately below.
+    if (search && !searchRegex) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
@@ -180,6 +184,62 @@ export const filterCourses = async (req, res, next) => {
         orderBy = { createdAt: 'desc' };
     }
 
+    // If regex-based search is requested, apply it in-memory after fetching
+    // all matching courses for the other filters, then paginate manually.
+    if (searchRegex) {
+      let regex;
+      try {
+        regex = new RegExp(searchRegex, 'i');
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid searchRegex pattern',
+        });
+      }
+
+      const allCourses = await prisma.course.findMany({
+        where,
+        include: {
+          instructor: true,
+          category: true,
+          _count: {
+            select: {
+              enrollments: true,
+              lessons: true,
+              reviews: true,
+            },
+          },
+        },
+        orderBy,
+      });
+
+      const filtered = allCourses.filter((course) => {
+        const { title, description, shortDescription } = course;
+        return (
+          (title && regex.test(title)) ||
+          (description && regex.test(description)) ||
+          (shortDescription && regex.test(shortDescription))
+        );
+      });
+
+      const total = filtered.length;
+      const pages = Math.ceil(total / limitNumber) || 1;
+      const start = skip;
+      const end = skip + limitNumber;
+      const pagedCourses = filtered.slice(start, end);
+
+      return res.json({
+        success: true,
+        data: pagedCourses,
+        pagination: {
+          page: pageNumber,
+          limit: limitNumber,
+          total,
+          pages,
+        },
+      });
+    }
+
     const [courses, total] = await Promise.all([
       prisma.course.findMany({
         where,
@@ -195,7 +255,7 @@ export const filterCourses = async (req, res, next) => {
           },
         },
         skip,
-        take: parseInt(limit),
+        take: limitNumber,
         orderBy,
       }),
       prisma.course.count({ where }),
@@ -205,10 +265,10 @@ export const filterCourses = async (req, res, next) => {
       success: true,
       data: courses,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: pageNumber,
+        limit: limitNumber,
         total,
-        pages: Math.ceil(total / parseInt(limit)) || 1,
+        pages: Math.ceil(total / limitNumber) || 1,
       },
     });
   } catch (error) {
