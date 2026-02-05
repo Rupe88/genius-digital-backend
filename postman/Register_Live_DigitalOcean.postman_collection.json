@@ -1,0 +1,72 @@
+{
+  "info": {
+    "name": "Register API - Live DigitalOcean",
+    "description": "Complete Register + Verify OTP test for https://goldfish-app-d9t4j.ondigitalocean.app",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://goldfish-app-d9t4j.ondigitalocean.app",
+      "type": "string"
+    },
+    {
+      "key": "email",
+      "value": "postman-test@example.com",
+      "type": "string"
+    },
+    {
+      "key": "otp",
+      "value": "123456",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Register (Live)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"TestPass123\",\n  \"fullName\": \"Postman Test User\",\n  \"phone\": \"9812345678\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "register"]
+        },
+        "description": "Register a new user on live DigitalOcean backend.\n\n- 201: New user created, OTP sent to email (and phone if Sparrow SMS configured).\n- 200: Email already exists but not verified; OTP resent.\n- 409: Email already registered and verified.\n- 400: Validation error (check errors array).\n\nPassword must be 8+ chars with uppercase, lowercase, and number. Then run '2. Verify OTP' with the code from email."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Verify OTP (Live)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"{{otp}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/verify-otp",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "verify-otp"]
+        },
+        "description": "Complete signup after Register. Use the 6-digit OTP from email. Returns accessToken and refreshToken for authenticated requests."
+      },
+      "response": []
+    }
+  ]
+}

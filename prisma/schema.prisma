@@ -252,6 +252,40 @@ model Otp {
   @@map("otps")
 }
 
+// Numerology / Mobile App users (separate from main LMS User)
+model MobileAppUser {
+  id              String   @id @default(uuid())
+  email           String   @unique @db.VarChar(255)
+  password        String   @db.VarChar(255)
+  fullName        String?  @db.VarChar(255)
+  phone           String?  @db.VarChar(50)
+  isEmailVerified Boolean  @default(false)
+  refreshToken    String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  otps MobileAppOtp[]
+
+  @@index([email])
+  @@map("mobile_app_users")
+}
+
+model MobileAppOtp {
+  id              String   @id @default(uuid())
+  mobileAppUserId String
+  otp             String   @db.VarChar(6)
+  type            OtpType
+  expiresAt       DateTime
+  isUsed          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  mobileAppUser MobileAppUser @relation(fields: [mobileAppUserId], references: [id], onDelete: Cascade)
+
+  @@index([mobileAppUserId])
+  @@index([otp, type, isUsed])
+  @@map("mobile_app_otps")
+}
+
 // INSTRUCTORS (Managed by Admin, NOT users)
 model Instructor {
   id             String  @id @default(uuid())

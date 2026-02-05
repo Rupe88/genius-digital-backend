@@ -10,6 +10,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 // Import all routes
 import authRoutes from './routes/authRoutes.js';
+import mobileAuthRoutes from './routes/mobileAuthRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import affiliateRoutes from './routes/affiliateRoutes.js';
 import assignmentRoutes from './routes/assignmentRoutes.js';
@@ -114,6 +115,7 @@ const API_BASE = process.env.API_BASE_PATH !== undefined ? process.env.API_BASE_
 // API routes (mounted at both /api/* and /* so they work with or without proxy path stripping)
 const apiRoutes = [
   ['auth', authRoutes],
+  ['mobile/auth', mobileAuthRoutes],
   ['admin', adminRoutes],
   ['affiliates', affiliateRoutes],
   ['assignments', assignmentRoutes],

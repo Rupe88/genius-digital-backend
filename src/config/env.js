@@ -14,10 +14,10 @@ export const config = {
   // Database
   databaseUrl: process.env.DATABASE_URL,
 
-  // Frontend URL - Smart default based on environment
+  // Frontend URL - Where to redirect after OAuth (e.g. Google login). Set FRONTEND_URL in production.
   frontendUrl: process.env.FRONTEND_URL ||
     (process.env.NODE_ENV === 'production'
-      ? 'https://vaastulms.vercel.app'
+      ? 'https://vaastu-lms-dp.vercel.app'
       : 'http://localhost:3000'),
   // Backend URL - used for OAuth redirect_uri (must match Google Cloud Console). No trailing slash.
   backendUrl: process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 4000}`,
@@ -29,6 +29,7 @@ export const config = {
     : [
       'http://localhost:3000',
       'http://localhost:3001',
+      'https://vaastu-lms-dp.vercel.app',
       'https://aacharyarajbabu.vercel.app',
       'https://vaastulms.vercel.app',
     ],

@@ -81,3 +81,27 @@ export const removeRefreshToken = async (userId) => {
   }
 };
 
+// Mobile app (Numerology app) - separate user table
+export const saveRefreshTokenMobile = async (mobileAppUserId, refreshToken) => {
+  const hashedToken = await hashRefreshToken(refreshToken);
+  await prisma.mobileAppUser.update({
+    where: { id: mobileAppUserId },
+    data: { refreshToken: hashedToken },
+  });
+};
+
+export const verifyRefreshTokenInDBMobile = async (mobileAppUserId, refreshToken) => {
+  const user = await prisma.mobileAppUser.findUnique({
+    where: { id: mobileAppUserId },
+  });
+  if (!user || !user.refreshToken) return false;
+  return await bcrypt.compare(refreshToken, user.refreshToken);
+};
+
+export const removeRefreshTokenMobile = async (mobileAppUserId) => {
+  await prisma.mobileAppUser.update({
+    where: { id: mobileAppUserId },
+    data: { refreshToken: null },
+  });
+};
+

@@ -87,3 +87,32 @@ export const optionalAuthenticate = async (req, res, next) => {
     next();
   }
 };
+
+/** Mobile app (Numerology) auth: Bearer token must be from mobile login (payload has mobileAppUserId). */
+export const authenticateMobile = asyncHandler(async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, message: 'Access token required' });
+  }
+  const token = authHeader.substring(7);
+  try {
+    const decoded = verifyAccessToken(token);
+    if (!decoded.mobileAppUserId) {
+      return res.status(401).json({ success: false, message: 'Invalid token for mobile app' });
+    }
+    const user = await prisma.mobileAppUser.findUnique({
+      where: { id: decoded.mobileAppUserId },
+      select: { id: true, email: true, fullName: true, phone: true, isEmailVerified: true },
+    });
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'User not found' });
+    }
+    req.mobileAppUser = user;
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: error.message || 'Invalid or expired token',
+    });
+  }
+});
