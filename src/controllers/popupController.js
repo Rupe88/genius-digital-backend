@@ -71,7 +71,7 @@ export const createPopup = async (req, res, next) => {
             data: {
                 title,
                 imageUrl,
-                linkUrl,
+                linkUrl: linkUrl && linkUrl.trim() ? linkUrl.trim() : null,
                 isActive: isActive === true || isActive === 'true',
             },
         });

@@ -8,28 +8,18 @@ import { validationResult } from 'express-validator';
  */
 export const getGallery = async (req, res, next) => {
   try {
-    const { type, category, featured, page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    const where = {
-      isPublished: true,
-    };
-    if (type) where.type = type;
-    if (category) where.category = category;
-    if (featured === 'true') where.featured = true;
 
     const [items, total] = await Promise.all([
       prisma.gallery.findMany({
-        where,
         skip,
         take: parseInt(limit),
         orderBy: [
-          { featured: 'desc' },
-          { order: 'asc' },
           { createdAt: 'desc' },
         ],
       }),
-      prisma.gallery.count({ where }),
+      prisma.gallery.count(),
     ]);
 
     res.json({
@@ -58,7 +48,7 @@ export const getGalleryById = async (req, res, next) => {
       where: { id },
     });
 
-    if (!item || !item.isPublished) {
+    if (!item) {
       return res.status(404).json({
         success: false,
         message: 'Gallery item not found',
@@ -87,59 +77,32 @@ export const createGalleryItem = async (req, res, next) => {
       });
     }
 
-    const {
-      title,
-      description,
-      imageUrl,
-      videoUrl,
-      type,
-      category,
-      isPublished,
-      featured,
-      order,
-    } = req.body;
+    const { title } = req.body;
 
-    // Determine type from uploaded file
-    let finalType = type || 'IMAGE';
-    let finalImageUrl = imageUrl;
-    let finalVideoUrl = videoUrl;
+    const imageUrls = req.cloudinary?.imageUrls;
 
-    if (req.cloudinary) {
-      if (req.cloudinary.format === 'video' || req.file?.mimetype?.startsWith('video/')) {
-        finalType = 'VIDEO';
-        finalVideoUrl = req.cloudinary.url;
-      } else {
-        finalType = 'IMAGE';
-        finalImageUrl = req.cloudinary.url;
-      }
+    if (!imageUrls || imageUrls.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No images uploaded',
+      });
     }
 
-    // Convert string booleans from FormData to actual booleans
-    const isPublishedBool = typeof isPublished === 'string' 
-      ? isPublished === 'true' 
-      : Boolean(isPublished);
-    const featuredBool = typeof featured === 'string'
-      ? featured === 'true'
-      : Boolean(featured);
-
-    const galleryItem = await prisma.gallery.create({
-      data: {
-        title,
-        description,
-        imageUrl: finalImageUrl,
-        videoUrl: finalVideoUrl,
-        type: finalType,
-        category,
-        isPublished: isPublishedBool,
-        featured: featuredBool,
-        order: order ? parseInt(order) : 0,
-      },
-    });
+    const createdItems = await Promise.all(
+      imageUrls.map((url) =>
+        prisma.gallery.create({
+          data: {
+            title: title && title.trim() ? title.trim() : null,
+            imageUrl: url,
+          },
+        })
+      )
+    );
 
     res.status(201).json({
       success: true,
-      data: galleryItem,
-      message: 'Gallery item created successfully',
+      data: createdItems,
+      message: 'Gallery items created successfully',
     });
   } catch (error) {
     next(error);
@@ -160,47 +123,26 @@ export const updateGalleryItem = async (req, res, next) => {
     }
 
     const { id } = req.params;
-    const {
-      title,
-      description,
-      imageUrl,
-      videoUrl,
-      type,
-      category,
-      isPublished,
-      featured,
-      order,
-    } = req.body;
+    const { title } = req.body;
 
     const updateData = {};
-    if (title) updateData.title = title;
-    if (description !== undefined) updateData.description = description;
-    if (req.cloudinary) {
-      if (req.cloudinary.format === 'video' || req.file?.mimetype?.startsWith('video/')) {
-        updateData.type = 'VIDEO';
-        updateData.videoUrl = req.cloudinary.url;
+    if (title !== undefined) {
+      // Only include title if it's a non-empty string, otherwise omit it (keeps existing) or set to null
+      if (title && title.trim()) {
+        updateData.title = title.trim();
       } else {
-        updateData.type = 'IMAGE';
-        updateData.imageUrl = req.cloudinary.url;
+        updateData.title = null;
       }
-    } else {
-      if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
-      if (videoUrl !== undefined) updateData.videoUrl = videoUrl;
-      if (type) updateData.type = type;
     }
-    if (category !== undefined) updateData.category = category;
-    if (isPublished !== undefined) {
-      updateData.isPublished = typeof isPublished === 'string' 
-        ? isPublished === 'true' 
-        : Boolean(isPublished);
+    if (req.cloudinary?.url) {
+      updateData.imageUrl = req.cloudinary.url;
     }
-    if (featured !== undefined) {
-      updateData.featured = typeof featured === 'string'
-        ? featured === 'true'
-        : Boolean(featured);
-    }
-    if (order !== undefined) {
-      updateData.order = typeof order === 'string' ? parseInt(order) : order;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nothing to update',
+      });
     }
 
     const galleryItem = await prisma.gallery.update({

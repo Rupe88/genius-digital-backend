@@ -131,11 +131,6 @@ enum AffiliateStatus {
   SUSPENDED
 }
 
-enum GalleryType {
-  IMAGE
-  VIDEO
-}
-
 enum FAQCategory {
   GENERAL
   COURSES
@@ -599,24 +594,13 @@ model Testimonial {
 
 // GALLERY
 model Gallery {
-  id          String      @id @default(uuid())
-  title       String      @db.VarChar(255)
-  description String?     @db.Text
-  imageUrl    String      @db.VarChar(500)
-  videoUrl    String?     @db.VarChar(500)
-  type        GalleryType @default(IMAGE)
-  category    String?     @db.VarChar(100)
-
-  isPublished Boolean @default(false)
-  featured    Boolean @default(false)
-  order       Int     @default(0)
+  id       String  @id @default(uuid())
+  title    String? @db.VarChar(255)
+  imageUrl String  @db.VarChar(500)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([type])
-  @@index([isPublished])
-  @@index([featured])
   @@map("gallery")
 }
 

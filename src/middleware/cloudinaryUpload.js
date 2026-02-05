@@ -177,12 +177,12 @@ export const processMultipleImagesUpload = async (req, res, next) => {
       return next();
     }
 
-    const folder = req.body.folder || 'lms/products';
+    const folder = req.body.folder || 'lms/gallery';
     const uploadPromises = req.files.map(async (file) => {
-      // Validate file size (max 5MB for product images)
-      const maxSize = 5 * 1024 * 1024;
+      // Validate file size (max 10MB for gallery images)
+      const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) {
-        throw new Error(`File ${file.originalname} exceeds 5MB limit`);
+        throw new Error(`File ${file.originalname} exceeds 10MB limit`);
       }
 
       const result = await uploadImage(file.buffer, {

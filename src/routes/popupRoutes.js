@@ -21,7 +21,38 @@ router.post(
     processImageUpload,
     [
         body('title').notEmpty().withMessage('Title is required'),
-        body('linkUrl').optional().isURL().withMessage('Invalid link URL'),
+        body('linkUrl')
+            .optional({ values: 'falsy' })
+            .custom((value) => {
+                if (!value || value === '') return true; // Allow empty string
+                // Accept URLs with or without protocol, including localhost
+                // Examples: http://localhost, https://localhost:3000, localhost, /path, etc.
+                try {
+                    // Try to parse as URL (works with protocol)
+                    if (value.startsWith('http://') || value.startsWith('https://')) {
+                        new URL(value);
+                        return true;
+                    }
+                    // Accept localhost without protocol
+                    if (value.startsWith('localhost') || value.startsWith('127.0.0.1')) {
+                        return true;
+                    }
+                    // Accept relative paths
+                    if (value.startsWith('/')) {
+                        return true;
+                    }
+                    // Try parsing with http:// prefix to validate domain format
+                    try {
+                        new URL(`http://${value}`);
+                        return true;
+                    } catch {
+                        return false;
+                    }
+                } catch {
+                    return false;
+                }
+            })
+            .withMessage('Invalid link URL'),
     ],
     popupController.createPopup
 );
@@ -34,7 +65,38 @@ router.put(
     processImageUpload,
     [
         body('title').optional().notEmpty().withMessage('Title cannot be empty'),
-        body('linkUrl').optional().isURL().withMessage('Invalid link URL'),
+        body('linkUrl')
+            .optional({ values: 'falsy' })
+            .custom((value) => {
+                if (!value || value === '') return true; // Allow empty string
+                // Accept URLs with or without protocol, including localhost
+                // Examples: http://localhost, https://localhost:3000, localhost, /path, etc.
+                try {
+                    // Try to parse as URL (works with protocol)
+                    if (value.startsWith('http://') || value.startsWith('https://')) {
+                        new URL(value);
+                        return true;
+                    }
+                    // Accept localhost without protocol
+                    if (value.startsWith('localhost') || value.startsWith('127.0.0.1')) {
+                        return true;
+                    }
+                    // Accept relative paths
+                    if (value.startsWith('/')) {
+                        return true;
+                    }
+                    // Try parsing with http:// prefix to validate domain format
+                    try {
+                        new URL(`http://${value}`);
+                        return true;
+                    } catch {
+                        return false;
+                    }
+                } catch {
+                    return false;
+                }
+            })
+            .withMessage('Invalid link URL'),
     ],
     popupController.updatePopup
 );

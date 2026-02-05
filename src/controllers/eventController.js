@@ -75,7 +75,10 @@ export const getAllEvents = async (req, res, next) => {
         where,
         skip,
         take,
-        orderBy: { startDate: 'asc' },
+        orderBy: [
+          { featured: 'desc' }, // Featured events first
+          { startDate: 'asc' },  // Then by start date
+        ],
         select: EVENT_LIST_SELECT,
       }),
       prisma.event.count({ where }),
