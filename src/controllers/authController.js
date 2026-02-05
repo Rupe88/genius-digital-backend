@@ -432,13 +432,28 @@ export const getMe = asyncHandler(async (req, res) => {
 const isGoogleAuthConfigured = () =>
   Boolean(config.google?.clientId && config.google?.clientSecret);
 
+/** Build Google OAuth callback URL from request so it matches behind proxies. */
+function getGoogleCallbackUrl(req) {
+  const protocol = (req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim();
+  const host = (req.get('x-forwarded-host') || req.get('host') || '').split(',')[0].trim();
+  if (!protocol || !host) {
+    return `${config.backendUrl}/api/auth/google/callback`;
+  }
+  const pathOnly = (req.originalUrl || req.url || '').split('?')[0] || '';
+  if (pathOnly.includes('/callback')) {
+    return `${protocol}://${host}${pathOnly}`;
+  }
+  const base = pathOnly.startsWith('/api') ? '/api' : '';
+  return `${protocol}://${host}${base}/auth/google/callback`;
+}
+
 export const googleRedirect = asyncHandler((req, res) => {
   if (!isGoogleAuthConfigured()) {
     const redirectUrl = new URL(config.frontendUrl + '/login');
-    redirectUrl.searchParams.set('error', 'Google login is not configured');
-    return res.redirect(redirectUrl.toString());
+    redirectUrl.searchParams.set('error', encodeURIComponent('Google login is not configured'));
+    return res.redirect(302, redirectUrl.toString());
   }
-  const redirectUri = `${config.backendUrl}/api/auth/google/callback`;
+  const redirectUri = getGoogleCallbackUrl(req);
   const scope = 'openid email profile';
   const state = req.query.state ? String(req.query.state) : '';
   const params = new URLSearchParams({
@@ -451,28 +466,35 @@ export const googleRedirect = asyncHandler((req, res) => {
     ...(state && { state }),
   });
   const url = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-  res.redirect(url);
+  res.redirect(302, url);
 });
 
 export const googleCallback = asyncHandler(async (req, res) => {
   const redirectToLogin = (error) => {
     const url = new URL(config.frontendUrl + '/login');
-    if (error) url.searchParams.set('error', error);
-    res.redirect(url.toString());
+    if (error) url.searchParams.set('error', encodeURIComponent(error));
+    res.redirect(302, url.toString());
   };
 
   if (!isGoogleAuthConfigured()) {
     return redirectToLogin('Google login is not configured');
   }
 
-  const { code, state } = req.query;
+  const { code, state, error: googleError } = req.query;
+
+  if (googleError) {
+    const message = req.query.error_description
+      ? `${req.query.error}: ${req.query.error_description}`
+      : (req.query.error === 'access_denied' ? 'Sign-in was cancelled' : String(googleError));
+    return redirectToLogin(message);
+  }
+
   if (!code || typeof code !== 'string') {
     return redirectToLogin('Missing authorization code');
   }
 
-  const redirectUri = `${config.backendUrl}/api/auth/google/callback`;
+  const redirectUri = getGoogleCallbackUrl(req);
 
-  // Exchange code for tokens
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -485,19 +507,24 @@ export const googleCallback = asyncHandler(async (req, res) => {
     }).toString(),
   });
 
+  const tokenText = await tokenRes.text();
   if (!tokenRes.ok) {
-    const err = await tokenRes.text();
-    console.error('Google token exchange failed:', tokenRes.status, err);
+    console.error('Google token exchange failed:', tokenRes.status, tokenText);
+    return redirectToLogin('Google sign-in failed. Check redirect URI in Google Console.');
+  }
+
+  let tokenData;
+  try {
+    tokenData = JSON.parse(tokenText);
+  } catch {
     return redirectToLogin('Google sign-in failed');
   }
 
-  const tokenData = await tokenRes.json();
   const accessToken = tokenData.access_token;
   if (!accessToken) {
     return redirectToLogin('Google sign-in failed');
   }
 
-  // Get user info from Google
   const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -506,7 +533,10 @@ export const googleCallback = asyncHandler(async (req, res) => {
     return redirectToLogin('Google sign-in failed');
   }
   const profile = await userInfoRes.json();
-  const { email, name, picture } = profile;
+  const email = profile.email?.trim?.() || profile.email;
+  const name = profile.name;
+  const picture = profile.picture;
+
   if (!email) {
     return redirectToLogin('Google account has no email');
   }
@@ -529,7 +559,6 @@ export const googleCallback = asyncHandler(async (req, res) => {
     if (!user.isActive) {
       return redirectToLogin('Your account has been blocked.');
     }
-    // Update profile image / name if we have newer from Google (optional)
     await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -548,6 +577,6 @@ export const googleCallback = asyncHandler(async (req, res) => {
   frontendUrl.searchParams.set('accessToken', accessTokenJwt);
   frontendUrl.searchParams.set('refreshToken', refreshTokenJwt);
   if (state) frontendUrl.searchParams.set('state', state);
-  res.redirect(frontendUrl.toString());
+  res.redirect(302, frontendUrl.toString());
 });
 

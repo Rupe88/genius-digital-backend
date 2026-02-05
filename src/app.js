@@ -50,6 +50,9 @@ import wishlistRoutes from './routes/wishlistRoutes.js';
 
 const app = express();
 
+// Trust first proxy (for x-forwarded-proto / x-forwarded-host behind DigitalOcean, etc.)
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 
