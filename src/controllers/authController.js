@@ -16,8 +16,59 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 import { config } from '../config/env.js';
 import crypto from 'crypto';
 
+/** Public: return whether SMS OTP is available (for frontend to show/hide SMS option) */
+export const getOtpOptions = asyncHandler((req, res) => {
+  res.json({
+    success: true,
+    data: { smsAvailable: isSmsConfigured() },
+  });
+});
+
+/** Normalize phone to 10-digit Nepal format for storage/SMS */
+function normalizePhone(phone) {
+  if (!phone || typeof phone !== 'string') return null;
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10 && digits.startsWith('98')) return digits;
+  if (digits.length === 12 && digits.startsWith('977')) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('977')) return digits.slice(2);
+  return digits.length === 10 ? digits : null;
+}
+
+/** Send OTP to the chosen channel(s). Returns { sentEmail, sentSms }. */
+async function sendOtpByChannel(otp, { email, phone, otpChannel }) {
+  const channel = otpChannel || 'email';
+  let sentEmail = false;
+  let sentSms = false;
+
+  if (channel === 'email' || channel === 'both') {
+    await sendOTPEmail(email, otp, 'verification');
+    sentEmail = true;
+  }
+
+  if (channel === 'sms' || channel === 'both') {
+    if (!isSmsConfigured()) {
+      throw new Error('SMS verification is not available at the moment. Please choose Email or try again later.');
+    }
+    const to = normalizePhone(phone);
+    if (!to) throw new Error('Valid phone number is required for SMS OTP.');
+    const result = await sendOTPSms(phone, otp);
+    if (!result.success) throw new Error(result.message || 'Failed to send SMS.');
+    sentSms = true;
+  }
+
+  return { sentEmail, sentSms };
+}
+
 export const register = asyncHandler(async (req, res) => {
-  const { email, password, fullName, phone } = req.body;
+  const { email, password, fullName, phone, otpChannel = 'email' } = req.body;
+
+  // Validate SMS choice when SMS not configured
+  if ((otpChannel === 'sms' || otpChannel === 'both') && !isSmsConfigured()) {
+    return res.status(400).json({
+      success: false,
+      message: 'SMS verification is not available at the moment. Please choose Email to receive OTP.',
+    });
+  }
 
   // Check if user already exists
   const existingUser = await prisma.user.findUnique({
@@ -27,23 +78,27 @@ export const register = asyncHandler(async (req, res) => {
   if (existingUser) {
     // If user exists but email is not verified yet, resend OTP instead of blocking
     if (!existingUser.isEmailVerified) {
-      // Respect OTP resend limits
       const canResend = await canResendOTP(existingUser.id, OtpType.EMAIL_VERIFICATION);
 
       if (canResend.canResend) {
         const otp = await createOTP(existingUser.id, OtpType.EMAIL_VERIFICATION);
-        await sendOTPEmail(email, otp, 'verification');
-        if (existingUser.phone && isSmsConfigured()) {
-          await sendOTPSms(existingUser.phone, otp);
-        }
+        const useChannel = otpChannel || (existingUser.phone && isSmsConfigured() ? 'both' : 'email');
+        await sendOtpByChannel(otp, {
+          email: existingUser.email,
+          phone: existingUser.phone,
+          otpChannel: useChannel,
+        });
       }
+
+      const msg = canResend.canResend
+        ? (otpChannel === 'sms' ? 'A new OTP has been sent to your phone.'
+          : otpChannel === 'both' ? 'A new OTP has been sent to your email and phone.'
+          : 'A new OTP has been sent to your email.')
+        : canResend.message;
 
       return res.status(200).json({
         success: true,
-        message:
-          canResend.canResend
-            ? 'An account with this email already exists but is not verified. A new OTP has been sent to your email.'
-            : canResend.message,
+        message: msg,
         data: {
           userId: existingUser.id,
           email: existingUser.email,
@@ -52,37 +107,35 @@ export const register = asyncHandler(async (req, res) => {
       });
     }
 
-    // Fully registered and verified account already exists
     return res.status(409).json({
       success: false,
       message: 'User with this email already exists',
     });
   }
 
-  // Hash password
   const hashedPassword = await hashPassword(password);
+  const phoneNormalized = phone != null && phone !== '' ? normalizePhone(String(phone).trim()) || String(phone).trim() : null;
 
-  // Create user (phone is optional)
   const user = await prisma.user.create({
     data: {
       email,
       password: hashedPassword,
       fullName,
-      ...(phone != null && phone !== '' && { phone: String(phone).trim() }),
+      ...(phoneNormalized && { phone: phoneNormalized }),
     },
   });
 
-  // Generate and send OTP to email and optionally to phone (Sparrow SMS)
   const otp = await createOTP(user.id, OtpType.EMAIL_VERIFICATION);
-  await sendOTPEmail(email, otp, 'verification');
-  if (user.phone && isSmsConfigured()) {
-    await sendOTPSms(user.phone, otp);
-  }
+  const { sentEmail, sentSms } = await sendOtpByChannel(otp, {
+    email,
+    phone: user.phone,
+    otpChannel,
+  });
 
-  const message =
-    user.phone && isSmsConfigured()
-      ? 'Registration successful. Please check your email and phone for OTP verification.'
-      : 'Registration successful. Please check your email for OTP verification.';
+  let message = 'Registration successful. ';
+  if (sentEmail && sentSms) message += 'Please check your email and phone for the verification code.';
+  else if (sentSms) message += 'Please check your phone for the verification code.';
+  else message += 'Please check your email for the verification code.';
 
   res.status(201).json({
     success: true,
@@ -192,17 +245,21 @@ export const resendOtp = asyncHandler(async (req, res) => {
     });
   }
 
-  // Generate and send new OTP (email + SMS if phone and Sparrow configured)
-  const otp = await createOTP(user.id, OtpType.EMAIL_VERIFICATION);
-  await sendOTPEmail(email, otp, 'verification');
-  if (user.phone && isSmsConfigured()) {
-    await sendOTPSms(user.phone, otp);
+  let otpChannel = req.body?.otpChannel || (user.phone && isSmsConfigured() ? 'both' : 'email');
+  if ((otpChannel === 'sms' || otpChannel === 'both') && (!user.phone || !isSmsConfigured())) {
+    otpChannel = 'email';
   }
+  const otp = await createOTP(user.id, OtpType.EMAIL_VERIFICATION);
+  const { sentEmail, sentSms } = await sendOtpByChannel(otp, {
+    email: user.email,
+    phone: user.phone,
+    otpChannel,
+  });
 
-  const resendMessage =
-    user.phone && isSmsConfigured()
-      ? 'OTP resent successfully. Please check your email and phone.'
-      : 'OTP resent successfully. Please check your email.';
+  let resendMessage = 'OTP resent. ';
+  if (sentEmail && sentSms) resendMessage += 'Check your email and phone.';
+  else if (sentSms) resendMessage += 'Check your phone.';
+  else resendMessage += 'Check your email.';
 
   res.json({
     success: true,

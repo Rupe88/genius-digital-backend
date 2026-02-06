@@ -38,6 +38,8 @@ export const validate = (reqOrValidations, res, next) => {
   });
 };
 
+const OTP_CHANNELS = ['email', 'sms', 'both'];
+
 export const registerValidation = [
   body('email')
     .isEmail()
@@ -52,11 +54,29 @@ export const registerValidation = [
     .trim()
     .isLength({ min: 2, max: 255 })
     .withMessage('Full name must be between 2 and 255 characters'),
+  body('otpChannel')
+    .optional()
+    .isIn(OTP_CHANNELS)
+    .withMessage('OTP channel must be email, sms, or both'),
   body('phone')
     .optional({ values: 'falsy' })
     .trim()
     .isLength({ max: 50 })
-    .withMessage('Phone must be at most 50 characters'),
+    .withMessage('Phone must be at most 50 characters')
+    .custom((value, { req }) => {
+      const channel = req.body?.otpChannel || 'email';
+      if (channel === 'sms' || channel === 'both') {
+        if (!value || String(value).trim() === '') {
+          throw new Error('Phone number is required when receiving OTP via SMS');
+        }
+        const digits = String(value).replace(/\D/g, '');
+        const normalized = digits.length === 12 && digits.startsWith('977') ? digits.slice(2) : digits;
+        if (normalized.length !== 10 || !normalized.startsWith('98')) {
+          throw new Error('Please provide a valid 10-digit Nepal mobile number (e.g. 98XXXXXXXX)');
+        }
+      }
+      return true;
+    }),
 ];
 
 export const loginValidation = [
@@ -86,6 +106,10 @@ export const resendOtpValidation = [
     .isEmail()
     .withMessage('Please provide a valid email address')
     .normalizeEmail(),
+  body('otpChannel')
+    .optional()
+    .isIn(OTP_CHANNELS)
+    .withMessage('OTP channel must be email, sms, or both'),
 ];
 
 // Mobile app (Numerology) auth validations

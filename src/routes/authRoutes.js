@@ -3,6 +3,7 @@ import {
   register,
   verifyOtp,
   resendOtp,
+  getOtpOptions,
   login,
   logout,
   refreshToken,
@@ -36,6 +37,7 @@ const router = express.Router();
 // Public routes
 router.get('/google', googleRedirect);
 router.get('/google/callback', googleCallback);
+router.get('/otp-options', getOtpOptions);
 router.post('/register', validate(registerValidation), register);
 router.post('/verify-otp', validate(verifyOtpValidation), verifyOtp);
 router.post('/resend-otp', validate(resendOtpValidation), resendOtp);
