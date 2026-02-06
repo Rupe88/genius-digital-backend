@@ -83,6 +83,11 @@ services:
     value: "${ESEWA_SECRET_KEY}"
   - key: ESEWA_ENVIRONMENT
     value: sandbox
+  # Sparrow SMS Configuration (Nepal) - Optional; when set, OTP can be sent via SMS
+  - key: SPARROW_SMS_TOKEN
+    type: SECRET
+    value: "${SPARROW_SMS_TOKEN}"
+  # SPARROW_SMS_FROM is optional (NTA-approved sender ID)
   health_check:
     http_path: /health
   # CORS Configuration for production
