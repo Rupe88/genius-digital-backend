@@ -34,7 +34,7 @@ function normalizePhone(phone) {
   return digits.length === 10 ? digits : null;
 }
 
-/** Send OTP to the chosen channel(s). Returns { sentEmail, sentSms }. */
+/** Send OTP to the chosen channel(s). Returns { sentEmail, sentSms }. Does not throw on SMS failure; falls back to email when SMS is chosen but fails. */
 async function sendOtpByChannel(otp, { email, phone, otpChannel }) {
   const channel = otpChannel || 'email';
   let sentEmail = false;
@@ -47,13 +47,30 @@ async function sendOtpByChannel(otp, { email, phone, otpChannel }) {
 
   if (channel === 'sms' || channel === 'both') {
     if (!isSmsConfigured()) {
-      throw new Error('SMS verification is not available at the moment. Please choose Email or try again later.');
+      if (channel === 'sms') {
+        await sendOTPEmail(email, otp, 'verification');
+        sentEmail = true;
+      }
+    } else {
+      const to = normalizePhone(phone);
+      if (to) {
+        const result = await sendOTPSms(phone, otp);
+        sentSms = result.success;
+        if (!result.success) {
+          console.warn('[Auth] SMS OTP failed:', result.message);
+          if (channel === 'sms') {
+            await sendOTPEmail(email, otp, 'verification');
+            sentEmail = true;
+          }
+        }
+      } else if (channel === 'sms') {
+        throw new Error('Valid phone number is required for SMS OTP.');
+      }
     }
-    const to = normalizePhone(phone);
-    if (!to) throw new Error('Valid phone number is required for SMS OTP.');
-    const result = await sendOTPSms(phone, otp);
-    if (!result.success) throw new Error(result.message || 'Failed to send SMS.');
-    sentSms = true;
+  }
+
+  if (!sentEmail && !sentSms) {
+    throw new Error('Could not send verification code. Please try again or use Email only.');
   }
 
   return { sentEmail, sentSms };
@@ -135,6 +152,7 @@ export const register = asyncHandler(async (req, res) => {
   let message = 'Registration successful. ';
   if (sentEmail && sentSms) message += 'Please check your email and phone for the verification code.';
   else if (sentSms) message += 'Please check your phone for the verification code.';
+  else if (sentEmail) message += (otpChannel === 'sms' || otpChannel === 'both' ? 'Please check your email for the verification code (SMS is currently unavailable).' : 'Please check your email for the verification code.');
   else message += 'Please check your email for the verification code.';
 
   res.status(201).json({

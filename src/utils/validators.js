@@ -59,21 +59,16 @@ export const registerValidation = [
     .isIn(OTP_CHANNELS)
     .withMessage('OTP channel must be email, sms, or both'),
   body('phone')
-    .optional({ values: 'falsy' })
+    .notEmpty()
+    .withMessage('Phone number is required')
     .trim()
     .isLength({ max: 50 })
     .withMessage('Phone must be at most 50 characters')
-    .custom((value, { req }) => {
-      const channel = req.body?.otpChannel || 'email';
-      if (channel === 'sms' || channel === 'both') {
-        if (!value || String(value).trim() === '') {
-          throw new Error('Phone number is required when receiving OTP via SMS');
-        }
-        const digits = String(value).replace(/\D/g, '');
-        const normalized = digits.length === 12 && digits.startsWith('977') ? digits.slice(2) : digits;
-        if (normalized.length !== 10 || !normalized.startsWith('98')) {
-          throw new Error('Please provide a valid 10-digit Nepal mobile number (e.g. 98XXXXXXXX)');
-        }
+    .custom((value) => {
+      const digits = String(value).replace(/\D/g, '');
+      const normalized = digits.length === 12 && digits.startsWith('977') ? digits.slice(2) : digits;
+      if (normalized.length !== 10 || !normalized.startsWith('98')) {
+        throw new Error('Please provide a valid 10-digit Nepal mobile number (e.g. 98XXXXXXXX)');
       }
       return true;
     }),
