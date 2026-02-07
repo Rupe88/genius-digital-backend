@@ -227,12 +227,12 @@ export const courseValidation = [
     })
     .withMessage('Thumbnail must be a valid URL or upload a file'),
   body('price')
-    .optional()
+    .optional({ checkFalsy: true })
     .toFloat()
     .isFloat({ min: 0 })
     .withMessage('Price must be a positive number'),
   body('originalPrice')
-    .optional()
+    .optional({ checkFalsy: true })
     .toFloat()
     .isFloat({ min: 0 })
     .withMessage('Original price must be a positive number'),
@@ -269,15 +269,15 @@ export const courseValidation = [
     .custom((v) => v === true || v === false || v === 'true' || v === 'false' || v === '' || v == null)
     .withMessage('isFree must be a boolean'),
   body('status')
-    .optional()
+    .optional({ checkFalsy: true })
     .isIn(['DRAFT', 'PUBLISHED', 'ARCHIVED', 'ONGOING'])
     .withMessage('Status must be one of: DRAFT, PUBLISHED, ARCHIVED, ONGOING'),
   body('level')
-    .optional()
+    .optional({ checkFalsy: true })
     .isIn(['Beginner', 'Intermediate', 'Advanced'])
     .withMessage('Level must be one of: Beginner, Intermediate, Advanced'),
   body('duration')
-    .optional()
+    .optional({ checkFalsy: true })
     .toInt()
     .isInt({ min: 0 })
     .withMessage('Duration must be a positive integer (minutes)'),
@@ -309,23 +309,27 @@ export const courseValidation = [
       return true;
     }),
   body('tags')
-    .optional()
+    .optional({ checkFalsy: true })
     .isString()
     .isLength({ max: 500 })
     .withMessage('Tags must be a string (max 500 characters)'),
   body('instructorId')
     .notEmpty()
     .withMessage('Instructor ID is required')
+    .trim()
     .isUUID()
     .withMessage('Instructor ID must be a valid UUID'),
   body('categoryId')
-    .optional()
+    .optional({ checkFalsy: true })
     .isUUID()
     .withMessage('Category ID must be a valid UUID'),
   body('videoUrl')
-    .optional({ values: 'falsy' })
+    .optional({ checkFalsy: true })
     .trim()
-    .isURL()
+    .custom((value) => {
+      if (!value || value === '') return true;
+      return /^https?:\/\//i.test(value);
+    })
     .withMessage('Video URL must be a valid URL (e.g. YouTube)'),
 ];
 

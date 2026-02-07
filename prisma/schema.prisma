@@ -356,7 +356,7 @@ model Course {
   slug             String       @unique @db.VarChar(255)
   description      String?      @db.Text
   shortDescription String?      @db.VarChar(500)
-  thumbnail        String?      @db.VarChar(500)
+  thumbnail        String?      @db.VarChar(500)   // S3 or image URL
   price            Decimal      @default(0) @db.Decimal(10, 2)
   isFree           Boolean      @default(false)
   status           CourseStatus @default(DRAFT)
@@ -369,7 +369,7 @@ model Course {
   endDate          DateTime?
 
   tags             String?  @db.VarChar(500)
-  videoUrl         String?  @db.VarChar(500)
+  videoUrl         String?  @db.VarChar(500)   // S3 video or YouTube URL
   originalPrice    Decimal? @db.Decimal(10, 2)  // For showing discount
   learningOutcomes Json?    // Array of learning outcomes
   skills           Json?    // Array of skills
