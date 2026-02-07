@@ -231,6 +231,7 @@ export const streamCoursePromo = async (req, res, next) => {
  * GET /api/media/image?url=ENCODED_S3_URL
  * Proxy S3 images so the frontend (and Next.js Image) can load them without 403.
  * Only allows URLs from our S3 bucket. No auth required for thumbnails/images.
+ * Accepts full S3 URLs or path-like keys (e.g. lms/images/xxx.jpg).
  */
 export const streamImage = async (req, res, next) => {
   try {
@@ -244,10 +245,15 @@ export const streamImage = async (req, res, next) => {
     } catch {
       return res.status(400).json({ success: false, message: 'Invalid url' });
     }
-    if (!isS3Configured() || !isOurS3Url(url)) {
+    if (!isS3Configured()) {
       return res.status(400).json({ success: false, message: 'Image not available' });
     }
-    const key = getS3KeyFromStoredUrl(url);
+    let key = null;
+    if (isOurS3Url(url)) {
+      key = getS3KeyFromStoredUrl(url);
+    } else if (url && !url.startsWith('http') && !url.includes('..')) {
+      key = url.replace(/^\//, '');
+    }
     if (!key) return res.status(404).json({ success: false, message: 'Image not found' });
 
     const { stream, contentLength, contentType } = await getObjectStream(key);
@@ -255,7 +261,6 @@ export const streamImage = async (req, res, next) => {
     res.setHeader('Content-Type', contentType || 'image/png');
     res.setHeader('Cache-Control', 'public, max-age=86400'); // 24h
     res.setHeader('Content-Length', contentLength);
-    // Allow cross-origin use (frontend on :3000 loading images from API on :4000)
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     stream.pipe(res);
     stream.on('error', () => {
