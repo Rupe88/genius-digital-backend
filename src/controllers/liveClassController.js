@@ -56,7 +56,7 @@ export const getAllLiveClasses = async (req, res, next) => {
         skip,
         take: parseInt(limit),
         orderBy: {
-          scheduledAt: 'asc',
+          createdAt: 'desc', // Latest created classes first
         },
       }),
       prisma.liveClass.count({ where }),
@@ -650,3 +650,77 @@ export const getMyLiveClasses = async (req, res, next) => {
   }
 };
 
+/**
+ * Get available live classes for authenticated user
+ * Filters by enrolled courses and time window (visible until 5 hours after start)
+ */
+export const getMyAvailableLiveClasses = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Get user's enrolled course IDs
+    // Note: Only ACTIVE enrollments are considered (paid courses after payment, free courses after enrollment)
+    // PENDING enrollments are not included as enrollment only happens after payment verification
+    const enrollments = await prisma.enrollment.findMany({
+      where: { userId, status: 'ACTIVE' },
+      select: { courseId: true },
+    });
+    const enrolledCourseIds = enrollments.map((e) => e.courseId);
+
+    // Calculate visibility window: classes visible until 5 hours after scheduled start time
+    // So we show classes where scheduledAt >= (now - 5 hours)
+    const fiveHoursAgo = new Date(Date.now() - 5 * 60 * 60 * 1000);
+
+    // Build where clause
+    const where = {
+      OR: [
+        { courseId: { in: enrolledCourseIds } },
+        { courseId: null }, // Standalone classes available to all
+      ],
+      scheduledAt: { gte: fiveHoursAgo },
+      status: { in: ['SCHEDULED', 'LIVE'] },
+    };
+
+    const [liveClasses, total] = await Promise.all([
+      prisma.liveClass.findMany({
+        where,
+        include: {
+          instructor: true,
+          course: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+            },
+          },
+          _count: {
+            select: {
+              enrollments: true,
+            },
+          },
+        },
+        skip,
+        take: parseInt(limit),
+        orderBy: {
+          scheduledAt: 'asc',
+        },
+      }),
+      prisma.liveClass.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      data: liveClasses,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit)) || 1,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};

@@ -228,6 +228,103 @@ async function main() {
     },
   });
 
+  // 10. FAQs
+  console.log('❓ Seeding FAQs...');
+  const faqs = [
+    {
+      question: 'What is Vastu Shastra and how can it benefit my home?',
+      answer: 'Vastu Shastra is an ancient Indian science of architecture and design that harmonizes living spaces with natural forces. It helps create positive energy flow, improves health and well-being, enhances prosperity, and brings peace and harmony to your home. By aligning your space with the five elements (earth, water, fire, air, and space) and directional energies, Vastu can significantly improve your quality of life.',
+      category: 'GENERAL',
+      order: 1,
+    },
+    {
+      question: 'Do I need to demolish my existing home to apply Vastu principles?',
+      answer: 'No, you don\'t need to demolish your home! Modern Vastu uses remedial solutions that work without any structural changes. We use Vastu remedies like pyramids, yantras, crystals, mirrors, and color corrections to balance the energy in your space. These remedies are effective, affordable, and can be implemented without any demolition or major renovations.',
+      category: 'GENERAL',
+      order: 2,
+    },
+    {
+      question: 'What courses do you offer for learning Vastu?',
+      answer: 'We offer comprehensive Vastu courses ranging from basic to advanced levels. Our flagship course is the "7 Days Basic Vastu Course" which covers fundamental principles, five elements, directions, entrance analysis, bedroom and kitchen Vastu, and remedial solutions. We also offer advanced courses for those who want to become professional Vastu consultants. All courses are taught by Acharya Raja Babu Shah, Nepal\'s top Vastu expert.',
+      category: 'COURSES',
+      order: 1,
+    },
+    {
+      question: 'How long does it take to complete a Vastu course?',
+      answer: 'Our basic Vastu course is designed as a 7-day program, but you can learn at your own pace. The course includes video lessons, practical exercises, and downloadable materials. Advanced courses vary in duration. All courses provide lifetime access, so you can revisit the content anytime. We recommend dedicating 1-2 hours per day for optimal learning.',
+      category: 'COURSES',
+      order: 2,
+    },
+    {
+      question: 'What payment methods do you accept?',
+      answer: 'We accept multiple payment methods including credit/debit cards, digital wallets, bank transfers, and cash on delivery (for products). We also support installment payments for higher-value courses. All transactions are secure and encrypted. For international students, we accept payments through PayPal and international bank transfers.',
+      category: 'PAYMENTS',
+      order: 1,
+    },
+    {
+      question: 'Are your courses refundable?',
+      answer: 'Yes, we offer a 7-day money-back guarantee for all courses. If you\'re not satisfied with the course content or teaching quality, you can request a full refund within 7 days of enrollment. However, once you\'ve completed more than 50% of the course, the refund policy may not apply. Please contact our support team for refund requests.',
+      category: 'PAYMENTS',
+      order: 2,
+    },
+    {
+      question: 'How do I enroll in a Vastu course?',
+      answer: 'Enrolling is simple! Browse our courses page, select the course you\'re interested in, click "Enroll Now", and complete the payment. Once payment is confirmed, you\'ll receive instant access to the course materials. You can start learning immediately from your dashboard. If you need assistance, our support team is available to help you through the enrollment process.',
+      category: 'ENROLLMENT',
+      order: 1,
+    },
+    {
+      question: 'Do I need any prior knowledge to learn Vastu?',
+      answer: 'No prior knowledge is required! Our courses are designed for beginners and start from the fundamentals. Whether you\'re a complete beginner or someone with basic knowledge, our structured curriculum will guide you step by step. The courses include practical examples, case studies, and hands-on exercises to help you understand and apply Vastu principles effectively.',
+      category: 'ENROLLMENT',
+      order: 2,
+    },
+    {
+      question: 'I\'m having trouble accessing my course. What should I do?',
+      answer: 'If you\'re experiencing technical issues, first try clearing your browser cache and cookies, then log out and log back in. Ensure you\'re using a modern browser (Chrome, Firefox, Safari, or Edge) with JavaScript enabled. If the problem persists, contact our technical support team with details about the issue, your device, and browser. We typically respond within 24 hours and can help resolve most issues quickly.',
+      category: 'TECHNICAL',
+      order: 1,
+    },
+    {
+      question: 'Can I access courses on mobile devices?',
+      answer: 'Yes! Our platform is fully responsive and works on all devices including smartphones and tablets. You can access your courses, watch videos, download materials, and track your progress from any device with an internet connection. We recommend using the latest version of your mobile browser for the best experience. Some features may vary slightly on mobile, but all core functionality is available.',
+      category: 'TECHNICAL',
+      order: 2,
+    },
+  ];
+
+  for (const faq of faqs) {
+    // Check if FAQ with same question exists
+    const existing = await prisma.fAQ.findFirst({
+      where: { question: faq.question },
+    });
+
+    if (existing) {
+      // Update existing FAQ
+      await prisma.fAQ.update({
+        where: { id: existing.id },
+        data: {
+          answer: faq.answer,
+          category: faq.category,
+          order: faq.order,
+          isActive: true,
+        },
+      });
+    } else {
+      // Create new FAQ
+      await prisma.fAQ.create({
+        data: {
+          question: faq.question,
+          answer: faq.answer,
+          category: faq.category,
+          order: faq.order,
+          isActive: true,
+        },
+      });
+    }
+  }
+  console.log(`✅ ${faqs.length} FAQs seeded`);
+
   console.log('\n✨ Seed completed successfully! ✨');
   console.log(`🔑 Admin Login: ${adminEmail}`);
   console.log(`🔑 Password: ${adminPassword}`);

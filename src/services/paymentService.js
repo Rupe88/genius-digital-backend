@@ -550,10 +550,11 @@ export const verifyPayment = async (params) => {
 };
 
 /**
- * Helper: Enroll user in course
+ * Helper: Enroll user in course after payment verification
+ * Note: Enrollments are only created after successful payment - no PENDING state
  */
 const enrollUserInCourse = async (userId, courseId, amount = null, referralClickId = null) => {
-  // Check if already enrolled
+  // Check if already enrolled (shouldn't happen, but handle gracefully)
   const existingEnrollment = await prisma.enrollment.findUnique({
     where: {
       userId_courseId: {
@@ -570,44 +571,7 @@ const enrollUserInCourse = async (userId, courseId, amount = null, referralClick
     return existingEnrollment;
   }
 
-  // Check if enrollment was created during payment initiation (with affiliate)
-  const pendingEnrollment = await prisma.enrollment.findFirst({
-    where: {
-      userId,
-      courseId,
-      status: 'PENDING',
-    },
-    include: {
-      affiliate: true,
-    },
-  });
-
-  if (pendingEnrollment) {
-    // Activate pending enrollment
-    const enrollment = await prisma.enrollment.update({
-      where: { id: pendingEnrollment.id },
-      data: {
-        status: 'ACTIVE',
-      },
-      include: {
-        affiliate: true,
-      },
-    });
-
-    // Update course enrollment count
-    await prisma.course.update({
-      where: { id: courseId },
-      data: {
-        totalEnrollments: {
-          increment: 1,
-        },
-      },
-    });
-
-    return enrollment;
-  }
-
-  // Create new enrollment
+  // Create new enrollment with ACTIVE status (only called after payment verification)
   const enrollment = await prisma.enrollment.create({
     data: {
       userId,

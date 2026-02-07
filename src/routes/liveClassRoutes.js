@@ -8,6 +8,7 @@ import {
   enrollInLiveClass,
   markAttendance,
   getMyLiveClasses,
+  getMyAvailableLiveClasses,
 } from '../controllers/liveClassController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
@@ -30,6 +31,18 @@ router.get(
   getAllLiveClasses
 );
 
+// Authenticated route - must be defined before /:id to avoid route conflict
+router.get(
+  '/my-available',
+  authenticate,
+  validate([
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 100 }),
+  ]),
+  getMyAvailableLiveClasses
+);
+
+// Public route - must be after specific routes to avoid conflicts
 router.get(
   '/:id',
   validate([param('id').isUUID()]),
