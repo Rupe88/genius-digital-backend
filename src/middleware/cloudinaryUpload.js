@@ -1,5 +1,5 @@
 import multer from 'multer';
-import { uploadImage, uploadVideo, uploadDocument } from '../services/cloudinaryService.js';
+import { uploadImage, uploadVideo, uploadDocument } from '../services/s3Service.js';
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
@@ -110,7 +110,7 @@ export const processImageUpload = async (req, res, next) => {
     const folder = req.body.folder || 'lms/images';
     const transformation = req.body.transformation || {};
 
-    console.log(`Uploading image to Cloudinary folder: ${folder}, size: ${req.file.buffer.length} bytes, type: ${req.file.mimetype}`);
+    console.log(`Uploading image to S3 folder: ${folder}, size: ${req.file.buffer.length} bytes, type: ${req.file.mimetype}`);
 
     // Add timeout to prevent hanging (30 seconds)
     const uploadPromise = uploadImage(req.file.buffer, {
@@ -146,11 +146,8 @@ export const processImageUpload = async (req, res, next) => {
     let errorMessage = 'Image upload failed';
     let statusCode = 400;
 
-    if (error.message?.includes('authentication failed') || error.message?.includes('Invalid Signature')) {
-      errorMessage = 'Cloudinary authentication failed. Please check your API credentials in .env file.';
-      statusCode = 500;
-    } else if (error.message?.includes('Invalid API Key')) {
-      errorMessage = 'Cloudinary API key is invalid. Please check your credentials.';
+    if (error.message?.includes('S3 is not configured')) {
+      errorMessage = 'Storage is not configured. Please set S3_ACCESS_KEY and S3_SECRET_KEY in .env';
       statusCode = 500;
     } else if (error.message?.includes('timed out')) {
       errorMessage = 'Image upload timed out. Please try again with a smaller file.';
@@ -239,7 +236,7 @@ export const processVideoUpload = async (req, res, next) => {
 
     const folder = req.body.folder || 'lms/videos';
 
-    console.log(`Uploading video to Cloudinary folder: ${folder}, size: ${req.file.buffer.length} bytes`);
+    console.log(`Uploading video to S3 folder: ${folder}, size: ${req.file.buffer.length} bytes`);
 
     // Add timeout to prevent hanging (60 seconds for videos)
     const uploadPromise = uploadVideo(req.file.buffer, {
@@ -314,7 +311,7 @@ export const processDocumentUpload = async (req, res, next) => {
 
     const folder = req.body.folder || 'lms/documents';
 
-    console.log(`Uploading document to Cloudinary folder: ${folder}, size: ${req.file.buffer.length} bytes`);
+    console.log(`Uploading document to S3 folder: ${folder}, size: ${req.file.buffer.length} bytes`);
 
     const result = await uploadDocument(req.file.buffer, {
       folder,

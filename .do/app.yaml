@@ -65,15 +65,19 @@ services:
   - key: GOOGLE_CLIENT_SECRET
     type: SECRET
     value: "${GOOGLE_CLIENT_SECRET}"
-  # Cloudinary Configuration
-  - key: CLOUDINARY_CLOUD_NAME
-    value: dtrfe6xfl
-  - key: CLOUDINARY_API_KEY
+  # S3-compatible storage (Kailesh Cloud) - Images, Videos, Documents
+  - key: S3_ENDPOINT
+    value: "https://s3-np1.datahub.com.np"
+  - key: S3_REGION
+    value: "us-east-1"
+  - key: S3_BUCKET
+    value: "vaastu-lms"
+  - key: S3_ACCESS_KEY
     type: SECRET
-    value: "${CLOUDINARY_API_KEY}"
-  - key: CLOUDINARY_API_SECRET
+    value: "${S3_ACCESS_KEY}"
+  - key: S3_SECRET_KEY
     type: SECRET
-    value: "${CLOUDINARY_API_SECRET}"
+    value: "${S3_SECRET_KEY}"
   # Payment Gateway
   - key: ESEWA_MERCHANT_ID
     type: SECRET

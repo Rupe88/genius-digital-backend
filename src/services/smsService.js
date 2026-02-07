@@ -46,7 +46,12 @@ export const sendOTPSms = async (phone, otp) => {
   }
 
   const token = config.sparrowSms.token.trim();
-  const from = (config.sparrowSms.from || config.appName || 'VaastuLMS').trim().slice(0, 11);
+  // Sender ID must be registered/approved in Sparrow SMS (NTA-approved, max 11 chars, alphanumeric)
+  const from = config.sparrowSms.from?.trim();
+  if (!from) {
+    console.warn('[SMS] SPARROW_SMS_FROM not set. Please set a valid sender ID in .env (SPARROW_SMS_FROM=YourSenderID)');
+    return { success: false, message: 'SMS sender ID not configured. Please contact administrator.' };
+  }
   const text = `Your verification code is ${otp}. Valid for 5 minutes. - ${config.appName}`;
 
   try {

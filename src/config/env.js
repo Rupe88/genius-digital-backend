@@ -46,16 +46,15 @@ export const config = {
   resendApiKey: process.env.RESEND_API_KEY,
   resendFromEmail: process.env.RESEND_FROM_EMAIL,
 
-  // Cloudinary
-  cloudinary: {
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME?.trim(),
-    apiKey: process.env.CLOUDINARY_API_KEY?.trim(),
-    // Handle URL encoding in API secret - decode if needed and remove trailing %
-    apiSecret: (() => {
-      const secret = process.env.CLOUDINARY_API_SECRET?.trim() || '';
-      // Remove trailing % if present (sometimes happens with URL encoding)
-      return secret.replace(/%$/, '');
-    })(),
+  // S3-compatible storage (Kailesh Cloud / DataHub S3) - images, videos, documents
+  s3: {
+    endpoint: process.env.S3_ENDPOINT?.trim() || 'https://s3-np1.datahub.com.np',
+    region: process.env.S3_REGION?.trim() || 'us-east-1',
+    bucket: process.env.S3_BUCKET?.trim() || 'vaastu-lms',
+    accessKey: process.env.S3_ACCESS_KEY?.trim() || null,
+    secretKey: process.env.S3_SECRET_KEY?.trim() || null,
+    // Public base URL for stored files (default: endpoint/bucket for path-style)
+    publicUrl: process.env.S3_PUBLIC_URL?.trim() || null,
   },
 
   // Payment Gateways
