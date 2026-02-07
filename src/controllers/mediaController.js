@@ -226,3 +226,41 @@ export const streamCoursePromo = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * GET /api/media/image?url=ENCODED_S3_URL
+ * Proxy S3 images so the frontend (and Next.js Image) can load them without 403.
+ * Only allows URLs from our S3 bucket. No auth required for thumbnails/images.
+ */
+export const streamImage = async (req, res, next) => {
+  try {
+    const rawUrl = req.query.url;
+    if (!rawUrl || typeof rawUrl !== 'string') {
+      return res.status(400).json({ success: false, message: 'Missing url parameter' });
+    }
+    let url;
+    try {
+      url = decodeURIComponent(rawUrl.trim());
+    } catch {
+      return res.status(400).json({ success: false, message: 'Invalid url' });
+    }
+    if (!isS3Configured() || !isOurS3Url(url)) {
+      return res.status(400).json({ success: false, message: 'Image not available' });
+    }
+    const key = getS3KeyFromStoredUrl(url);
+    if (!key) return res.status(404).json({ success: false, message: 'Image not found' });
+
+    const { stream, contentLength, contentType } = await getObjectStream(key);
+
+    res.setHeader('Content-Type', contentType || 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // 24h
+    res.setHeader('Content-Length', contentLength);
+    stream.pipe(res);
+    stream.on('error', () => {
+      if (!res.headersSent) res.status(500).json({ success: false, message: 'Stream error' });
+      else res.destroy();
+    });
+  } catch (error) {
+    next(error);
+  }
+};
