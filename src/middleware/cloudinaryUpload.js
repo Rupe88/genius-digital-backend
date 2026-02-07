@@ -4,7 +4,7 @@ import { uploadImage, uploadVideo, uploadDocument } from '../services/s3Service.
 
 // Upload limits from config (bytes). Use max of all so multer accepts any allowed type up to video limit.
 const imageMaxBytes = (config.upload?.imageMaxMb ?? 10) * 1024 * 1024;
-const videoMaxBytes = (config.upload?.videoMaxMb ?? 1024) * 1024 * 1024;
+const videoMaxBytes = (config.upload?.videoMaxMb ?? 3072) * 1024 * 1024;
 const documentMaxBytes = (config.upload?.documentMaxMb ?? 50) * 1024 * 1024;
 const multerFileSizeLimit = Math.max(imageMaxBytes, videoMaxBytes, documentMaxBytes);
 
@@ -235,7 +235,7 @@ export const processVideoUpload = async (req, res, next) => {
     if (req.file.buffer.length > maxSize) {
       return res.status(400).json({
         success: false,
-        message: `File size exceeds ${config.upload?.videoMaxMb ?? 1024}MB limit for videos`,
+        message: `File size exceeds ${config.upload?.videoMaxMb ?? 3072}MB limit for videos`,
       });
     }
 
@@ -359,7 +359,7 @@ export const processCourseFiles = async (req, res, next) => {
       const file = req.files.video[0];
       if (Buffer.isBuffer(file.buffer) && file.buffer.length > 0) {
         if (file.buffer.length > videoMaxBytes) {
-          return res.status(400).json({ success: false, message: `Video exceeds ${config.upload?.videoMaxMb ?? 1024}MB limit` });
+          return res.status(400).json({ success: false, message: `Video exceeds ${config.upload?.videoMaxMb ?? 3072}MB limit` });
         }
         const videoTimeoutMs = config.upload?.videoUploadTimeoutMs ?? 600000;
         const uploadPromise = uploadVideo(file.buffer, { folder: req.body.folder || 'lms/videos', mimeType: file.mimetype });

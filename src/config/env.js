@@ -49,9 +49,9 @@ export const config = {
   // Upload size limits (MB). Set in .env to override. Video limit applies to course promo + lesson videos.
   upload: {
     imageMaxMb: Number(process.env.UPLOAD_IMAGE_MAX_MB) || 10,
-    videoMaxMb: Number(process.env.UPLOAD_VIDEO_MAX_MB) || 1024, // 1GB default for large videos
+    videoMaxMb: Number(process.env.UPLOAD_VIDEO_MAX_MB) || 3072, // 3GB default (videos over 1GB supported)
     documentMaxMb: Number(process.env.UPLOAD_DOCUMENT_MAX_MB) || 50,
-    videoUploadTimeoutMs: Number(process.env.UPLOAD_VIDEO_TIMEOUT_MS) || 600000, // 10 min for large uploads
+    videoUploadTimeoutMs: Number(process.env.UPLOAD_VIDEO_TIMEOUT_MS) || 600000, // 10 min for S3 upload step
   },
 
   // S3-compatible storage (Kailesh Cloud / DataHub S3) - images, videos, documents
