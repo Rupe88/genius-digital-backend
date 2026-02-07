@@ -674,7 +674,7 @@ export const googleCallback = asyncHandler(async (req, res) => {
     return redirectToLogin('Google sign-in failed');
   }
   const profile = await userInfoRes.json();
-  const googleId = profile.id ? String(profile.id) : null;
+  const googleId = profile.id != null ? String(profile.id) : null;
   const email = (profile.email && profile.email.trim) ? profile.email.trim() : (profile.email || '');
   const name = profile.name;
   const picture = profile.picture;
@@ -684,39 +684,45 @@ export const googleCallback = asyncHandler(async (req, res) => {
   }
 
   let user = null;
-  if (googleId) {
-    user = await prisma.user.findUnique({ where: { googleId } });
-  }
-  if (!user) {
-    user = await prisma.user.findUnique({ where: { email } });
-  }
+  try {
+    if (googleId) {
+      user = await prisma.user.findUnique({ where: { googleId } });
+    }
+    if (!user) {
+      user = await prisma.user.findUnique({ where: { email } });
+    }
 
-  if (!user) {
-    const randomPassword = crypto.randomBytes(32).toString('hex');
-    const hashedPassword = await hashPassword(randomPassword);
-    user = await prisma.user.create({
-      data: {
+    if (!user) {
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const hashedPassword = await hashPassword(randomPassword);
+      const createData = {
         email,
         password: hashedPassword,
         fullName: name || email.split('@')[0],
         profileImage: picture || null,
         isEmailVerified: true,
-        googleId: googleId || null,
-      },
-    });
-  } else {
-    if (!user.isActive) {
-      return redirectToLogin('Your account has been blocked.');
+      };
+      if (googleId != null) createData.googleId = googleId;
+      user = await prisma.user.create({ data: createData });
+    } else {
+      if (!user.isActive) {
+        return redirectToLogin('Your account has been blocked.');
+      }
+      const updateData = {};
+      if (googleId != null && (user.googleId == null || user.googleId === '')) updateData.googleId = googleId;
+      if (name && user.fullName !== name) updateData.fullName = name;
+      if (picture != null && user.profileImage !== picture) updateData.profileImage = picture;
+      if (Object.keys(updateData).length > 0) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: updateData,
+        });
+        user = await prisma.user.findUnique({ where: { id: user.id } });
+      }
     }
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        ...(googleId && !user.googleId && { googleId }),
-        ...(name && user.fullName !== name && { fullName: name }),
-        ...(picture && user.profileImage !== picture && { profileImage: picture }),
-      },
-    });
-    user = await prisma.user.findUnique({ where: { id: user.id } });
+  } catch (err) {
+    console.error('Google callback: user lookup/create failed', err?.message || err);
+    return redirectToLogin('Account could not be created. Please try again or use email sign up.');
   }
 
   const accessTokenJwt = generateAccessToken({ userId: user.id, role: user.role });
@@ -728,6 +734,12 @@ export const googleCallback = asyncHandler(async (req, res) => {
     accessToken: accessTokenJwt,
     refreshToken: refreshTokenJwt,
   }).toString();
+
+  // Log callback URL so production can verify it matches Google Cloud Console redirect_uri
+  const callbackUrl = getGoogleCallbackUrl(req);
+  if (process.env.NODE_ENV === 'production') {
+    console.log('Google OAuth: callback URL used for redirect_uri:', callbackUrl);
+  }
 
   // Prefer frontend URL from state (so local dev redirects back to localhost, not production)
   const allowedFrontendHosts = [
@@ -756,6 +768,9 @@ export const googleCallback = asyncHandler(async (req, res) => {
     }
   }
   const redirectTo = `${frontendBase.replace(/\/$/, '')}/login#${hash}`;
+  if (process.env.NODE_ENV === 'production') {
+    console.log('Google OAuth: redirecting to frontend:', frontendBase, '(tokens in hash)');
+  }
   res.redirect(302, redirectTo);
 });
 
