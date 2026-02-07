@@ -7,10 +7,11 @@ const storage = multer.memoryStorage();
 // File filter
 const fileFilter = (req, file, cb) => {
   const allowedImageTypes = /jpeg|jpg|png|gif|webp/;
-  const allowedVideoTypes = /mp4|webm|ogg|mov/;
+  // quicktime = .mov, mpeg = .mpeg/.mpg; x-m4v = .m4v
+  const allowedVideoTypes = /mp4|webm|ogg|mov|quicktime|mpeg|x-m4v/;
   const allowedDocTypes = /pdf|doc|docx|txt/;
 
-  const mimetype = file.mimetype;
+  const mimetype = (file.mimetype || '').toLowerCase();
 
   if (
     allowedImageTypes.test(mimetype) ||
@@ -328,6 +329,45 @@ export const processDocumentUpload = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Document upload middleware error:', error);
+    next(error);
+  }
+};
+
+/**
+ * Course create/update: thumbnail (image) + optional video file.
+ * Expects req.files.thumbnail[0] and/or req.files.video[0].
+ */
+export const processCourseFiles = async (req, res, next) => {
+  try {
+    if (!req.files) return next();
+
+    if (req.files.thumbnail && req.files.thumbnail[0]) {
+      const file = req.files.thumbnail[0];
+      if (Buffer.isBuffer(file.buffer) && file.buffer.length > 0) {
+        const maxSize = 10 * 1024 * 1024;
+        if (file.buffer.length > maxSize) {
+          return res.status(400).json({ success: false, message: 'Thumbnail exceeds 10MB limit' });
+        }
+        const result = await uploadImage(file.buffer, { folder: req.body.folder || 'lms/images', mimeType: file.mimetype });
+        req.cloudinary = { ...(req.cloudinary || {}), url: result.secure_url, publicId: result.public_id };
+      }
+    }
+
+    if (req.files.video && req.files.video[0]) {
+      const file = req.files.video[0];
+      if (Buffer.isBuffer(file.buffer) && file.buffer.length > 0) {
+        const maxSize = 100 * 1024 * 1024;
+        if (file.buffer.length > maxSize) {
+          return res.status(400).json({ success: false, message: 'Video exceeds 100MB limit' });
+        }
+        const result = await uploadVideo(file.buffer, { folder: req.body.folder || 'lms/videos', mimeType: file.mimetype });
+        req.cloudinary = { ...(req.cloudinary || {}), videoUrl: result.secure_url };
+      }
+    }
+
+    next();
+  } catch (error) {
+    console.error('Course files upload error:', error);
     next(error);
   }
 };

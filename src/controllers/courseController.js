@@ -485,8 +485,11 @@ export const createCourse = async (req, res, next) => {
       skills,
       instructorId,
       categoryId,
-      videoUrl,
+      videoUrl: bodyVideoUrl,
     } = req.body;
+
+    // Video: use uploaded file URL (S3) or YouTube link from body (optional)
+    const videoUrl = req.cloudinary?.videoUrl || (bodyVideoUrl && String(bodyVideoUrl).trim()) || null;
 
     // Generate slug if not provided
     let finalSlug = slug;
@@ -830,8 +833,11 @@ export const updateCourse = async (req, res, next) => {
       updateData.categoryId = categoryId || null;
     }
 
-    if (videoUrl !== undefined) {
-      updateData.videoUrl = videoUrl;
+    // Video: uploaded file URL (S3) or YouTube link from body, or clear
+    if (req.cloudinary?.videoUrl) {
+      updateData.videoUrl = req.cloudinary.videoUrl;
+    } else if (videoUrl !== undefined) {
+      updateData.videoUrl = (String(videoUrl).trim() || null);
     }
 
     const course = await prisma.course.update({

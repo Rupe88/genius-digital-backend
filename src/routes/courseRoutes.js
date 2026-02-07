@@ -13,7 +13,7 @@ import {
 } from '../controllers/courseController.js';
 import { authenticate, optionalAuthenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
-import { singleUpload, processImageUpload } from '../middleware/cloudinaryUpload.js';
+import { fieldsUpload, processCourseFiles } from '../middleware/cloudinaryUpload.js';
 import { courseValidation, courseFilterValidation } from '../utils/validators.js';
 import { param, query, body } from 'express-validator';
 
@@ -37,8 +37,8 @@ router.post(
   '/',
   authenticate,
   requireAdmin,
-  singleUpload('thumbnail'),
-  processImageUpload,
+  fieldsUpload([{ name: 'thumbnail', maxCount: 1 }, { name: 'video', maxCount: 1 }]),
+  processCourseFiles,
   courseValidation,
   createCourse
 );
@@ -47,8 +47,8 @@ router.put(
   '/:id',
   authenticate,
   requireAdmin,
-  singleUpload('thumbnail'),
-  processImageUpload,
+  fieldsUpload([{ name: 'thumbnail', maxCount: 1 }, { name: 'video', maxCount: 1 }]),
+  processCourseFiles,
   [param('id').isUUID(), ...courseValidation],
   updateCourse
 );

@@ -30,10 +30,20 @@ const startServer = async () => {
   }
 
   // Start server regardless of database connection
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`✓ Server running on port ${PORT}`);
     console.log(`✓ Environment: ${config.nodeEnv}`);
     console.log(`✓ Health check: http://localhost:${PORT}/health`);
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n✗ Port ${PORT} is already in use.`);
+      console.error('  Run: lsof -ti :4000 | xargs kill -9');
+      console.error('  Or restart with: npm run dev (predev will free the port)\n');
+      process.exit(1);
+    }
+    throw err;
   });
 };
 

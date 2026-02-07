@@ -303,9 +303,10 @@ export const courseValidation = [
     .isUUID()
     .withMessage('Category ID must be a valid UUID'),
   body('videoUrl')
-    .optional()
+    .optional({ values: 'falsy' })
+    .trim()
     .isURL()
-    .withMessage('Video URL must be a valid URL'),
+    .withMessage('Video URL must be a valid URL (e.g. YouTube)'),
 ];
 
 export const courseFilterValidation = [
