@@ -537,9 +537,11 @@ function getFrontendUrl(req) {
       const originUrl = new URL(origin);
       // Only use if it's a known production domain or matches CORS origins
       const allowedDomains = [
+        'sanskarvastu.com',
         'vaastu-lms-dp.vercel.app',
         'vaastulms.vercel.app',
         'aacharyarajbabu.vercel.app',
+        'localhost',
         'localhost:3000',
         'localhost:3001',
       ];
@@ -558,9 +560,11 @@ function getFrontendUrl(req) {
     try {
       const refererUrl = new URL(referer);
       const allowedDomains = [
+        'sanskarvastu.com',
         'vaastu-lms-dp.vercel.app',
         'vaastulms.vercel.app',
         'aacharyarajbabu.vercel.app',
+        'localhost',
         'localhost:3000',
         'localhost:3001',
       ];
@@ -670,7 +674,8 @@ export const googleCallback = asyncHandler(async (req, res) => {
     return redirectToLogin('Google sign-in failed');
   }
   const profile = await userInfoRes.json();
-  const email = profile.email?.trim?.() || profile.email;
+  const googleId = profile.id ? String(profile.id) : null;
+  const email = (profile.email && profile.email.trim) ? profile.email.trim() : (profile.email || '');
   const name = profile.name;
   const picture = profile.picture;
 
@@ -678,7 +683,13 @@ export const googleCallback = asyncHandler(async (req, res) => {
     return redirectToLogin('Google account has no email');
   }
 
-  let user = await prisma.user.findUnique({ where: { email } });
+  let user = null;
+  if (googleId) {
+    user = await prisma.user.findUnique({ where: { googleId } });
+  }
+  if (!user) {
+    user = await prisma.user.findUnique({ where: { email } });
+  }
 
   if (!user) {
     const randomPassword = crypto.randomBytes(32).toString('hex');
@@ -690,6 +701,7 @@ export const googleCallback = asyncHandler(async (req, res) => {
         fullName: name || email.split('@')[0],
         profileImage: picture || null,
         isEmailVerified: true,
+        googleId: googleId || null,
       },
     });
   } else {
@@ -699,6 +711,7 @@ export const googleCallback = asyncHandler(async (req, res) => {
     await prisma.user.update({
       where: { id: user.id },
       data: {
+        ...(googleId && !user.googleId && { googleId }),
         ...(name && user.fullName !== name && { fullName: name }),
         ...(picture && user.profileImage !== picture && { profileImage: picture }),
       },

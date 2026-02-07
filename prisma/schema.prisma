@@ -188,6 +188,7 @@ model User {
   fullName        String  @db.VarChar(255)
   profileImage    String? @db.VarChar(500)
   phone           String? @db.VarChar(50)
+  googleId        String? @unique @db.VarChar(255)
   role            Role    @default(USER)
   isEmailVerified Boolean @default(false)
   isActive        Boolean @default(true)
