@@ -1,4 +1,7 @@
 name: vaastu-lms-backend
+# Use new Node buildpack so package.json "engines": { "node": ">=20" } is respected (removes AWS SDK Node 18 deprecation warning)
+features:
+- new-nodejs-buildpack=true
 services:
 - name: api
   source_dir: /
