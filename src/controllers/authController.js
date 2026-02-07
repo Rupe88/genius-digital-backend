@@ -727,10 +727,35 @@ export const googleCallback = asyncHandler(async (req, res) => {
   const hash = new URLSearchParams({
     accessToken: accessTokenJwt,
     refreshToken: refreshTokenJwt,
-    ...(state && { state }),
   }).toString();
-  const frontendUrl = getFrontendUrl(req);
-  const redirectTo = `${frontendUrl.replace(/\/$/, '')}/login#${hash}`;
+
+  // Prefer frontend URL from state (so local dev redirects back to localhost, not production)
+  const allowedFrontendHosts = [
+    'localhost',
+    '127.0.0.1',
+    'sanskarvastu.com',
+    'www.sanskarvastu.com',
+    'vaastu-lms-dp.vercel.app',
+    'vaastulms.vercel.app',
+    'aacharyarajbabu.vercel.app',
+  ];
+  let frontendBase = getFrontendUrl(req);
+  if (state && typeof state === 'string') {
+    try {
+      const stateUrl = new URL(state);
+      const scheme = stateUrl.protocol.replace(':', '');
+      const host = stateUrl.hostname || '';
+      const isAllowed =
+        (scheme === 'http' || scheme === 'https') &&
+        (allowedFrontendHosts.some((h) => host === h || host.endsWith('.' + h)));
+      if (isAllowed) {
+        frontendBase = stateUrl.origin;
+      }
+    } catch (_) {
+      // ignore invalid state
+    }
+  }
+  const redirectTo = `${frontendBase.replace(/\/$/, '')}/login#${hash}`;
   res.redirect(302, redirectTo);
 });
 
