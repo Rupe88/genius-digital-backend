@@ -1,6 +1,7 @@
 import { prisma } from '../config/database.js';
 import { validationResult } from 'express-validator';
 import { generateSlug } from '../utils/helpers.js';
+import { isS3Configured, isOurS3Url } from '../services/s3Service.js';
 
 /**
  * Get all courses with filtering
@@ -436,6 +437,20 @@ export const getCourseById = async (req, res, next) => {
       });
     }
 
+    // Secure streaming: S3 videos get stream path (no direct URL). Frontend gets token and uses stream URL.
+    if (isS3Configured()) {
+      if (course.videoUrl && isOurS3Url(course.videoUrl)) {
+        course.videoUrl = `/api/media/stream/course/${course.id}/promo`;
+      }
+      if (course.lessons?.length) {
+        for (const lesson of course.lessons) {
+          if (lesson.videoUrl && isOurS3Url(lesson.videoUrl)) {
+            lesson.videoUrl = `/api/media/stream/lesson/${lesson.id}`;
+          }
+        }
+      }
+    }
+
     res.json({
       success: true,
       data: {
@@ -456,10 +471,12 @@ export const createCourse = async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      const errList = errors.array();
+      console.warn('[Course create] Validation failed:', errList.map((e) => ({ param: e.param, msg: e.msg })));
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
-        errors: errors.array(),
+        errors: errList.map((e) => ({ param: e.param, path: e.param, msg: e.msg, message: e.msg })),
       });
     }
 
@@ -489,7 +506,10 @@ export const createCourse = async (req, res, next) => {
     } = req.body;
 
     // Video: use uploaded file URL (S3) or YouTube link from body (optional)
-    const videoUrl = req.cloudinary?.videoUrl || (bodyVideoUrl && String(bodyVideoUrl).trim()) || null;
+    const videoUrl = req.cloudinary?.videoUrl ?? ((bodyVideoUrl && String(bodyVideoUrl).trim()) || null);
+    if (req.cloudinary?.videoUrl) {
+      console.log('[Course create] Using uploaded video URL:', req.cloudinary.videoUrl);
+    }
 
     // Generate slug if not provided
     let finalSlug = slug;
@@ -576,11 +596,11 @@ export const createCourse = async (req, res, next) => {
           slug: finalSlug,
           description,
           shortDescription,
-          thumbnail: req.cloudinary?.url || thumbnail,
+          thumbnail: req.cloudinary?.url ?? thumbnail ?? null,
           price: price ? parseFloat(price) : 0,
           originalPrice: originalPrice ? parseFloat(originalPrice) : null,
           isFree: isFree === true || isFree === 'true',
-          status: status || 'DRAFT',
+          status: status || 'PUBLISHED',
           level,
           duration: duration ? parseInt(duration) : null,
           language: language || 'en',
@@ -591,7 +611,7 @@ export const createCourse = async (req, res, next) => {
           tags,
           learningOutcomes: parsedLearningOutcomes,
           skills: parsedSkills,
-          videoUrl,
+          videoUrl: videoUrl || null,
           instructorId,
           categoryId: categoryId || null,
         },
@@ -668,9 +688,12 @@ export const updateCourse = async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      const errList = errors.array();
+      console.warn('[Course update] Validation failed:', errList.map((e) => ({ param: e.param, msg: e.msg })));
       return res.status(400).json({
         success: false,
-        errors: errors.array(),
+        message: 'Validation failed',
+        errors: errList.map((e) => ({ param: e.param, path: e.param, msg: e.msg, message: e.msg })),
       });
     }
 
@@ -756,7 +779,7 @@ export const updateCourse = async (req, res, next) => {
     if (status) updateData.status = status;
     if (level !== undefined) updateData.level = level;
     if (duration !== undefined) updateData.duration = duration ? parseInt(duration) : null;
-    if (language) updateData.language = language;
+    if (language !== undefined) updateData.language = language || 'en';
     if (featured !== undefined) updateData.featured = featured === true || featured === 'true';
     if (isOngoing !== undefined) updateData.isOngoing = isOngoing === true || isOngoing === 'true';
     if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null;
@@ -836,6 +859,7 @@ export const updateCourse = async (req, res, next) => {
     // Video: uploaded file URL (S3) or YouTube link from body, or clear
     if (req.cloudinary?.videoUrl) {
       updateData.videoUrl = req.cloudinary.videoUrl;
+      console.log('[Course update] Using uploaded video URL:', req.cloudinary.videoUrl);
     } else if (videoUrl !== undefined) {
       updateData.videoUrl = (String(videoUrl).trim() || null);
     }

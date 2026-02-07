@@ -31,6 +31,24 @@ export const verifyAccessToken = (token) => {
   }
 };
 
+/** Short-lived token for secure video stream URL (no auth header needed on <video src>) */
+const VIDEO_TOKEN_EXPIRY = process.env.VIDEO_STREAM_TOKEN_EXPIRY || '1h';
+
+export const generateVideoStreamToken = (payload) => {
+  return jwt.sign(payload, config.jwtSecret, { expiresIn: VIDEO_TOKEN_EXPIRY });
+};
+
+export const verifyVideoStreamToken = (token) => {
+  try {
+    return jwt.verify(token, config.jwtSecret);
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      throw new Error('Video link expired');
+    }
+    throw new Error('Invalid video link');
+  }
+};
+
 export const verifyRefreshToken = (token) => {
   try {
     return jwt.verify(token, config.jwtRefreshSecret);

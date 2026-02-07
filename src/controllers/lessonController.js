@@ -1,7 +1,7 @@
 import { prisma } from '../config/database.js';
-
 import { validationResult } from 'express-validator';
 import { generateSlug } from '../utils/helpers.js';
+import { isS3Configured, isOurS3Url } from '../services/s3Service.js';
 
 
 /**
@@ -92,8 +92,14 @@ export const getCourseLessons = async (req, res, next) => {
       allLessons.push(processLesson(lesson, false));
     });
 
-    // Sort all lessons by order if needed, but they are already ordered within their groups
-    // If you want a global order, you might need a secondary sort here
+    // Secure streaming: S3 videos get stream path. Frontend gets token and uses stream URL.
+    if (isS3Configured()) {
+      allLessons.forEach((lesson) => {
+        if (lesson.videoUrl && isOurS3Url(lesson.videoUrl)) {
+          lesson.videoUrl = `/api/media/stream/lesson/${lesson.id}`;
+        }
+      });
+    }
 
     res.json({
       success: true,
@@ -156,6 +162,11 @@ export const getLessonById = async (req, res, next) => {
         success: false,
         message: 'Please enroll in the course to access this lesson',
       });
+    }
+
+    // Secure streaming: S3 video gets stream path. Frontend gets token and uses stream URL.
+    if (isS3Configured() && lesson.videoUrl && isOurS3Url(lesson.videoUrl)) {
+      lesson.videoUrl = `/api/media/stream/lesson/${lesson.id}`;
     }
 
     res.json({

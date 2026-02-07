@@ -46,6 +46,7 @@ import reviewRoutes from './routes/reviewRoutes.js';
 import studentSuccessRoutes from './routes/studentSuccessRoutes.js';
 import testimonialRoutes from './routes/testimonialRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import mediaRoutes from './routes/mediaRoutes.js';
 import wishlistRoutes from './routes/wishlistRoutes.js';
 
 const app = express();
@@ -53,34 +54,32 @@ const app = express();
 // Trust first proxy (for x-forwarded-proto / x-forwarded-host behind DigitalOcean, etc.)
 app.set('trust proxy', 1);
 
-// Security middleware
-app.use(helmet());
+// Security middleware – allow cross-origin so frontend (e.g. :3000) can load API media (e.g. :4000)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
-// CORS configuration
+// CORS configuration – allow frontend and any *.vercel.app
+const allowedOrigins = new Set([
+  ...(config.corsOrigins || []),
+  'https://vaastu-lms-dp.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:3001',
+]);
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  if (config.nodeEnv === 'development') return true;
+  if (allowedOrigins.has(origin)) return true;
+  if (origin.endsWith('.vercel.app')) return true;
+  return false;
+}
 app.use(
     cors({
         origin: (origin, callback) => {
-            // Development: allow all origins (browser, Postman, file://, etc.)
-            if (config.nodeEnv === 'development') {
+            if (isOriginAllowed(origin)) {
                 return callback(null, true);
             }
-
-            // No origin (Postman, curl, mobile apps)
-            if (!origin) {
-                return callback(null, true);
-            }
-
-            // Allowed list
-            if (config.corsOrigins.includes(origin)) {
-                return callback(null, true);
-            }
-
-            // Any Vercel subdomain
-            if (origin.endsWith('.vercel.app')) {
-                return callback(null, true);
-            }
-
-            console.warn(`CORS blocked origin: ${origin}. Allowed:`, config.corsOrigins);
+            console.warn(`CORS blocked origin: ${origin}. Allowed:`, [...allowedOrigins]);
             callback(new Error('Not allowed by CORS'));
         },
         credentials: true,
@@ -91,6 +90,16 @@ app.use(
         optionsSuccessStatus: 204,
     })
 );
+
+// Ensure CORS headers are on res for all responses (e.g. 413/500 from body parser or errors)
+app.use((req, res, next) => {
+  const origin = req.get('origin');
+  if (origin && isOriginAllowed(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+  next();
+});
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -140,6 +149,7 @@ const apiRoutes = [
   ['instructors', instructorRoutes],
   ['lessons', lessonRoutes],
   ['live-classes', liveClassRoutes],
+  ['media', mediaRoutes],
   ['newsletter', newsletterRoutes],
   ['notifications', notificationRoutes],
   ['orders', orderRoutes],

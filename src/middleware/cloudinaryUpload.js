@@ -1,5 +1,16 @@
+/**
+ * Multipart upload middleware. Course/lesson thumbnails and videos use S3 only (s3Service).
+ * req.cloudinary is the conventional name for upload results (url, videoUrl, etc.).
+ */
 import multer from 'multer';
+import { config } from '../config/env.js';
 import { uploadImage, uploadVideo, uploadDocument } from '../services/s3Service.js';
+
+// Upload limits from config (bytes). Use max of all so multer accepts any allowed type up to video limit.
+const imageMaxBytes = (config.upload?.imageMaxMb ?? 10) * 1024 * 1024;
+const videoMaxBytes = (config.upload?.videoMaxMb ?? 3072) * 1024 * 1024;
+const documentMaxBytes = (config.upload?.documentMaxMb ?? 50) * 1024 * 1024;
+const multerFileSizeLimit = Math.max(imageMaxBytes, videoMaxBytes, documentMaxBytes);
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
@@ -27,7 +38,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB
+    fileSize: multerFileSizeLimit,
   },
   fileFilter,
 });
@@ -99,12 +110,11 @@ export const processImageUpload = async (req, res, next) => {
       });
     }
 
-    // Validate file size (max 10MB for images)
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = imageMaxBytes;
     if (req.file.buffer.length > maxSize) {
       return res.status(400).json({
         success: false,
-        message: 'File size exceeds 10MB limit',
+        message: `File size exceeds ${config.upload?.imageMaxMb ?? 10}MB limit for images`,
       });
     }
 
@@ -176,11 +186,10 @@ export const processMultipleImagesUpload = async (req, res, next) => {
     }
 
     const folder = req.body.folder || 'lms/gallery';
+    const maxSize = imageMaxBytes;
     const uploadPromises = req.files.map(async (file) => {
-      // Validate file size (max 10MB for gallery images)
-      const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) {
-        throw new Error(`File ${file.originalname} exceeds 10MB limit`);
+        throw new Error(`File ${file.originalname} exceeds ${config.upload?.imageMaxMb ?? 10}MB limit`);
       }
 
       const result = await uploadImage(file.buffer, {
@@ -226,28 +235,27 @@ export const processVideoUpload = async (req, res, next) => {
       });
     }
 
-    // Validate file size (max 100MB for videos)
-    const maxSize = 100 * 1024 * 1024; // 100MB
+    const maxSize = videoMaxBytes;
     if (req.file.buffer.length > maxSize) {
       return res.status(400).json({
         success: false,
-        message: 'File size exceeds 100MB limit',
+        message: `File size exceeds ${config.upload?.videoMaxMb ?? 3072}MB limit for videos`,
       });
     }
 
     const folder = req.body.folder || 'lms/videos';
+    const timeoutMs = config.upload?.videoUploadTimeoutMs ?? 600000; // 10 min default
 
-    console.log(`Uploading video to S3 folder: ${folder}, size: ${req.file.buffer.length} bytes`);
+    console.log(`Uploading video to S3 folder: ${folder}, size: ${req.file.buffer.length} bytes, timeout: ${timeoutMs / 1000}s`);
 
-    // Add timeout to prevent hanging (60 seconds for videos)
     const uploadPromise = uploadVideo(req.file.buffer, {
       folder,
     });
 
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
-        reject(new Error('Video upload timed out after 60 seconds'));
-      }, 60000);
+        reject(new Error(`Video upload timed out after ${timeoutMs / 1000} seconds`));
+      }, timeoutMs);
     });
 
     const result = await Promise.race([uploadPromise, timeoutPromise]);
@@ -301,12 +309,11 @@ export const processDocumentUpload = async (req, res, next) => {
       });
     }
 
-    // Validate file size (max 50MB for documents)
-    const maxSize = 50 * 1024 * 1024; // 50MB
+    const maxSize = documentMaxBytes;
     if (req.file.buffer.length > maxSize) {
       return res.status(400).json({
         success: false,
-        message: 'File size exceeds 50MB limit',
+        message: `File size exceeds ${config.upload?.documentMaxMb ?? 50}MB limit for documents`,
       });
     }
 
@@ -335,39 +342,49 @@ export const processDocumentUpload = async (req, res, next) => {
 
 /**
  * Course create/update: thumbnail (image) + optional video file.
- * Expects req.files.thumbnail[0] and/or req.files.video[0].
+ * Uses S3 only (uploadImage/uploadVideo from s3Service). Expects req.files.thumbnail[0] and/or req.files.video[0].
  */
 export const processCourseFiles = async (req, res, next) => {
   try {
     if (!req.files) return next();
 
+    req.cloudinary = req.cloudinary || {};
+
     if (req.files.thumbnail && req.files.thumbnail[0]) {
       const file = req.files.thumbnail[0];
       if (Buffer.isBuffer(file.buffer) && file.buffer.length > 0) {
-        const maxSize = 10 * 1024 * 1024;
-        if (file.buffer.length > maxSize) {
-          return res.status(400).json({ success: false, message: 'Thumbnail exceeds 10MB limit' });
+        if (file.buffer.length > imageMaxBytes) {
+          return res.status(400).json({ success: false, message: `Thumbnail exceeds ${config.upload?.imageMaxMb ?? 10}MB limit` });
         }
+        console.log('[Course upload] Uploading thumbnail to S3, size:', file.buffer.length);
         const result = await uploadImage(file.buffer, { folder: req.body.folder || 'lms/images', mimeType: file.mimetype });
-        req.cloudinary = { ...(req.cloudinary || {}), url: result.secure_url, publicId: result.public_id };
+        req.cloudinary.url = result.secure_url;
+        req.cloudinary.publicId = result.public_id;
+        console.log('[Course upload] Thumbnail S3 URL:', result.secure_url);
       }
     }
 
     if (req.files.video && req.files.video[0]) {
       const file = req.files.video[0];
       if (Buffer.isBuffer(file.buffer) && file.buffer.length > 0) {
-        const maxSize = 100 * 1024 * 1024;
-        if (file.buffer.length > maxSize) {
-          return res.status(400).json({ success: false, message: 'Video exceeds 100MB limit' });
+        if (file.buffer.length > videoMaxBytes) {
+          return res.status(400).json({ success: false, message: `Video exceeds ${config.upload?.videoMaxMb ?? 3072}MB limit` });
         }
-        const result = await uploadVideo(file.buffer, { folder: req.body.folder || 'lms/videos', mimeType: file.mimetype });
-        req.cloudinary = { ...(req.cloudinary || {}), videoUrl: result.secure_url };
+        const videoTimeoutMs = config.upload?.videoUploadTimeoutMs ?? 600000;
+        console.log('[Course upload] Uploading video to S3, size:', file.buffer.length);
+        const uploadPromise = uploadVideo(file.buffer, { folder: req.body.folder || 'lms/videos', mimeType: file.mimetype });
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Video upload timed out after ${videoTimeoutMs / 1000}s`)), videoTimeoutMs)
+        );
+        const result = await Promise.race([uploadPromise, timeoutPromise]);
+        req.cloudinary.videoUrl = result.secure_url;
+        console.log('[Course upload] Video S3 URL:', result.secure_url);
       }
     }
 
     next();
   } catch (error) {
-    console.error('Course files upload error:', error);
+    console.error('[Course upload] S3 upload error:', error);
     next(error);
   }
 };
@@ -381,13 +398,19 @@ export const processLessonFiles = async (req, res, next) => {
       return next();
     }
 
-    // Handle video upload
+    // Handle video upload (same size limit as multer; timeout for large files)
     if (req.files.video && req.files.video[0]) {
       const videoFile = req.files.video[0];
-      console.log(`Uploading lesson video: ${videoFile.originalname}`);
-      const result = await uploadVideo(videoFile.buffer, {
+      console.log(`Uploading lesson video: ${videoFile.originalname}, size: ${videoFile.buffer?.length ?? 0} bytes`);
+      const videoTimeoutMs = config.upload?.videoUploadTimeoutMs ?? 600000;
+      const uploadPromise = uploadVideo(videoFile.buffer, {
         folder: req.body.folder || 'lms/videos',
+        mimeType: videoFile.mimetype,
       });
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Video upload timed out after ${videoTimeoutMs / 1000}s`)), videoTimeoutMs)
+      );
+      const result = await Promise.race([uploadPromise, timeoutPromise]);
       req.cloudinary = {
         ...(req.cloudinary || {}),
         videoUrl: result.secure_url,

@@ -45,10 +45,22 @@ export const errorHandler = (err, req, res, next) => {
     method: req.method,
   });
 
+  // Ensure CORS headers on error responses so browser can read the response
+  const origin = req.get('origin');
+  if (origin && (config.corsOrigins?.includes(origin) || origin.endsWith('.vercel.app'))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
   res.status(statusCode).json(response);
 };
 
 export const notFoundHandler = (req, res, next) => {
+  const origin = req.get('origin');
+  if (origin && (config.corsOrigins?.includes(origin) || origin.endsWith('.vercel.app'))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
   res.status(404).json({
     success: false,
     message: `Route ${req.originalUrl} not found`,
