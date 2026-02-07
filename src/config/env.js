@@ -55,15 +55,20 @@ export const config = {
   },
 
   // S3-compatible storage (Kailesh Cloud / DataHub S3) - images, videos, documents
-  s3: {
-    endpoint: process.env.S3_ENDPOINT?.trim() || 'https://s3-np1.datahub.com.np',
-    region: process.env.S3_REGION?.trim() || 'us-east-1',
-    bucket: process.env.S3_BUCKET?.trim() || 'vaastu-lms',
-    accessKey: process.env.S3_ACCESS_KEY?.trim() || null,
-    secretKey: process.env.S3_SECRET_KEY?.trim() || null,
-    // Public base URL for stored files (default: endpoint/bucket for path-style)
-    publicUrl: process.env.S3_PUBLIC_URL?.trim() || null,
-  },
+  // Production: set S3_ACCESS_KEY, S3_SECRET_KEY, S3_BUCKET (and optionally S3_ENDPOINT, S3_REGION, S3_PUBLIC_URL)
+  s3: (() => {
+    const trimSecret = (s) => (typeof s === 'string' ? s.replace(/\r\n|\r|\n/g, '').trim() : s || null);
+    const endpointRaw = process.env.S3_ENDPOINT?.trim() || 'https://s3-np1.datahub.com.np';
+    const endpoint = endpointRaw.startsWith('http') ? endpointRaw : `https://${endpointRaw}`;
+    return {
+      endpoint: endpoint.replace(/\/$/, ''),
+      region: process.env.S3_REGION?.trim() || 'us-east-1',
+      bucket: process.env.S3_BUCKET?.trim() || 'vaastu-lms',
+      accessKey: trimSecret(process.env.S3_ACCESS_KEY) || null,
+      secretKey: trimSecret(process.env.S3_SECRET_KEY) || null,
+      publicUrl: process.env.S3_PUBLIC_URL?.trim() || null,
+    };
+  })(),
 
   // Payment Gateways
   esewa: {

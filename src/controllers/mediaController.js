@@ -268,6 +268,15 @@ export const streamImage = async (req, res, next) => {
       else res.destroy();
     });
   } catch (error) {
+    const isSignatureMismatch = error?.name === 'SignatureDoesNotMatch' ||
+      (error?.message && String(error.message).includes('signature we calculated does not match'));
+    if (isSignatureMismatch) {
+      console.error(
+        'S3 SignatureDoesNotMatch: Check S3_ACCESS_KEY and S3_SECRET_KEY in production. ' +
+        'Ensure the secret is set exactly (no extra spaces, no quotes around the value). ' +
+        'If the secret contains = or /, set it as an encrypted env var and paste the full string.'
+      );
+    }
     next(error);
   }
 };

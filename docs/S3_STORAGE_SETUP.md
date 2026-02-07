@@ -36,13 +36,28 @@ If you keep the bucket private, you would need to implement **signed URLs** in t
 
 ## Production (DigitalOcean)
 
-In **App Platform** → your app → **Settings** → **Environment Variables**, set:
+**If these are not set in production, course thumbnails and videos will not load** (image/video proxy will return "Image not available").
 
-- `S3_ACCESS_KEY` (SECRET)
-- `S3_SECRET_KEY` (SECRET)
-- `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET` (can be set in `.do/app.yaml` or in dashboard)
+In **App Platform** → your app → **Settings** → **Environment Variables**, add:
 
-Redeploy after adding the variables.
+| Variable | Value | Notes |
+|----------|--------|--------|
+| `S3_ACCESS_KEY` | Your DataHub access key | Mark as **Encrypted** (SECRET) |
+| `S3_SECRET_KEY` | Your DataHub secret key | Mark as **Encrypted** (SECRET) |
+| `S3_ENDPOINT` | `https://s3-np1.datahub.com.np` or `s3-np1.datahub.com.np` | Optional; default is https |
+| `S3_REGION` | `us-east-1` | Optional |
+| `S3_BUCKET` | `vaastu-lms` | Optional if you use this bucket name |
+
+Redeploy the app after saving. Then test a course page; thumbnails and video streams should load via the backend proxy.
+
+### Troubleshooting: "SignatureDoesNotMatch"
+
+If logs show `The request signature we calculated does not match the signature you provided`:
+
+1. **Secret key must be exact** – In DigitalOcean, set `S3_SECRET_KEY` as an **Encrypted** variable and paste the full secret with no leading/trailing spaces. Do not wrap the value in quotes.
+2. **Special characters** – If the secret contains `=` or `/`, some dashboards can truncate or alter it. Paste the entire string; if it still fails, create a new access key in DataHub and set the new secret.
+3. **Access key** – Ensure `S3_ACCESS_KEY` matches the key that belongs to the secret (no spaces, correct case).
+4. **Redeploy** – After changing env vars, redeploy the app so the new values are loaded.
 
 ## Frontend
 
