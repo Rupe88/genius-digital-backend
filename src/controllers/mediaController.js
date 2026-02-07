@@ -153,10 +153,26 @@ export const streamLessonVideo = async (req, res, next) => {
     const key = getS3KeyFromStoredUrl(lesson.videoUrl);
     if (!key) return res.status(404).json({ success: false, message: 'Video not found' });
 
-    const range = req.headers.range || null;
-    const { stream, contentLength, contentType, contentRange } = await getObjectStream(key, range);
+    let stream; let contentLength; let contentType; let contentRange;
+    try {
+      const range = req.headers.range || null;
+      const result = await getObjectStream(key, range);
+      stream = result.stream;
+      contentLength = result.contentLength;
+      contentType = result.contentType;
+      contentRange = result.contentRange;
+    } catch (s3Err) {
+      console.error('Lesson stream S3 getObject failed:', key, s3Err?.message || s3Err);
+      return res.status(502).json({ success: false, message: 'Video unavailable. Try again later.' });
+    }
 
-    res.setHeader('Content-Type', contentType);
+    const origin = req.get('origin');
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+    }
+    const type = (contentType && contentType !== 'application/octet-stream') ? contentType : (key.toLowerCase().endsWith('.mp4') ? 'video/mp4' : 'video/mp4');
+    res.setHeader('Content-Type', type);
     res.setHeader('Accept-Ranges', 'bytes');
 
     if (contentRange) {
@@ -168,7 +184,8 @@ export const streamLessonVideo = async (req, res, next) => {
     }
 
     stream.pipe(res);
-    stream.on('error', () => {
+    stream.on('error', (err) => {
+      console.error('Lesson stream pipe error:', err?.message || err);
       if (!res.headersSent) res.status(500).json({ success: false, message: 'Stream error' });
       else res.destroy();
     });
@@ -190,7 +207,7 @@ export const streamCoursePromo = async (req, res, next) => {
     let decoded;
     try {
       decoded = verifyVideoStreamToken(token);
-    } catch {
+    } catch (err) {
       return res.status(403).json({ success: false, message: 'Video link expired or invalid' });
     }
     if (decoded.type !== 'promo' || decoded.courseId !== courseId) {
@@ -211,10 +228,26 @@ export const streamCoursePromo = async (req, res, next) => {
     const key = getS3KeyFromStoredUrl(course.videoUrl);
     if (!key) return res.status(404).json({ success: false, message: 'Video not found' });
 
-    const range = req.headers.range || null;
-    const { stream, contentLength, contentType, contentRange } = await getObjectStream(key, range);
+    let stream; let contentLength; let contentType; let contentRange;
+    try {
+      const range = req.headers.range || null;
+      const result = await getObjectStream(key, range);
+      stream = result.stream;
+      contentLength = result.contentLength;
+      contentType = result.contentType;
+      contentRange = result.contentRange;
+    } catch (s3Err) {
+      console.error('Promo stream S3 getObject failed:', key, s3Err?.message || s3Err);
+      return res.status(502).json({ success: false, message: 'Video unavailable. Try again later.' });
+    }
 
-    res.setHeader('Content-Type', contentType);
+    const origin = req.get('origin');
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+    }
+    const type = (contentType && contentType !== 'application/octet-stream') ? contentType : (key.toLowerCase().endsWith('.mp4') ? 'video/mp4' : 'video/mp4');
+    res.setHeader('Content-Type', type);
     res.setHeader('Accept-Ranges', 'bytes');
 
     if (contentRange) {
@@ -226,7 +259,8 @@ export const streamCoursePromo = async (req, res, next) => {
     }
 
     stream.pipe(res);
-    stream.on('error', () => {
+    stream.on('error', (err) => {
+      console.error('Promo stream pipe error:', err?.message || err);
       if (!res.headersSent) res.status(500).json({ success: false, message: 'Stream error' });
       else res.destroy();
     });
