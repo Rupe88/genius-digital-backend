@@ -52,7 +52,7 @@ export const sendOTPSms = async (phone, otp) => {
     console.warn('[SMS] SPARROW_SMS_FROM not set. Please set a valid sender ID in .env (SPARROW_SMS_FROM=YourSenderID)');
     return { success: false, message: 'SMS sender ID not configured. Please contact administrator.' };
   }
-  const text = `Your verification code is ${otp}. Valid for 5 minutes. - ${config.appName}`;
+  const text = `you otp is: ${otp}. Valid for 5 minutes. - ${config.appName}`;
 
   try {
     const params = new URLSearchParams({ token, from, to, text });
