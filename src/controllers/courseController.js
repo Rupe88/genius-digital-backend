@@ -595,7 +595,7 @@ export const createCourse = async (req, res, next) => {
           price: price ? parseFloat(price) : 0,
           originalPrice: originalPrice ? parseFloat(originalPrice) : null,
           isFree: isFree === true || isFree === 'true',
-          status: status || 'DRAFT',
+          status: status || 'PUBLISHED',
           level,
           duration: duration ? parseInt(duration) : null,
           language: language || 'en',
