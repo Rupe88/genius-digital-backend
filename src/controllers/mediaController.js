@@ -255,6 +255,8 @@ export const streamImage = async (req, res, next) => {
     res.setHeader('Content-Type', contentType || 'image/png');
     res.setHeader('Cache-Control', 'public, max-age=86400'); // 24h
     res.setHeader('Content-Length', contentLength);
+    // Allow cross-origin use (frontend on :3000 loading images from API on :4000)
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     stream.pipe(res);
     stream.on('error', () => {
       if (!res.headersSent) res.status(500).json({ success: false, message: 'Stream error' });

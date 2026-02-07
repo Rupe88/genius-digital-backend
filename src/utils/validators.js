@@ -206,24 +206,34 @@ export const courseValidation = [
     .isLength({ min: 1, max: 255 })
     .withMessage('Title must be between 1 and 255 characters'),
   body('slug')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isLength({ min: 1, max: 255 })
     .withMessage('Slug must be between 1 and 255 characters')
     .matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     .withMessage('Slug must be URL-friendly (lowercase letters, numbers, and hyphens only)'),
-  body('description').optional().isString().withMessage('Description must be a string'),
+  body('description').optional({ checkFalsy: true }).isString().withMessage('Description must be a string'),
   body('shortDescription')
-    .optional()
+    .optional({ checkFalsy: true })
     .isLength({ max: 500 })
     .withMessage('Short description must be less than 500 characters'),
-  body('thumbnail').optional().isString().isURL().withMessage('Thumbnail must be a valid URL'),
+  body('thumbnail')
+    .optional()
+    .custom((value, { req }) => {
+      if (value == null || value === '') return true;
+      if (req.files?.thumbnail?.length) return true;
+      if (typeof value === 'string' && /^https?:\/\//i.test(value)) return true;
+      return false;
+    })
+    .withMessage('Thumbnail must be a valid URL or upload a file'),
   body('price')
     .optional()
+    .toFloat()
     .isFloat({ min: 0 })
     .withMessage('Price must be a positive number'),
   body('originalPrice')
     .optional()
+    .toFloat()
     .isFloat({ min: 0 })
     .withMessage('Original price must be a positive number'),
   body('learningOutcomes')
@@ -254,7 +264,10 @@ export const courseValidation = [
       return Array.isArray(value) || value === null || value === undefined;
     })
     .withMessage('Skills must be an array or JSON string'),
-  body('isFree').optional().isBoolean().withMessage('isFree must be a boolean'),
+  body('isFree')
+    .optional()
+    .custom((v) => v === true || v === false || v === 'true' || v === 'false' || v === '' || v == null)
+    .withMessage('isFree must be a boolean'),
   body('status')
     .optional()
     .isIn(['DRAFT', 'PUBLISHED', 'ARCHIVED', 'ONGOING'])
@@ -265,15 +278,22 @@ export const courseValidation = [
     .withMessage('Level must be one of: Beginner, Intermediate, Advanced'),
   body('duration')
     .optional()
+    .toInt()
     .isInt({ min: 0 })
     .withMessage('Duration must be a positive integer (minutes)'),
   body('language')
-    .optional()
+    .optional({ checkFalsy: true })
     .isString()
     .isLength({ max: 10 })
     .withMessage('Language must be a string (max 10 characters)'),
-  body('featured').optional().isBoolean().withMessage('featured must be a boolean'),
-  body('isOngoing').optional().isBoolean().withMessage('isOngoing must be a boolean'),
+  body('featured')
+    .optional()
+    .custom((v) => v === true || v === false || v === 'true' || v === 'false' || v === '' || v == null)
+    .withMessage('featured must be a boolean'),
+  body('isOngoing')
+    .optional()
+    .custom((v) => v === true || v === false || v === 'true' || v === 'false' || v === '' || v == null)
+    .withMessage('isOngoing must be a boolean'),
   body('startDate')
     .optional({ checkFalsy: true })
     .isISO8601()

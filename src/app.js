@@ -54,8 +54,10 @@ const app = express();
 // Trust first proxy (for x-forwarded-proto / x-forwarded-host behind DigitalOcean, etc.)
 app.set('trust proxy', 1);
 
-// Security middleware
-app.use(helmet());
+// Security middleware – allow cross-origin so frontend (e.g. :3000) can load API media (e.g. :4000)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
 // CORS configuration – allow frontend and any *.vercel.app
 const allowedOrigins = new Set([
