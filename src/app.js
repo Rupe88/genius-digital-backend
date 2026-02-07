@@ -46,6 +46,7 @@ import reviewRoutes from './routes/reviewRoutes.js';
 import studentSuccessRoutes from './routes/studentSuccessRoutes.js';
 import testimonialRoutes from './routes/testimonialRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import mediaRoutes from './routes/mediaRoutes.js';
 import wishlistRoutes from './routes/wishlistRoutes.js';
 
 const app = express();
@@ -146,6 +147,7 @@ const apiRoutes = [
   ['instructors', instructorRoutes],
   ['lessons', lessonRoutes],
   ['live-classes', liveClassRoutes],
+  ['media', mediaRoutes],
   ['newsletter', newsletterRoutes],
   ['notifications', notificationRoutes],
   ['orders', orderRoutes],

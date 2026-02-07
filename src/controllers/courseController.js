@@ -1,6 +1,7 @@
 import { prisma } from '../config/database.js';
 import { validationResult } from 'express-validator';
 import { generateSlug } from '../utils/helpers.js';
+import { isS3Configured, isOurS3Url } from '../services/s3Service.js';
 
 /**
  * Get all courses with filtering
@@ -434,6 +435,20 @@ export const getCourseById = async (req, res, next) => {
           completedAt: true,
         },
       });
+    }
+
+    // Secure streaming: S3 videos get stream path (no direct URL). Frontend gets token and uses stream URL.
+    if (isS3Configured()) {
+      if (course.videoUrl && isOurS3Url(course.videoUrl)) {
+        course.videoUrl = `/api/media/stream/course/${course.id}/promo`;
+      }
+      if (course.lessons?.length) {
+        for (const lesson of course.lessons) {
+          if (lesson.videoUrl && isOurS3Url(lesson.videoUrl)) {
+            lesson.videoUrl = `/api/media/stream/lesson/${lesson.id}`;
+          }
+        }
+      }
     }
 
     res.json({

@@ -3,7 +3,8 @@
  * Replaces Cloudinary for images, videos, and documents.
  */
 
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config } from '../config/env.js';
 import crypto from 'crypto';
 
@@ -29,13 +30,91 @@ function getS3Client() {
   return s3Client;
 }
 
+/** Base URL for our S3 bucket (path-style: endpoint/bucket) */
+export function getS3BaseUrl() {
+  return (config.s3.publicUrl || `${config.s3.endpoint.replace(/\/$/, '')}/${config.s3.bucket}`).replace(/\/$/, '');
+}
+
+/** Whether the URL is from our S3 bucket (used to decide stream vs direct URL) */
+export function isOurS3Url(url) {
+  if (!url || typeof url !== 'string' || !url.startsWith('http')) return false;
+  const base = getS3BaseUrl();
+  return url.startsWith(base + '/') || url.startsWith(base);
+}
+
+/** Extract S3 object key from a stored public URL (our bucket only) */
+export function getS3KeyFromStoredUrl(url) {
+  if (!isOurS3Url(url)) return null;
+  const base = getS3BaseUrl();
+  return url.slice(base.length).replace(/^\//, '');
+}
+
 /**
  * Get public URL for an object key (path-style: endpoint/bucket/key)
  */
 function getPublicUrl(key) {
-  const base = config.s3.publicUrl || `${config.s3.endpoint.replace(/\/$/, '')}/${config.s3.bucket}`;
+  const base = getS3BaseUrl();
   const cleanKey = key.startsWith('/') ? key.slice(1) : key;
   return `${base}/${cleanKey}`;
+}
+
+/**
+ * Get a pre-signed GET URL for private bucket access (e.g. video playback).
+ * @param {string} key - S3 object key
+ * @param {number} expiresIn - Seconds until URL expires (default 3600 = 1 hour)
+ * @returns {Promise<string>} Signed URL
+ */
+export async function getSignedGetUrl(key, expiresIn = 3600) {
+  const client = getS3Client();
+  const cmd = new GetObjectCommand({
+    Bucket: config.s3.bucket,
+    Key: key.startsWith('/') ? key.slice(1) : key,
+  });
+  return getSignedUrl(client, cmd, { expiresIn });
+}
+
+/**
+ * If the URL is from our S3 bucket, return a signed URL so the client can fetch it (e.g. private bucket).
+ * Otherwise return the original URL (e.g. YouTube).
+ * @param {string} url - Stored URL (public S3 or external)
+ * @param {number} expiresIn - Seconds for signed URL (default 3600)
+ * @returns {Promise<string>}
+ */
+export async function getSignedUrlForMediaUrl(url, expiresIn = 3600) {
+  if (!url || typeof url !== 'string' || !url.startsWith('http')) return url;
+  const base = getS3BaseUrl();
+  if (!url.startsWith(base + '/') && !url.startsWith(base)) return url;
+  try {
+    const key = getS3KeyFromStoredUrl(url);
+    if (!key) return url;
+    return await getSignedGetUrl(key, expiresIn);
+  } catch (err) {
+    console.warn('[S3] Signed URL failed for', url, err.message);
+    return url;
+  }
+}
+
+/**
+ * Get a readable stream from S3 for streaming (e.g. secure video). Supports Range for seeking.
+ * @param {string} key - S3 object key
+ * @param {string} [range] - Optional Range header value (e.g. "bytes=0-1023")
+ * @returns {Promise<{ stream: Readable, contentLength: number, contentType: string, contentRange?: string }>}
+ */
+export async function getObjectStream(key, range = null) {
+  const client = getS3Client();
+  const cleanKey = key.startsWith('/') ? key.slice(1) : key;
+  const cmd = new GetObjectCommand({
+    Bucket: config.s3.bucket,
+    Key: cleanKey,
+    ...(range && { Range: range }),
+  });
+  const response = await client.send(cmd);
+  return {
+    stream: response.Body,
+    contentLength: response.ContentLength ?? 0,
+    contentType: response.ContentType || 'video/mp4',
+    contentRange: response.ContentRange || undefined,
+  };
 }
 
 /**
@@ -177,5 +256,10 @@ export default {
   uploadDocument,
   deleteFile,
   getPublicUrl,
+  getSignedGetUrl,
+  getSignedUrlForMediaUrl,
+  getObjectStream,
+  isOurS3Url,
+  getS3KeyFromStoredUrl,
   isS3Configured,
 };
