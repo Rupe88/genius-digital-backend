@@ -11,7 +11,6 @@ import {
   isOurS3Url,
   getS3KeyFromStoredUrl,
   getObjectStream,
-  getSignedUrlForMediaUrl,
 } from '../services/s3Service.js';
 
 const API_BASE = process.env.API_BASE_PATH !== undefined ? process.env.API_BASE_PATH : '/api';
@@ -69,10 +68,6 @@ export const getVideoToken = async (req, res, next) => {
       if (!lesson.videoUrl) {
         return res.status(404).json({ success: false, message: 'No video for this lesson' });
       }
-      if (isS3Configured() && isOurS3Url(lesson.videoUrl)) {
-        const signedUrl = await getSignedUrlForMediaUrl(lesson.videoUrl, 3600);
-        return res.json({ success: true, url: signedUrl });
-      }
       const token = generateVideoStreamToken({ type: 'lesson', lessonId });
       const path = `${API_BASE}/media/stream/lesson/${lessonId}`;
       const url = `${base}/${path.startsWith('/') ? path.slice(1) : path}?token=${token}`;
@@ -108,10 +103,6 @@ export const getVideoToken = async (req, res, next) => {
       }
       if (!course.videoUrl) {
         return res.status(404).json({ success: false, message: 'No promo video' });
-      }
-      if (isS3Configured() && isOurS3Url(course.videoUrl)) {
-        const signedUrl = await getSignedUrlForMediaUrl(course.videoUrl, 3600);
-        return res.json({ success: true, url: signedUrl });
       }
       const token = generateVideoStreamToken({ type: 'promo', courseId: course.id });
       const path = `${API_BASE}/media/stream/course/${course.id}/promo`;
