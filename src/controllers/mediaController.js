@@ -15,6 +15,15 @@ import {
 
 const API_BASE = process.env.API_BASE_PATH !== undefined ? process.env.API_BASE_PATH : '/api';
 
+/** Get public backend base URL from request (for stream URLs so <video src> works in production). */
+function getBackendBaseUrl(req) {
+  const proto = (req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim();
+  const host = (req.get('x-forwarded-host') || req.get('host') || '').split(',')[0].trim();
+  if (!host) return config.backendUrl.replace(/\/$/, '');
+  if (host.includes('localhost')) return config.backendUrl.replace(/\/$/, '');
+  return `${proto}://${host}`.replace(/\/$/, '');
+}
+
 /**
  * GET /api/media/video-token?lessonId=xxx | ?courseId=xxx&type=promo
  * Returns a short-lived URL with token for the <video> element. Auth required.
@@ -26,6 +35,7 @@ export const getVideoToken = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Login required to watch' });
     }
 
+    const base = getBackendBaseUrl(req);
     const { lessonId, courseId, type } = req.query;
 
     if (lessonId) {
@@ -59,7 +69,6 @@ export const getVideoToken = async (req, res, next) => {
         return res.status(404).json({ success: false, message: 'No video for this lesson' });
       }
       const token = generateVideoStreamToken({ type: 'lesson', lessonId });
-      const base = config.backendUrl.replace(/\/$/, '');
       const path = `${API_BASE}/media/stream/lesson/${lessonId}`;
       const url = `${base}/${path.startsWith('/') ? path.slice(1) : path}?token=${token}`;
       return res.json({ success: true, url });
@@ -96,7 +105,6 @@ export const getVideoToken = async (req, res, next) => {
         return res.status(404).json({ success: false, message: 'No promo video' });
       }
       const token = generateVideoStreamToken({ type: 'promo', courseId: course.id });
-      const base = config.backendUrl.replace(/\/$/, '');
       const path = `${API_BASE}/media/stream/course/${course.id}/promo`;
       const url = `${base}/${path.startsWith('/') ? path.slice(1) : path}?token=${token}`;
       return res.json({ success: true, url });
