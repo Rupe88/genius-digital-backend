@@ -46,12 +46,8 @@ export const sendOTPSms = async (phone, otp) => {
   }
 
   const token = config.sparrowSms.token.trim();
-  // Sender ID must be registered/approved in Sparrow SMS (NTA-approved, max 11 chars, alphanumeric)
-  const from = config.sparrowSms.from?.trim();
-  if (!from) {
-    console.warn('[SMS] SPARROW_SMS_FROM not set. Please set a valid sender ID in .env (SPARROW_SMS_FROM=YourSenderID)');
-    return { success: false, message: 'SMS sender ID not configured. Please contact administrator.' };
-  }
+  // Sender ID: use SPARROW_SMS_FROM if set; otherwise try "OTP" (some accounts have this as default)
+  const from = (config.sparrowSms.from?.trim() || 'OTP').substring(0, 11);
   const text = `you otp is: ${otp}. Valid for 5 minutes. - ${config.appName}`;
 
   try {
@@ -67,6 +63,7 @@ export const sendOTPSms = async (phone, otp) => {
       return { success: true };
     }
     console.warn('[SMS] Sparrow API error:', response.status, data);
+    // If 1008 Invalid Sender, set SPARROW_SMS_FROM in .env to the sender ID Sparrow assigned to your account
     return { success: false, message: data.response || data.message || 'SMS send failed' };
   } catch (error) {
     console.error('[SMS] Sparrow request failed:', error.message);
