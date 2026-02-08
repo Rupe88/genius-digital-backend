@@ -3,7 +3,7 @@ import { validationResult } from 'express-validator';
 import { generateSlug } from '../utils/helpers.js';
 import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
 
-/** Replace S3 thumbnail with signed URL so browser can load directly from S3. Mutates course(s). */
+/** Replace S3 thumbnail with signed S3 URL so browser loads image directly from S3 (no backend proxy). Mutates course(s). */
 async function maskCourseThumbnail(req, course) {
   if (!isS3Configured() || !course?.thumbnail || !isOurS3Url(course.thumbnail)) return;
   try {

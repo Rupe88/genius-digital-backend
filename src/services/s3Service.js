@@ -42,11 +42,12 @@ export function isOurS3Url(url) {
   return url.startsWith(base + '/') || url.startsWith(base);
 }
 
-/** Extract S3 object key from a stored public URL (our bucket only) */
+/** Extract S3 object key from a stored public URL or signed URL (our bucket only). Strips query string. */
 export function getS3KeyFromStoredUrl(url) {
   if (!isOurS3Url(url)) return null;
   const base = getS3BaseUrl();
-  return url.slice(base.length).replace(/^\//, '');
+  const pathPart = url.split('?')[0];
+  return pathPart.slice(base.length).replace(/^\//, '');
 }
 
 /**
