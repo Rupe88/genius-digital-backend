@@ -147,7 +147,10 @@ export const streamLessonVideo = async (req, res, next) => {
 
     let stream; let contentLength; let contentType; let contentRange;
     try {
-      const range = req.headers.range || null;
+      let range = req.headers.range || null;
+      if (range && /^bytes=0-$/i.test(range.trim())) {
+        range = 'bytes=0-2097151';
+      }
       const result = await getObjectStream(key, range);
       stream = result.stream;
       contentLength = result.contentLength;
@@ -228,7 +231,10 @@ export const streamCoursePromo = async (req, res, next) => {
 
     let stream; let contentLength; let contentType; let contentRange;
     try {
-      const range = req.headers.range || null;
+      let range = req.headers.range || null;
+      if (range && /^bytes=0-$/i.test(range.trim())) {
+        range = 'bytes=0-2097151';
+      }
       const result = await getObjectStream(key, range);
       stream = result.stream;
       contentLength = result.contentLength;
