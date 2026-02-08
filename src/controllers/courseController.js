@@ -458,13 +458,17 @@ export const getCourseById = async (req, res, next) => {
       });
     }
 
-    // S3 promo: return signed URL in course so frontend can use it immediately (faster initial load, no extra video-token call).
+    // S3 promo: by default return stream path so backend serves video in chunks (play after first chunk). Set USE_SIGNED_VIDEO_URL=true for direct S3 when server cannot reach S3.
     if (isS3Configured()) {
       if (course.videoUrl && isOurS3Url(course.videoUrl)) {
-        try {
-          course.videoUrl = await getSignedUrlForMediaUrl(course.videoUrl, 3600);
-        } catch (err) {
-          console.warn('[course] Signed promo URL failed:', course.id, err?.message);
+        if (process.env.USE_SIGNED_VIDEO_URL === 'true') {
+          try {
+            course.videoUrl = await getSignedUrlForMediaUrl(course.videoUrl, 3600);
+          } catch (err) {
+            console.warn('[course] Signed promo URL failed:', course.id, err?.message);
+            course.videoUrl = `/api/media/stream/course/${course.id}/promo`;
+          }
+        } else {
           course.videoUrl = `/api/media/stream/course/${course.id}/promo`;
         }
       }

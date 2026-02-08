@@ -3,7 +3,7 @@
  * Replaces Cloudinary for images, videos, and documents.
  */
 
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config } from '../config/env.js';
 import crypto from 'crypto';
@@ -116,6 +116,22 @@ export async function getObjectStream(key, range = null) {
     contentType: response.ContentType || 'video/mp4',
     contentRange: response.ContentRange || undefined,
   };
+}
+
+/**
+ * Get object content length (for building Content-Range when SDK does not return it).
+ * @param {string} key - S3 object key
+ * @returns {Promise<number>} Total byte length of the object
+ */
+export async function getObjectContentLength(key) {
+  const client = getS3Client();
+  const cleanKey = key.startsWith('/') ? key.slice(1) : key;
+  const cmd = new HeadObjectCommand({
+    Bucket: config.s3.bucket,
+    Key: cleanKey,
+  });
+  const response = await client.send(cmd);
+  return response.ContentLength ?? 0;
 }
 
 /**

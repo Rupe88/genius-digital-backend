@@ -12,21 +12,27 @@ import {
   isOurS3Url,
   getS3KeyFromStoredUrl,
   getObjectStream,
+  getObjectContentLength,
   getSignedUrlForMediaUrl,
 } from '../services/s3Service.js';
 
 const API_BASE = process.env.API_BASE_PATH !== undefined ? process.env.API_BASE_PATH : '/api';
 
+/** First chunk size (bytes) so playback starts after this chunk instead of after full download. */
+const FIRST_CHUNK_BYTES = 3 * 1024 * 1024; // 3MB
+
 /**
  * GET /api/media/video-token?lessonId=xxx | ?courseId=xxx&type=promo
- * Returns a short-lived signed S3 URL for direct playback (browser fetches from S3).
- * Lesson: auth required. Promo: public (no auth).
+ * Returns backend stream URL so video is served in chunks (play after first chunk, not full download).
+ * Set USE_SIGNED_VIDEO_URL=true to return signed S3 URL instead (when server cannot reach S3).
+ * Lesson: login required. Promo: no login required.
  */
 export const getVideoToken = async (req, res, next) => {
   try {
     const userId = req.user?.id;
     const base = getBackendBaseUrl(req);
     const { lessonId, courseId, type } = req.query;
+    const useSignedUrl = process.env.USE_SIGNED_VIDEO_URL === 'true';
 
     if (lessonId) {
       if (!userId) {
@@ -61,12 +67,12 @@ export const getVideoToken = async (req, res, next) => {
       if (!lesson.videoUrl) {
         return res.status(404).json({ success: false, message: 'No video for this lesson' });
       }
-      if (isS3Configured() && isOurS3Url(lesson.videoUrl)) {
+      if (useSignedUrl && isS3Configured() && isOurS3Url(lesson.videoUrl)) {
         try {
           const signedUrl = await getSignedUrlForMediaUrl(lesson.videoUrl, 3600);
           return res.json({ success: true, url: signedUrl });
         } catch (err) {
-          console.error('[video-token] Signed URL failed for lesson:', err?.message);
+          console.warn('[video-token] Signed URL failed for lesson:', err?.message);
         }
       }
       const token = generateVideoStreamToken({ type: 'lesson', lessonId });
@@ -86,14 +92,14 @@ export const getVideoToken = async (req, res, next) => {
         return res.status(404).json({ success: false, message: 'Course not found' });
       }
       if (!course.videoUrl) {
-        return res.status(404).json({ success: false, message: 'No promo video' });
+        return res.status(404).json({ success: false, message: 'No preview video for this course' });
       }
-      if (isS3Configured() && isOurS3Url(course.videoUrl)) {
+      if (useSignedUrl && isS3Configured() && isOurS3Url(course.videoUrl)) {
         try {
           const signedUrl = await getSignedUrlForMediaUrl(course.videoUrl, 3600);
           return res.json({ success: true, url: signedUrl });
         } catch (err) {
-          console.error('[video-token] Signed URL failed for promo:', err?.message);
+          console.warn('[video-token] Signed URL failed for promo:', err?.message);
         }
       }
       const token = generateVideoStreamToken({ type: 'promo', courseId: course.id });
@@ -104,7 +110,7 @@ export const getVideoToken = async (req, res, next) => {
 
     return res.status(400).json({
       success: false,
-      message: 'Provide lessonId or courseId with type=promo',
+      message: 'Provide lessonId (for lessons) or courseId and type=promo (for preview video). Login not required for preview.',
     });
   } catch (error) {
     next(error);
@@ -113,22 +119,26 @@ export const getVideoToken = async (req, res, next) => {
 
 /**
  * Stream lesson video. Token in query. No auth header (so <video src> works).
+ * When server cannot reach S3, use video-token which returns signed S3 URL instead.
  */
 export const streamLessonVideo = async (req, res, next) => {
   try {
     const { lessonId } = req.params;
     const token = req.query.token;
+    if (!lessonId) {
+      return res.status(400).json({ success: false, message: 'Lesson ID is required' });
+    }
     if (!token) {
-      return res.status(401).json({ success: false, message: 'Video link required' });
+      return res.status(401).json({ success: false, message: 'Video link required. Request a new link from the course page.' });
     }
     let decoded;
     try {
       decoded = verifyVideoStreamToken(token);
     } catch {
-      return res.status(403).json({ success: false, message: 'Video link expired or invalid' });
+      return res.status(403).json({ success: false, message: 'Video link expired or invalid. Refresh the page and try again.' });
     }
     if (decoded.type !== 'lesson' || decoded.lessonId !== lessonId) {
-      return res.status(403).json({ success: false, message: 'Invalid video link' });
+      return res.status(403).json({ success: false, message: 'Invalid video link for this lesson' });
     }
 
     const lesson = await prisma.lesson.findUnique({
@@ -136,26 +146,38 @@ export const streamLessonVideo = async (req, res, next) => {
       select: { videoUrl: true },
     });
     if (!lesson?.videoUrl) {
-      return res.status(404).json({ success: false, message: 'Video not found' });
+      return res.status(404).json({ success: false, message: 'No video found for this lesson' });
     }
     if (!isS3Configured() || !isOurS3Url(lesson.videoUrl)) {
-      return res.status(400).json({ success: false, message: 'Stream not available for this video' });
+      return res.status(400).json({ success: false, message: 'Stream not available for this video. Use the course page to get a playable link.' });
     }
 
     const key = getS3KeyFromStoredUrl(lesson.videoUrl);
-    if (!key) return res.status(404).json({ success: false, message: 'Video not found' });
+    if (!key) {
+      return res.status(404).json({ success: false, message: 'Video file not found' });
+    }
 
-    let stream; let contentLength; let contentType; let contentRange;
+    let stream; let contentLength; let contentType; let contentRange; let isPartial = false;
     try {
       let range = req.headers.range || null;
-      if (range && /^bytes=0-$/i.test(range.trim())) {
-        range = 'bytes=0-2097151';
+      const rangeStr = typeof range === 'string' ? range.trim() : '';
+      if (rangeStr && /^bytes=0-$/i.test(rangeStr)) {
+        range = `bytes=0-${FIRST_CHUNK_BYTES - 1}`;
+        isPartial = true;
       }
       const result = await getObjectStream(key, range);
       stream = result.stream;
       contentLength = result.contentLength;
       contentType = result.contentType;
       contentRange = result.contentRange;
+      if (isPartial && !contentRange && contentLength > 0) {
+        try {
+          const totalSize = await getObjectContentLength(key);
+          contentRange = `bytes 0-${contentLength - 1}/${totalSize}`;
+        } catch {
+          contentRange = `bytes 0-${contentLength - 1}/*`;
+        }
+      }
     } catch (s3Err) {
       const code = s3Err?.name || s3Err?.code || 'Unknown';
       const msg = s3Err?.message || String(s3Err);
@@ -163,7 +185,10 @@ export const streamLessonVideo = async (req, res, next) => {
       if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT' || msg.includes('fetch')) {
         console.error('Server cannot reach S3. Set USE_SIGNED_VIDEO_URL=true so the browser fetches video directly.');
       }
-      return res.status(502).json({ success: false, message: 'Video unavailable. Try again later.' });
+      return res.status(502).json({
+        success: false,
+        message: 'Video temporarily unavailable. Server cannot reach storage. Refresh the page to get a direct play link.',
+      });
     }
 
     const origin = req.get('origin');
@@ -179,15 +204,15 @@ export const streamLessonVideo = async (req, res, next) => {
     if (contentRange) {
       res.status(206);
       res.setHeader('Content-Range', contentRange);
-      res.setHeader('Content-Length', contentLength);
+      res.setHeader('Content-Length', String(contentLength));
     } else {
-      res.setHeader('Content-Length', contentLength);
+      res.setHeader('Content-Length', String(contentLength));
     }
 
     stream.pipe(res);
     stream.on('error', (err) => {
       console.error('Lesson stream pipe error:', err?.message || err);
-      if (!res.headersSent) res.status(500).json({ success: false, message: 'Stream error' });
+      if (!res.headersSent) res.status(500).json({ success: false, message: 'Video stream error. Try again.' });
       else res.destroy();
     });
   } catch (error) {
@@ -196,23 +221,27 @@ export const streamLessonVideo = async (req, res, next) => {
 };
 
 /**
- * Stream course promo video. Token in query.
+ * Stream course promo video. Token in query. No login required for preview.
+ * When server cannot reach S3, video-token returns signed S3 URL so browser plays directly.
  */
 export const streamCoursePromo = async (req, res, next) => {
   try {
     const { courseId } = req.params;
     const token = req.query.token;
+    if (!courseId) {
+      return res.status(400).json({ success: false, message: 'Course ID is required' });
+    }
     if (!token) {
-      return res.status(401).json({ success: false, message: 'Video link required' });
+      return res.status(401).json({ success: false, message: 'Preview link required. Refresh the course page and click Play again.' });
     }
     let decoded;
     try {
       decoded = verifyVideoStreamToken(token);
     } catch (err) {
-      return res.status(403).json({ success: false, message: 'Video link expired or invalid' });
+      return res.status(403).json({ success: false, message: 'Preview link expired or invalid. Refresh the page and try again.' });
     }
     if (decoded.type !== 'promo' || decoded.courseId !== courseId) {
-      return res.status(403).json({ success: false, message: 'Invalid video link' });
+      return res.status(403).json({ success: false, message: 'Invalid preview link for this course' });
     }
 
     const course = await prisma.course.findFirst({
@@ -220,26 +249,38 @@ export const streamCoursePromo = async (req, res, next) => {
       select: { videoUrl: true },
     });
     if (!course?.videoUrl) {
-      return res.status(404).json({ success: false, message: 'Video not found' });
+      return res.status(404).json({ success: false, message: 'No preview video for this course' });
     }
     if (!isS3Configured() || !isOurS3Url(course.videoUrl)) {
-      return res.status(400).json({ success: false, message: 'Stream not available for this video' });
+      return res.status(400).json({ success: false, message: 'Preview not available for this video. Refresh to get a direct play link.' });
     }
 
     const key = getS3KeyFromStoredUrl(course.videoUrl);
-    if (!key) return res.status(404).json({ success: false, message: 'Video not found' });
+    if (!key) {
+      return res.status(404).json({ success: false, message: 'Preview video file not found' });
+    }
 
-    let stream; let contentLength; let contentType; let contentRange;
+    let stream; let contentLength; let contentType; let contentRange; let isPartial = false;
     try {
       let range = req.headers.range || null;
-      if (range && /^bytes=0-$/i.test(range.trim())) {
-        range = 'bytes=0-2097151';
+      const rangeStr = typeof range === 'string' ? range.trim() : '';
+      if (rangeStr && /^bytes=0-$/i.test(rangeStr)) {
+        range = `bytes=0-${FIRST_CHUNK_BYTES - 1}`;
+        isPartial = true;
       }
       const result = await getObjectStream(key, range);
       stream = result.stream;
       contentLength = result.contentLength;
       contentType = result.contentType;
       contentRange = result.contentRange;
+      if (isPartial && !contentRange && contentLength > 0) {
+        try {
+          const totalSize = await getObjectContentLength(key);
+          contentRange = `bytes 0-${contentLength - 1}/${totalSize}`;
+        } catch {
+          contentRange = `bytes 0-${contentLength - 1}/*`;
+        }
+      }
     } catch (s3Err) {
       const code = s3Err?.name || s3Err?.code || 'Unknown';
       const msg = s3Err?.message || String(s3Err);
@@ -247,7 +288,10 @@ export const streamCoursePromo = async (req, res, next) => {
       if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT' || msg.includes('fetch')) {
         console.error('Server cannot reach S3. Set USE_SIGNED_VIDEO_URL=true so the browser fetches video directly.');
       }
-      return res.status(502).json({ success: false, message: 'Video unavailable. Try again later.' });
+      return res.status(502).json({
+        success: false,
+        message: 'Preview temporarily unavailable. Server cannot reach storage. Refresh the page to get a direct play link.',
+      });
     }
 
     const origin = req.get('origin');
@@ -263,15 +307,15 @@ export const streamCoursePromo = async (req, res, next) => {
     if (contentRange) {
       res.status(206);
       res.setHeader('Content-Range', contentRange);
-      res.setHeader('Content-Length', contentLength);
+      res.setHeader('Content-Length', String(contentLength));
     } else {
-      res.setHeader('Content-Length', contentLength);
+      res.setHeader('Content-Length', String(contentLength));
     }
 
     stream.pipe(res);
     stream.on('error', (err) => {
       console.error('Promo stream pipe error:', err?.message || err);
-      if (!res.headersSent) res.status(500).json({ success: false, message: 'Stream error' });
+      if (!res.headersSent) res.status(500).json({ success: false, message: 'Preview stream error. Try again.' });
       else res.destroy();
     });
   } catch (error) {
