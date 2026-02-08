@@ -1,19 +1,23 @@
 import { prisma } from '../config/database.js';
 import { validationResult } from 'express-validator';
-import { generateSlug, getBackendBaseUrl } from '../utils/helpers.js';
-import { isS3Configured, isOurS3Url } from '../services/s3Service.js';
-import { generateImageToken } from '../services/tokenService.js';
+import { generateSlug } from '../utils/helpers.js';
+import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
 
-/** Mask S3 thumbnail with token URL so client never sees S3 URL. Mutates course( s). */
-function maskCourseThumbnail(req, course) {
-  if (isS3Configured() && course?.thumbnail && isOurS3Url(course.thumbnail)) {
-    const base = getBackendBaseUrl(req);
-    course.thumbnail = `${base}/api/media/image?token=${generateImageToken({ type: 'courseThumbnail', id: course.id })}`;
+/** Replace S3 thumbnail with signed URL so browser can load directly from S3. Mutates course(s). */
+async function maskCourseThumbnail(req, course) {
+  if (!isS3Configured() || !course?.thumbnail || !isOurS3Url(course.thumbnail)) return;
+  try {
+    course.thumbnail = await getSignedUrlForMediaUrl(course.thumbnail, 3600);
+  } catch (err) {
+    console.warn('[course] Signed thumbnail URL failed:', course.id, err?.message);
   }
 }
-function maskCoursesThumbnails(req, courses) {
-  if (Array.isArray(courses)) courses.forEach((c) => maskCourseThumbnail(req, c));
-  else if (courses) maskCourseThumbnail(req, courses);
+async function maskCoursesThumbnails(req, courses) {
+  if (Array.isArray(courses)) {
+    await Promise.all(courses.map((c) => maskCourseThumbnail(req, c)));
+  } else if (courses) {
+    await maskCourseThumbnail(req, courses);
+  }
 }
 
 /**
@@ -63,7 +67,7 @@ export const getAllCourses = async (req, res, next) => {
       prisma.course.count({ where }),
     ]);
 
-    maskCoursesThumbnails(req, courses);
+    await maskCoursesThumbnails(req, courses);
     res.json({
       success: true,
       data: courses,
@@ -276,7 +280,7 @@ export const filterCourses = async (req, res, next) => {
       prisma.course.count({ where }),
     ]);
 
-    maskCoursesThumbnails(req, courses);
+    await maskCoursesThumbnails(req, courses);
     res.json({
       success: true,
       data: courses,
@@ -319,7 +323,7 @@ export const getFeaturedCourses = async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    maskCoursesThumbnails(req, courses || []);
+    await maskCoursesThumbnails(req, courses || []);
     res.json({
       success: true,
       data: courses || [],
@@ -365,7 +369,7 @@ export const getOngoingCourses = async (req, res, next) => {
       }),
     ]);
 
-    maskCoursesThumbnails(req, courses);
+    await maskCoursesThumbnails(req, courses);
     res.json({
       success: true,
       data: courses,
@@ -466,7 +470,7 @@ export const getCourseById = async (req, res, next) => {
           }
         }
       }
-      maskCourseThumbnail(req, course);
+      await maskCourseThumbnail(req, course);
     }
 
     res.json({

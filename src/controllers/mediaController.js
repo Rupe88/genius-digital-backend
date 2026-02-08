@@ -17,13 +17,10 @@ import {
 
 const API_BASE = process.env.API_BASE_PATH !== undefined ? process.env.API_BASE_PATH : '/api';
 
-/** When true, return signed S3 URL so browser fetches directly (use if server cannot reach S3). */
-const USE_SIGNED_VIDEO_URL = process.env.USE_SIGNED_VIDEO_URL === 'true';
-
 /**
  * GET /api/media/video-token?lessonId=xxx | ?courseId=xxx&type=promo
- * Returns a short-lived URL with token for the <video> element.
- * Lesson: auth required. Promo: public (no auth) so course preview works for everyone.
+ * Returns a short-lived signed S3 URL for direct playback (browser fetches from S3).
+ * Lesson: auth required. Promo: public (no auth).
  */
 export const getVideoToken = async (req, res, next) => {
   try {
@@ -64,12 +61,12 @@ export const getVideoToken = async (req, res, next) => {
       if (!lesson.videoUrl) {
         return res.status(404).json({ success: false, message: 'No video for this lesson' });
       }
-      if (USE_SIGNED_VIDEO_URL && isS3Configured() && isOurS3Url(lesson.videoUrl)) {
+      if (isS3Configured() && isOurS3Url(lesson.videoUrl)) {
         try {
           const signedUrl = await getSignedUrlForMediaUrl(lesson.videoUrl, 3600);
           return res.json({ success: true, url: signedUrl });
         } catch (err) {
-          console.warn('[video-token] Signed URL fallback failed for lesson:', err?.message);
+          console.error('[video-token] Signed URL failed for lesson:', err?.message);
         }
       }
       const token = generateVideoStreamToken({ type: 'lesson', lessonId });
@@ -91,12 +88,12 @@ export const getVideoToken = async (req, res, next) => {
       if (!course.videoUrl) {
         return res.status(404).json({ success: false, message: 'No promo video' });
       }
-      if (USE_SIGNED_VIDEO_URL && isS3Configured() && isOurS3Url(course.videoUrl)) {
+      if (isS3Configured() && isOurS3Url(course.videoUrl)) {
         try {
           const signedUrl = await getSignedUrlForMediaUrl(course.videoUrl, 3600);
           return res.json({ success: true, url: signedUrl });
         } catch (err) {
-          console.warn('[video-token] Signed URL fallback failed for promo:', err?.message);
+          console.error('[video-token] Signed URL failed for promo:', err?.message);
         }
       }
       const token = generateVideoStreamToken({ type: 'promo', courseId: course.id });
