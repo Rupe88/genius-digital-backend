@@ -4,26 +4,17 @@
  */
 
 import { prisma } from '../config/database.js';
-import { config } from '../config/env.js';
 import { generateVideoStreamToken, verifyVideoStreamToken } from '../services/tokenService.js';
+import { generateImageToken, verifyImageToken } from '../services/tokenService.js';
+import { getBackendBaseUrl } from '../utils/helpers.js';
 import {
   isS3Configured,
   isOurS3Url,
   getS3KeyFromStoredUrl,
   getObjectStream,
-  getSignedUrlForMediaUrl,
 } from '../services/s3Service.js';
 
 const API_BASE = process.env.API_BASE_PATH !== undefined ? process.env.API_BASE_PATH : '/api';
-
-/** Get public backend base URL from request (for stream URLs so <video src> works in production). */
-function getBackendBaseUrl(req) {
-  const proto = (req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim();
-  const host = (req.get('x-forwarded-host') || req.get('host') || '').split(',')[0].trim();
-  if (!host) return config.backendUrl.replace(/\/$/, '');
-  if (host.includes('localhost')) return config.backendUrl.replace(/\/$/, '');
-  return `${proto}://${host}`.replace(/\/$/, '');
-}
 
 /**
  * GET /api/media/video-token?lessonId=xxx | ?courseId=xxx&type=promo
@@ -69,10 +60,7 @@ export const getVideoToken = async (req, res, next) => {
       if (!lesson.videoUrl) {
         return res.status(404).json({ success: false, message: 'No video for this lesson' });
       }
-      if (isS3Configured() && isOurS3Url(lesson.videoUrl)) {
-        const signedUrl = await getSignedUrlForMediaUrl(lesson.videoUrl, 3600);
-        return res.json({ success: true, url: signedUrl });
-      }
+      // Always return backend stream URL (never expose S3 URL or AWS params to the client)
       const token = generateVideoStreamToken({ type: 'lesson', lessonId });
       const path = `${API_BASE}/media/stream/lesson/${lessonId}`;
       const url = `${base}/${path.startsWith('/') ? path.slice(1) : path}?token=${token}`;
@@ -92,10 +80,7 @@ export const getVideoToken = async (req, res, next) => {
       if (!course.videoUrl) {
         return res.status(404).json({ success: false, message: 'No promo video' });
       }
-      if (isS3Configured() && isOurS3Url(course.videoUrl)) {
-        const signedUrl = await getSignedUrlForMediaUrl(course.videoUrl, 3600);
-        return res.json({ success: true, url: signedUrl });
-      }
+      // Always return backend stream URL (never expose S3 URL or AWS params to the client)
       const token = generateVideoStreamToken({ type: 'promo', courseId: course.id });
       const path = `${API_BASE}/media/stream/course/${course.id}/promo`;
       const url = `${base}/${path.startsWith('/') ? path.slice(1) : path}?token=${token}`;
@@ -264,38 +249,68 @@ export const streamCoursePromo = async (req, res, next) => {
 };
 
 /**
- * GET /api/media/image?url=ENCODED_S3_URL
- * Proxy S3 images so the frontend (and Next.js Image) can load them without 403.
- * Only allows URLs from our S3 bucket. No auth required for thumbnails/images.
- * Accepts full S3 URLs or path-like keys (e.g. lms/images/xxx.jpg).
+ * GET /api/media/image?token=JWT | ?url=ENCODED_S3_URL
+ * Token: no S3 URL exposed. Payload { type: 'courseThumbnail'|'lessonThumbnail', id }.
+ * Url: legacy proxy (S3 URL in query). Prefer token for security.
  */
 export const streamImage = async (req, res, next) => {
   try {
-    const rawUrl = req.query.url;
-    if (!rawUrl || typeof rawUrl !== 'string') {
-      return res.status(400).json({ success: false, message: 'Missing url parameter' });
-    }
-    let url;
-    try {
-      url = decodeURIComponent(rawUrl.trim());
-    } catch {
-      return res.status(400).json({ success: false, message: 'Invalid url' });
-    }
     if (!isS3Configured()) {
       return res.status(400).json({ success: false, message: 'Image not available' });
     }
+
     let key = null;
-    if (isOurS3Url(url)) {
-      key = getS3KeyFromStoredUrl(url);
-    } else if (url && !url.startsWith('http') && !url.includes('..')) {
-      key = url.replace(/^\//, '');
+
+    const tokenParam = req.query.token;
+    if (tokenParam && typeof tokenParam === 'string') {
+      let decoded;
+      try {
+        decoded = verifyImageToken(tokenParam);
+      } catch {
+        return res.status(403).json({ success: false, message: 'Image link expired or invalid' });
+      }
+      const { type, id } = decoded;
+      if (type === 'courseThumbnail' && id) {
+        const course = await prisma.course.findUnique({
+          where: { id },
+          select: { thumbnail: true },
+        });
+        if (course?.thumbnail && isOurS3Url(course.thumbnail)) {
+          key = getS3KeyFromStoredUrl(course.thumbnail);
+        }
+      } else if (type === 'lessonThumbnail' && id) {
+        const lesson = await prisma.lesson.findUnique({
+          where: { id },
+          select: { thumbnail: true },
+        });
+        if (lesson?.thumbnail && isOurS3Url(lesson.thumbnail)) {
+          key = getS3KeyFromStoredUrl(lesson.thumbnail);
+        }
+      }
+      if (!key) return res.status(404).json({ success: false, message: 'Image not found' });
+    } else {
+      const rawUrl = req.query.url;
+      if (!rawUrl || typeof rawUrl !== 'string') {
+        return res.status(400).json({ success: false, message: 'Missing token or url parameter' });
+      }
+      let url;
+      try {
+        url = decodeURIComponent(rawUrl.trim());
+      } catch {
+        return res.status(400).json({ success: false, message: 'Invalid url' });
+      }
+      if (isOurS3Url(url)) {
+        key = getS3KeyFromStoredUrl(url);
+      } else if (url && !url.startsWith('http') && !url.includes('..')) {
+        key = url.replace(/^\//, '');
+      }
+      if (!key) return res.status(404).json({ success: false, message: 'Image not found' });
     }
-    if (!key) return res.status(404).json({ success: false, message: 'Image not found' });
 
     const { stream, contentLength, contentType } = await getObjectStream(key);
 
     res.setHeader('Content-Type', contentType || 'image/png');
-    res.setHeader('Cache-Control', 'public, max-age=86400'); // 24h
+    res.setHeader('Cache-Control', 'public, max-age=86400');
     res.setHeader('Content-Length', contentLength);
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     stream.pipe(res);

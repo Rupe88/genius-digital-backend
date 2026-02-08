@@ -49,6 +49,24 @@ export const verifyVideoStreamToken = (token) => {
   }
 };
 
+/** Short-lived token for image proxy (no S3 URL exposed to client). Payload: { type: 'courseThumbnail'|'lessonThumbnail', id: string } */
+const IMAGE_TOKEN_EXPIRY = process.env.IMAGE_TOKEN_EXPIRY || '1h';
+
+export const generateImageToken = (payload) => {
+  return jwt.sign(payload, config.jwtSecret, { expiresIn: IMAGE_TOKEN_EXPIRY });
+};
+
+export const verifyImageToken = (token) => {
+  try {
+    return jwt.verify(token, config.jwtSecret);
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      throw new Error('Image link expired');
+    }
+    throw new Error('Invalid image link');
+  }
+};
+
 export const verifyRefreshToken = (token) => {
   try {
     return jwt.verify(token, config.jwtRefreshSecret);

@@ -1,7 +1,20 @@
 import { prisma } from '../config/database.js';
 import { validationResult } from 'express-validator';
-import { generateSlug } from '../utils/helpers.js';
+import { generateSlug, getBackendBaseUrl } from '../utils/helpers.js';
 import { isS3Configured, isOurS3Url } from '../services/s3Service.js';
+import { generateImageToken } from '../services/tokenService.js';
+
+/** Mask S3 thumbnail with token URL so client never sees S3 URL. Mutates course( s). */
+function maskCourseThumbnail(req, course) {
+  if (isS3Configured() && course?.thumbnail && isOurS3Url(course.thumbnail)) {
+    const base = getBackendBaseUrl(req);
+    course.thumbnail = `${base}/api/media/image?token=${generateImageToken({ type: 'courseThumbnail', id: course.id })}`;
+  }
+}
+function maskCoursesThumbnails(req, courses) {
+  if (Array.isArray(courses)) courses.forEach((c) => maskCourseThumbnail(req, c));
+  else if (courses) maskCourseThumbnail(req, courses);
+}
 
 /**
  * Get all courses with filtering
@@ -50,6 +63,7 @@ export const getAllCourses = async (req, res, next) => {
       prisma.course.count({ where }),
     ]);
 
+    maskCoursesThumbnails(req, courses);
     res.json({
       success: true,
       data: courses,
@@ -262,6 +276,7 @@ export const filterCourses = async (req, res, next) => {
       prisma.course.count({ where }),
     ]);
 
+    maskCoursesThumbnails(req, courses);
     res.json({
       success: true,
       data: courses,
@@ -304,6 +319,7 @@ export const getFeaturedCourses = async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
     });
 
+    maskCoursesThumbnails(req, courses || []);
     res.json({
       success: true,
       data: courses || [],
@@ -349,6 +365,7 @@ export const getOngoingCourses = async (req, res, next) => {
       }),
     ]);
 
+    maskCoursesThumbnails(req, courses);
     res.json({
       success: true,
       data: courses,
@@ -449,6 +466,7 @@ export const getCourseById = async (req, res, next) => {
           }
         }
       }
+      maskCourseThumbnail(req, course);
     }
 
     res.json({

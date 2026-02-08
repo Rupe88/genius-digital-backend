@@ -1,3 +1,20 @@
+import { config } from '../config/env.js';
+
+/**
+ * Get public backend base URL from request (for stream/token URLs in production).
+ * @param {import('express').Request} req
+ * @returns {string}
+ */
+export function getBackendBaseUrl(req) {
+  if (!req) return (config.backendUrl || '').replace(/\/$/, '');
+  const proto = (req.get && req.get('x-forwarded-proto')) || (req.protocol || 'https');
+  const host = (req.get && (req.get('x-forwarded-host') || req.get('host'))) || '';
+  const parts = [proto, host].map((s) => (typeof s === 'string' ? s.split(',')[0].trim() : ''));
+  if (!parts[1]) return (config.backendUrl || '').replace(/\/$/, '');
+  if (parts[1].includes('localhost')) return (config.backendUrl || '').replace(/\/$/, '');
+  return `${parts[0]}://${parts[1]}`.replace(/\/$/, '');
+}
+
 /**
  * Generate URL-friendly slug from a string
  * @param {string} text - Text to convert to slug
