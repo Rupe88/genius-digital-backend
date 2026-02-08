@@ -12,9 +12,13 @@ import {
   isOurS3Url,
   getS3KeyFromStoredUrl,
   getObjectStream,
+  getSignedUrlForMediaUrl,
 } from '../services/s3Service.js';
 
 const API_BASE = process.env.API_BASE_PATH !== undefined ? process.env.API_BASE_PATH : '/api';
+
+/** When true, return signed S3 URL so browser fetches directly (use if server cannot reach S3). */
+const USE_SIGNED_VIDEO_URL = process.env.USE_SIGNED_VIDEO_URL === 'true';
 
 /**
  * GET /api/media/video-token?lessonId=xxx | ?courseId=xxx&type=promo
@@ -60,7 +64,14 @@ export const getVideoToken = async (req, res, next) => {
       if (!lesson.videoUrl) {
         return res.status(404).json({ success: false, message: 'No video for this lesson' });
       }
-      // Always return backend stream URL (never expose S3 URL or AWS params to the client)
+      if (USE_SIGNED_VIDEO_URL && isS3Configured() && isOurS3Url(lesson.videoUrl)) {
+        try {
+          const signedUrl = await getSignedUrlForMediaUrl(lesson.videoUrl, 3600);
+          return res.json({ success: true, url: signedUrl });
+        } catch (err) {
+          console.warn('[video-token] Signed URL fallback failed for lesson:', err?.message);
+        }
+      }
       const token = generateVideoStreamToken({ type: 'lesson', lessonId });
       const path = `${API_BASE}/media/stream/lesson/${lessonId}`;
       const url = `${base}/${path.startsWith('/') ? path.slice(1) : path}?token=${token}`;
@@ -80,7 +91,14 @@ export const getVideoToken = async (req, res, next) => {
       if (!course.videoUrl) {
         return res.status(404).json({ success: false, message: 'No promo video' });
       }
-      // Always return backend stream URL (never expose S3 URL or AWS params to the client)
+      if (USE_SIGNED_VIDEO_URL && isS3Configured() && isOurS3Url(course.videoUrl)) {
+        try {
+          const signedUrl = await getSignedUrlForMediaUrl(course.videoUrl, 3600);
+          return res.json({ success: true, url: signedUrl });
+        } catch (err) {
+          console.warn('[video-token] Signed URL fallback failed for promo:', err?.message);
+        }
+      }
       const token = generateVideoStreamToken({ type: 'promo', courseId: course.id });
       const path = `${API_BASE}/media/stream/course/${course.id}/promo`;
       const url = `${base}/${path.startsWith('/') ? path.slice(1) : path}?token=${token}`;
@@ -139,7 +157,12 @@ export const streamLessonVideo = async (req, res, next) => {
       contentType = result.contentType;
       contentRange = result.contentRange;
     } catch (s3Err) {
-      console.error('Lesson stream S3 getObject failed:', key, s3Err?.message || s3Err);
+      const code = s3Err?.name || s3Err?.code || 'Unknown';
+      const msg = s3Err?.message || String(s3Err);
+      console.error('Lesson stream S3 getObject failed:', key, code, msg);
+      if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT' || msg.includes('fetch')) {
+        console.error('Server cannot reach S3. Set USE_SIGNED_VIDEO_URL=true so the browser fetches video directly.');
+      }
       return res.status(502).json({ success: false, message: 'Video unavailable. Try again later.' });
     }
 
@@ -215,7 +238,12 @@ export const streamCoursePromo = async (req, res, next) => {
       contentType = result.contentType;
       contentRange = result.contentRange;
     } catch (s3Err) {
-      console.error('Promo stream S3 getObject failed:', key, s3Err?.message || s3Err);
+      const code = s3Err?.name || s3Err?.code || 'Unknown';
+      const msg = s3Err?.message || String(s3Err);
+      console.error('Promo stream S3 getObject failed:', key, code, msg);
+      if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT' || msg.includes('fetch')) {
+        console.error('Server cannot reach S3. Set USE_SIGNED_VIDEO_URL=true so the browser fetches video directly.');
+      }
       return res.status(502).json({ success: false, message: 'Video unavailable. Try again later.' });
     }
 
