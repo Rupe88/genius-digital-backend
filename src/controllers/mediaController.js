@@ -11,6 +11,7 @@ import {
   isOurS3Url,
   getS3KeyFromStoredUrl,
   getObjectStream,
+  getSignedUrlForMediaUrl,
 } from '../services/s3Service.js';
 
 const API_BASE = process.env.API_BASE_PATH !== undefined ? process.env.API_BASE_PATH : '/api';
@@ -26,19 +27,19 @@ function getBackendBaseUrl(req) {
 
 /**
  * GET /api/media/video-token?lessonId=xxx | ?courseId=xxx&type=promo
- * Returns a short-lived URL with token for the <video> element. Auth required.
+ * Returns a short-lived URL with token for the <video> element.
+ * Lesson: auth required. Promo: public (no auth) so course preview works for everyone.
  */
 export const getVideoToken = async (req, res, next) => {
   try {
     const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ success: false, message: 'Login required to watch' });
-    }
-
     const base = getBackendBaseUrl(req);
     const { lessonId, courseId, type } = req.query;
 
     if (lessonId) {
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'Login required to watch lessons' });
+      }
       const lesson = await prisma.lesson.findUnique({
         where: { id: lessonId },
         include: {
@@ -68,6 +69,10 @@ export const getVideoToken = async (req, res, next) => {
       if (!lesson.videoUrl) {
         return res.status(404).json({ success: false, message: 'No video for this lesson' });
       }
+      if (isS3Configured() && isOurS3Url(lesson.videoUrl)) {
+        const signedUrl = await getSignedUrlForMediaUrl(lesson.videoUrl, 3600);
+        return res.json({ success: true, url: signedUrl });
+      }
       const token = generateVideoStreamToken({ type: 'lesson', lessonId });
       const path = `${API_BASE}/media/stream/lesson/${lessonId}`;
       const url = `${base}/${path.startsWith('/') ? path.slice(1) : path}?token=${token}`;
@@ -79,30 +84,17 @@ export const getVideoToken = async (req, res, next) => {
         where: {
           OR: [{ id: courseId }, { slug: courseId }],
         },
-        select: {
-          id: true,
-          instructorId: true,
-          videoUrl: true,
-          enrollments: {
-            where: { userId, status: { in: ['ACTIVE', 'COMPLETED'] } },
-            select: { id: true },
-          },
-        },
+        select: { id: true, videoUrl: true },
       });
       if (!course) {
         return res.status(404).json({ success: false, message: 'Course not found' });
       }
-      const isEnrolled = course.enrollments?.length > 0;
-      const isInstructor = course.instructorId === userId;
-      const isAdmin = req.user?.role === 'ADMIN';
-      if (!isEnrolled && !isInstructor && !isAdmin) {
-        return res.status(403).json({
-          success: false,
-          message: 'Enroll in the course to watch the promo',
-        });
-      }
       if (!course.videoUrl) {
         return res.status(404).json({ success: false, message: 'No promo video' });
+      }
+      if (isS3Configured() && isOurS3Url(course.videoUrl)) {
+        const signedUrl = await getSignedUrlForMediaUrl(course.videoUrl, 3600);
+        return res.json({ success: true, url: signedUrl });
       }
       const token = generateVideoStreamToken({ type: 'promo', courseId: course.id });
       const path = `${API_BASE}/media/stream/course/${course.id}/promo`;
@@ -173,6 +165,7 @@ export const streamLessonVideo = async (req, res, next) => {
     }
     const type = (contentType && contentType !== 'application/octet-stream') ? contentType : (key.toLowerCase().endsWith('.mp4') ? 'video/mp4' : 'video/mp4');
     res.setHeader('Content-Type', type);
+    res.setHeader('Content-Disposition', 'inline');
     res.setHeader('Accept-Ranges', 'bytes');
 
     if (contentRange) {
@@ -248,6 +241,7 @@ export const streamCoursePromo = async (req, res, next) => {
     }
     const type = (contentType && contentType !== 'application/octet-stream') ? contentType : (key.toLowerCase().endsWith('.mp4') ? 'video/mp4' : 'video/mp4');
     res.setHeader('Content-Type', type);
+    res.setHeader('Content-Disposition', 'inline');
     res.setHeader('Accept-Ranges', 'bytes');
 
     if (contentRange) {
