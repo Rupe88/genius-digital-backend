@@ -458,10 +458,15 @@ export const getCourseById = async (req, res, next) => {
       });
     }
 
-    // Secure streaming: S3 videos get stream path (no direct URL). Frontend gets token and uses stream URL.
+    // S3 promo: return signed URL in course so frontend can use it immediately (faster initial load, no extra video-token call).
     if (isS3Configured()) {
       if (course.videoUrl && isOurS3Url(course.videoUrl)) {
-        course.videoUrl = `/api/media/stream/course/${course.id}/promo`;
+        try {
+          course.videoUrl = await getSignedUrlForMediaUrl(course.videoUrl, 3600);
+        } catch (err) {
+          console.warn('[course] Signed promo URL failed:', course.id, err?.message);
+          course.videoUrl = `/api/media/stream/course/${course.id}/promo`;
+        }
       }
       if (course.lessons?.length) {
         for (const lesson of course.lessons) {
