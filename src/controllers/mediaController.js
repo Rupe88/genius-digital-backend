@@ -18,8 +18,8 @@ import {
 
 const API_BASE = process.env.API_BASE_PATH !== undefined ? process.env.API_BASE_PATH : '/api';
 
-/** First chunk size (bytes) so playback starts after this chunk instead of after full download. */
-const FIRST_CHUNK_BYTES = 3 * 1024 * 1024; // 3MB
+/** First chunk size (bytes) so playback can start; needs to include MP4 moov atom (often at start for faststart, else up to ~10MB). */
+const FIRST_CHUNK_BYTES = 10 * 1024 * 1024; // 10MB
 
 /**
  * GET /api/media/video-token?lessonId=xxx | ?courseId=xxx&type=promo
@@ -118,103 +118,149 @@ export const getVideoToken = async (req, res, next) => {
 };
 
 /**
+ * Internal helper to stream an S3 object to the response with proper range support.
+ * Follows standard HTTP range request behavior for video players.
+ */
+async function streamS3Object(req, res, key) {
+  const logPrefix = `[stream:${key.slice(-10)}]`;
+  try {
+    const rangeHeader = req.headers.range;
+
+    // 1. Get total content length first (needed for proper Range headers)
+    const totalSize = await getObjectContentLength(key);
+    if (totalSize <= 0) {
+      return res.status(404).json({ success: false, message: 'Video file is empty' });
+    }
+
+    let start = 0;
+    let end = totalSize - 1;
+    let isPartial = false;
+
+    // Default chunk size for 'forced chunking' (1MB) - provides a smoother start for large files
+    const MAX_CHUNK_SIZE = 1 * 1024 * 1024;
+
+    if (rangeHeader) {
+      const parts = rangeHeader.replace(/bytes=/, "").split("-");
+      start = parseInt(parts[0], 10);
+      const endPart = parts[1];
+
+      // If browser says "bytes=0-", we take a 1MB chunk. If it asks for specific range, we respect it.
+      if (!endPart) {
+        end = Math.min(start + MAX_CHUNK_SIZE - 1, totalSize - 1);
+      } else {
+        end = parseInt(endPart, 10);
+      }
+
+      if (start >= totalSize) {
+        res.setHeader('Content-Range', `bytes */${totalSize}`);
+        return res.status(416).send('Requested Range Not Satisfiable');
+      }
+
+      if (end >= totalSize) end = totalSize - 1;
+      isPartial = true;
+    } else {
+      // No range provided? We still force a partial chunk response so browsers switch to Range mode
+      end = Math.min(MAX_CHUNK_SIZE - 1, totalSize - 1);
+      isPartial = true;
+    }
+
+    const chunkSize = (end - start) + 1;
+    const s3Range = `bytes=${start}-${end}`;
+
+    console.log(`${logPrefix} Serving ${s3Range}/${totalSize} (${chunkSize} bytes)`);
+
+    const result = await getObjectStream(key, s3Range);
+    const stream = result.stream;
+
+    // Headers
+    const origin = req.get('origin');
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+    }
+
+    const mimeType = (result.contentType && result.contentType !== 'application/octet-stream')
+      ? result.contentType
+      : (key.toLowerCase().endsWith('.mp4') ? 'video/mp4' : 'video/mp4');
+
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Content-Length', chunkSize);
+    res.setHeader('Content-Disposition', 'inline');
+
+    if (isPartial) {
+      res.status(206);
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${totalSize}`);
+    } else {
+      res.status(200);
+    }
+
+    if (typeof res.flushHeaders === 'function') res.flushHeaders();
+
+    stream.pipe(res);
+
+    stream.on('error', (err) => {
+      console.error(`${logPrefix} Pipe error:`, err?.message || err);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: 'Stream error' });
+      } else {
+        res.destroy();
+      }
+    });
+
+    res.on('close', () => {
+      if (stream && typeof stream.destroy === 'function') stream.destroy();
+    });
+
+  } catch (err) {
+    const code = err?.name || err?.code || 'Unknown';
+    console.error(`[stream] S3 error for ${key}:`, code, err.message);
+    if (!res.headersSent) {
+      if (code === 'NoSuchKey' || code === '404') {
+        return res.status(404).json({ success: false, message: 'Video file not found' });
+      }
+      return res.status(502).json({ success: false, message: 'Storage temporarily unavailable' });
+    }
+  }
+}
+
+/**
  * Stream lesson video. Token in query. No auth header (so <video src> works).
- * When server cannot reach S3, use video-token which returns signed S3 URL instead.
  */
 export const streamLessonVideo = async (req, res, next) => {
   try {
     const { lessonId } = req.params;
     const token = req.query.token;
-    if (!lessonId) {
-      return res.status(400).json({ success: false, message: 'Lesson ID is required' });
-    }
-    if (!token) {
-      return res.status(401).json({ success: false, message: 'Video link required. Request a new link from the course page.' });
-    }
+    if (!lessonId) return res.status(400).json({ success: false, message: 'Lesson ID is required' });
+    if (!token) return res.status(401).json({ success: false, message: 'Video link required' });
+
     let decoded;
     try {
       decoded = verifyVideoStreamToken(token);
     } catch {
-      return res.status(403).json({ success: false, message: 'Video link expired or invalid. Refresh the page and try again.' });
+      return res.status(403).json({ success: false, message: 'Video link expired' });
     }
+
     if (decoded.type !== 'lesson' || decoded.lessonId !== lessonId) {
-      return res.status(403).json({ success: false, message: 'Invalid video link for this lesson' });
+      return res.status(403).json({ success: false, message: 'Invalid video link' });
     }
 
     const lesson = await prisma.lesson.findUnique({
       where: { id: lessonId },
       select: { videoUrl: true },
     });
-    if (!lesson?.videoUrl) {
-      return res.status(404).json({ success: false, message: 'No video found for this lesson' });
-    }
+
+    if (!lesson?.videoUrl) return res.status(404).json({ success: false, message: 'No video found' });
     if (!isS3Configured() || !isOurS3Url(lesson.videoUrl)) {
-      return res.status(400).json({ success: false, message: 'Stream not available for this video. Use the course page to get a playable link.' });
+      return res.status(400).json({ success: false, message: 'Secure stream not available' });
     }
 
     const key = getS3KeyFromStoredUrl(lesson.videoUrl);
-    if (!key) {
-      return res.status(404).json({ success: false, message: 'Video file not found' });
-    }
+    if (!key) return res.status(404).json({ success: false, message: 'Invalid video key' });
 
-    let stream; let contentLength; let contentType; let contentRange; let isPartial = false;
-    try {
-      let range = req.headers.range || null;
-      const rangeStr = typeof range === 'string' ? range.trim() : '';
-      if (rangeStr && /^bytes=0-$/i.test(rangeStr)) {
-        range = `bytes=0-${FIRST_CHUNK_BYTES - 1}`;
-        isPartial = true;
-      }
-      const result = await getObjectStream(key, range);
-      stream = result.stream;
-      contentLength = result.contentLength;
-      contentType = result.contentType;
-      contentRange = result.contentRange;
-      if (isPartial && !contentRange && contentLength > 0) {
-        try {
-          const totalSize = await getObjectContentLength(key);
-          contentRange = `bytes 0-${contentLength - 1}/${totalSize}`;
-        } catch {
-          contentRange = `bytes 0-${contentLength - 1}/*`;
-        }
-      }
-    } catch (s3Err) {
-      const code = s3Err?.name || s3Err?.code || 'Unknown';
-      const msg = s3Err?.message || String(s3Err);
-      console.error('Lesson stream S3 getObject failed:', key, code, msg);
-      if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT' || msg.includes('fetch')) {
-        console.error('Server cannot reach S3. Set USE_SIGNED_VIDEO_URL=true so the browser fetches video directly.');
-      }
-      return res.status(502).json({
-        success: false,
-        message: 'Video temporarily unavailable. Server cannot reach storage. Refresh the page to get a direct play link.',
-      });
-    }
-
-    const origin = req.get('origin');
-    if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
-    }
-    const type = (contentType && contentType !== 'application/octet-stream') ? contentType : (key.toLowerCase().endsWith('.mp4') ? 'video/mp4' : 'video/mp4');
-    res.setHeader('Content-Type', type);
-    res.setHeader('Content-Disposition', 'inline');
-    res.setHeader('Accept-Ranges', 'bytes');
-
-    if (contentRange) {
-      res.status(206);
-      res.setHeader('Content-Range', contentRange);
-      res.setHeader('Content-Length', String(contentLength));
-    } else {
-      res.setHeader('Content-Length', String(contentLength));
-    }
-
-    stream.pipe(res);
-    stream.on('error', (err) => {
-      console.error('Lesson stream pipe error:', err?.message || err);
-      if (!res.headersSent) res.status(500).json({ success: false, message: 'Video stream error. Try again.' });
-      else res.destroy();
-    });
+    await streamS3Object(req, res, key);
   } catch (error) {
     next(error);
   }
@@ -222,102 +268,42 @@ export const streamLessonVideo = async (req, res, next) => {
 
 /**
  * Stream course promo video. Token in query. No login required for preview.
- * When server cannot reach S3, video-token returns signed S3 URL so browser plays directly.
  */
 export const streamCoursePromo = async (req, res, next) => {
   try {
     const { courseId } = req.params;
     const token = req.query.token;
-    if (!courseId) {
-      return res.status(400).json({ success: false, message: 'Course ID is required' });
-    }
-    if (!token) {
-      return res.status(401).json({ success: false, message: 'Preview link required. Refresh the course page and click Play again.' });
-    }
+    if (!courseId) return res.status(400).json({ success: false, message: 'Course ID is required' });
+    if (!token) return res.status(401).json({ success: false, message: 'Preview link required' });
+
     let decoded;
     try {
       decoded = verifyVideoStreamToken(token);
-    } catch (err) {
-      return res.status(403).json({ success: false, message: 'Preview link expired or invalid. Refresh the page and try again.' });
-    }
-    if (decoded.type !== 'promo' || decoded.courseId !== courseId) {
-      return res.status(403).json({ success: false, message: 'Invalid preview link for this course' });
+    } catch {
+      return res.status(403).json({ success: false, message: 'Preview link expired' });
     }
 
+    if (decoded.type !== 'promo' || decoded.courseId !== courseId) {
+      return res.status(403).json({ success: false, message: 'Invalid preview link' });
+    }
+
+    // Support both ID and Slug
     const course = await prisma.course.findFirst({
-      where: { id: courseId },
+      where: {
+        OR: [{ id: courseId }, { slug: courseId }],
+      },
       select: { videoUrl: true },
     });
-    if (!course?.videoUrl) {
-      return res.status(404).json({ success: false, message: 'No preview video for this course' });
-    }
+
+    if (!course?.videoUrl) return res.status(404).json({ success: false, message: 'No preview video found' });
     if (!isS3Configured() || !isOurS3Url(course.videoUrl)) {
-      return res.status(400).json({ success: false, message: 'Preview not available for this video. Refresh to get a direct play link.' });
+      return res.status(400).json({ success: false, message: 'Secure preview not available' });
     }
 
     const key = getS3KeyFromStoredUrl(course.videoUrl);
-    if (!key) {
-      return res.status(404).json({ success: false, message: 'Preview video file not found' });
-    }
+    if (!key) return res.status(404).json({ success: false, message: 'Invalid preview key' });
 
-    let stream; let contentLength; let contentType; let contentRange; let isPartial = false;
-    try {
-      let range = req.headers.range || null;
-      const rangeStr = typeof range === 'string' ? range.trim() : '';
-      if (rangeStr && /^bytes=0-$/i.test(rangeStr)) {
-        range = `bytes=0-${FIRST_CHUNK_BYTES - 1}`;
-        isPartial = true;
-      }
-      const result = await getObjectStream(key, range);
-      stream = result.stream;
-      contentLength = result.contentLength;
-      contentType = result.contentType;
-      contentRange = result.contentRange;
-      if (isPartial && !contentRange && contentLength > 0) {
-        try {
-          const totalSize = await getObjectContentLength(key);
-          contentRange = `bytes 0-${contentLength - 1}/${totalSize}`;
-        } catch {
-          contentRange = `bytes 0-${contentLength - 1}/*`;
-        }
-      }
-    } catch (s3Err) {
-      const code = s3Err?.name || s3Err?.code || 'Unknown';
-      const msg = s3Err?.message || String(s3Err);
-      console.error('Promo stream S3 getObject failed:', key, code, msg);
-      if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT' || msg.includes('fetch')) {
-        console.error('Server cannot reach S3. Set USE_SIGNED_VIDEO_URL=true so the browser fetches video directly.');
-      }
-      return res.status(502).json({
-        success: false,
-        message: 'Preview temporarily unavailable. Server cannot reach storage. Refresh the page to get a direct play link.',
-      });
-    }
-
-    const origin = req.get('origin');
-    if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
-    }
-    const type = (contentType && contentType !== 'application/octet-stream') ? contentType : (key.toLowerCase().endsWith('.mp4') ? 'video/mp4' : 'video/mp4');
-    res.setHeader('Content-Type', type);
-    res.setHeader('Content-Disposition', 'inline');
-    res.setHeader('Accept-Ranges', 'bytes');
-
-    if (contentRange) {
-      res.status(206);
-      res.setHeader('Content-Range', contentRange);
-      res.setHeader('Content-Length', String(contentLength));
-    } else {
-      res.setHeader('Content-Length', String(contentLength));
-    }
-
-    stream.pipe(res);
-    stream.on('error', (err) => {
-      console.error('Promo stream pipe error:', err?.message || err);
-      if (!res.headersSent) res.status(500).json({ success: false, message: 'Preview stream error. Try again.' });
-      else res.destroy();
-    });
+    await streamS3Object(req, res, key);
   } catch (error) {
     next(error);
   }
