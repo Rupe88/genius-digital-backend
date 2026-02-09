@@ -5,6 +5,7 @@
 import multer from 'multer';
 import { config } from '../config/env.js';
 import { uploadImage, uploadVideo, uploadDocument } from '../services/s3Service.js';
+import { optimizeVideoBuffer } from '../services/videoOptimizationService.js';
 
 // Upload limits from config (bytes). Use max of all so multer accepts any allowed type up to video limit.
 const imageMaxBytes = (config.upload?.imageMaxMb ?? 10) * 1024 * 1024;
@@ -246,9 +247,25 @@ export const processVideoUpload = async (req, res, next) => {
     const folder = req.body.folder || 'lms/videos';
     const timeoutMs = config.upload?.videoUploadTimeoutMs ?? 600000; // 10 min default
 
-    console.log(`Uploading video to S3 folder: ${folder}, size: ${req.file.buffer.length} bytes, timeout: ${timeoutMs / 1000}s`);
+    // Optimize video buffer before upload if enabled
+    let videoBuffer = req.file.buffer;
+    if (config.upload?.videoOptimizationEnabled) {
+      try {
+        console.log('[Video optimization] Starting optimization...');
+        const optimizedBuffer = await optimizeVideoBuffer(videoBuffer, {
+          timeout: config.upload?.videoOptimizationTimeoutMs || 300000,
+        });
+        videoBuffer = optimizedBuffer;
+        console.log('[Video optimization] Optimization successful');
+      } catch (error) {
+        console.warn('[Video optimization] Optimization failed, using original:', error.message);
+        // Continue with original buffer (graceful fallback)
+      }
+    }
 
-    const uploadPromise = uploadVideo(req.file.buffer, {
+    console.log(`Uploading video to S3 folder: ${folder}, size: ${videoBuffer.length} bytes, timeout: ${timeoutMs / 1000}s`);
+
+    const uploadPromise = uploadVideo(videoBuffer, {
       folder,
     });
 
@@ -370,9 +387,26 @@ export const processCourseFiles = async (req, res, next) => {
         if (file.buffer.length > videoMaxBytes) {
           return res.status(400).json({ success: false, message: `Video exceeds ${config.upload?.videoMaxMb ?? 3072}MB limit` });
         }
+        
+        // Optimize video buffer before upload if enabled
+        let videoBuffer = file.buffer;
+        if (config.upload?.videoOptimizationEnabled) {
+          try {
+            console.log('[Course upload] Starting video optimization...');
+            const optimizedBuffer = await optimizeVideoBuffer(videoBuffer, {
+              timeout: config.upload?.videoOptimizationTimeoutMs || 300000,
+            });
+            videoBuffer = optimizedBuffer;
+            console.log('[Course upload] Video optimization successful');
+          } catch (error) {
+            console.warn('[Course upload] Video optimization failed, using original:', error.message);
+            // Continue with original buffer (graceful fallback)
+          }
+        }
+        
         const videoTimeoutMs = config.upload?.videoUploadTimeoutMs ?? 600000;
-        console.log('[Course upload] Uploading video to S3, size:', file.buffer.length);
-        const uploadPromise = uploadVideo(file.buffer, { folder: req.body.folder || 'lms/videos', mimeType: file.mimetype });
+        console.log('[Course upload] Uploading video to S3, size:', videoBuffer.length);
+        const uploadPromise = uploadVideo(videoBuffer, { folder: req.body.folder || 'lms/videos', mimeType: file.mimetype });
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error(`Video upload timed out after ${videoTimeoutMs / 1000}s`)), videoTimeoutMs)
         );
@@ -402,8 +436,25 @@ export const processLessonFiles = async (req, res, next) => {
     if (req.files.video && req.files.video[0]) {
       const videoFile = req.files.video[0];
       console.log(`Uploading lesson video: ${videoFile.originalname}, size: ${videoFile.buffer?.length ?? 0} bytes`);
+      
+      // Optimize video buffer before upload if enabled
+      let videoBuffer = videoFile.buffer;
+      if (config.upload?.videoOptimizationEnabled) {
+        try {
+          console.log('[Lesson upload] Starting video optimization...');
+          const optimizedBuffer = await optimizeVideoBuffer(videoBuffer, {
+            timeout: config.upload?.videoOptimizationTimeoutMs || 300000,
+          });
+          videoBuffer = optimizedBuffer;
+          console.log('[Lesson upload] Video optimization successful');
+        } catch (error) {
+          console.warn('[Lesson upload] Video optimization failed, using original:', error.message);
+          // Continue with original buffer (graceful fallback)
+        }
+      }
+      
       const videoTimeoutMs = config.upload?.videoUploadTimeoutMs ?? 600000;
-      const uploadPromise = uploadVideo(videoFile.buffer, {
+      const uploadPromise = uploadVideo(videoBuffer, {
         folder: req.body.folder || 'lms/videos',
         mimeType: videoFile.mimetype,
       });

@@ -136,7 +136,7 @@ async function streamS3Object(req, res, key) {
     let end = totalSize - 1;
     let isPartial = false;
 
-    // Default chunk size for 'forced chunking' (1MB) - provides a smoother start for large files
+    // Default chunk size for subsequent range requests (1MB)
     const MAX_CHUNK_SIZE = 1 * 1024 * 1024;
 
     if (rangeHeader) {
@@ -144,9 +144,15 @@ async function streamS3Object(req, res, key) {
       start = parseInt(parts[0], 10);
       const endPart = parts[1];
 
-      // If browser says "bytes=0-", we take a 1MB chunk. If it asks for specific range, we respect it.
+      // If browser says "bytes=0-" (initial request), use larger chunk to include moov atom
+      // If it asks for specific range, we respect it
       if (!endPart) {
-        end = Math.min(start + MAX_CHUNK_SIZE - 1, totalSize - 1);
+        // For initial request (start === 0), use larger chunk to ensure moov atom is included
+        if (start === 0) {
+          end = Math.min(FIRST_CHUNK_BYTES - 1, totalSize - 1);
+        } else {
+          end = Math.min(start + MAX_CHUNK_SIZE - 1, totalSize - 1);
+        }
       } else {
         end = parseInt(endPart, 10);
       }
@@ -159,8 +165,8 @@ async function streamS3Object(req, res, key) {
       if (end >= totalSize) end = totalSize - 1;
       isPartial = true;
     } else {
-      // No range provided? We still force a partial chunk response so browsers switch to Range mode
-      end = Math.min(MAX_CHUNK_SIZE - 1, totalSize - 1);
+      // No range provided? Use larger initial chunk to include moov atom
+      end = Math.min(FIRST_CHUNK_BYTES - 1, totalSize - 1);
       isPartial = true;
     }
 

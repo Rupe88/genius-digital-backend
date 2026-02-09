@@ -52,6 +52,9 @@ export const config = {
     videoMaxMb: Number(process.env.UPLOAD_VIDEO_MAX_MB) || 3072, // 3GB default (videos over 1GB supported)
     documentMaxMb: Number(process.env.UPLOAD_DOCUMENT_MAX_MB) || 50,
     videoUploadTimeoutMs: Number(process.env.UPLOAD_VIDEO_TIMEOUT_MS) || 600000, // 10 min for S3 upload step
+    // Video optimization options
+    videoOptimizationEnabled: process.env.VIDEO_OPTIMIZATION_ENABLED !== 'false', // Default: true
+    videoOptimizationTimeoutMs: Number(process.env.VIDEO_OPTIMIZATION_TIMEOUT_MS) || 300000, // 5 min default
   },
 
   // S3-compatible storage (Kailesh Cloud / DataHub S3) - images, videos, documents
