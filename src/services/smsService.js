@@ -14,10 +14,22 @@ const SPARROW_SMS_API_URL = 'https://api.sparrowsms.com/v2/sms/';
 const normalizePhoneForSms = (phone) => {
   if (!phone || typeof phone !== 'string') return null;
   const digits = phone.replace(/\D/g, '');
+  
+  // Handle 10-digit Nepal numbers (98XXXXXXXX)
   if (digits.length === 10 && digits.startsWith('98')) return digits;
-  if (digits.length === 12 && digits.startsWith('977')) return digits.slice(2);
-  if (digits.length === 11 && digits.startsWith('977')) return digits.slice(2);
+  
+  // Handle international format with 977 prefix (11, 12, or 13 digits)
+  // +9779812345678 -> 9779812345678 (12 digits) -> 9812345678
+  // +9779817329620 -> 9779817329620 (13 digits) -> 9817329620
+  if (digits.startsWith('977')) {
+    if (digits.length === 11) return digits.slice(2); // 977XXXXXXXXX -> 9XXXXXXXXX (shouldn't happen but handle it)
+    if (digits.length === 12) return digits.slice(2); // 97798XXXXXX -> 98XXXXXX
+    if (digits.length === 13) return digits.slice(3); // 977981XXXXXXX -> 981XXXXXXX
+  }
+  
+  // Handle any 10-digit number as fallback
   if (digits.length === 10) return digits;
+  
   return null;
 };
 

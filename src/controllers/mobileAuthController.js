@@ -1,6 +1,7 @@
 import { prisma } from '../config/database.js';
 import { createOTP, verifyOTP, canResendOTP } from '../services/mobileOtpService.js';
 import { sendOTPEmail } from '../services/emailService.js';
+import { sendOTPSms } from '../services/smsService.js';
 import { generateMobileToken } from '../services/tokenService.js';
 import { OtpType } from '@prisma/client';
 import { asyncHandler } from '../middleware/errorHandler.js';
@@ -15,7 +16,7 @@ const mobileTokenPayload = (user) => ({ mobileAppUserId: user.id });
  * If email is new, creates user and sends OTP.
  */
 export const loginOrRegister = asyncHandler(async (req, res) => {
-  const { email, fullName, phone } = req.body;
+  const { email, fullName, phone, mailIn = 'email' } = req.body;
   const normalizedEmail = email.toLowerCase().trim();
 
   const existing = await prisma.mobileAppUser.findUnique({
@@ -64,17 +65,44 @@ export const loginOrRegister = asyncHandler(async (req, res) => {
     });
   }
 
-  // Send OTP
+  // Send OTP based on mailIn
   const otp = await createOTP(user.id, OtpType.EMAIL_VERIFICATION);
-  await sendOTPEmail(user.email, otp, 'verification');
+  let sentVia = 'email';
+  let message = 'OTP sent to your email.';
+
+  if (mailIn === 'phone') {
+    // Ensure user has a phone number
+    const userPhone = user.phone || phone;
+    if (!userPhone || String(userPhone).trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number is required for SMS OTP',
+      });
+    }
+
+    const smsResult = await sendOTPSms(userPhone, otp);
+    
+    if (!smsResult.success) {
+      // Fallback to email if SMS fails
+      await sendOTPEmail(user.email, otp, 'verification');
+      message = 'SMS failed. OTP sent to your email instead.';
+    } else {
+      sentVia = 'sms';
+      message = 'OTP sent to your phone via SMS.';
+    }
+  } else {
+    // mailIn === 'email'
+    await sendOTPEmail(user.email, otp, 'verification');
+  }
 
   res.status(isNewUser ? 201 : 200).json({
     success: true,
-    message: 'OTP sent to your email.',
+    message,
     data: {
       mobileAppUserId: user.id,
       email: user.email,
       phone: user.phone ?? undefined,
+      sentVia,
     },
   });
 });
