@@ -111,6 +111,10 @@ export const config = {
     from: process.env.SPARROW_SMS_FROM?.trim() || null, // Sender ID (NTA-approved), optional
   },
 
+  // OTP Rate Limiting - Enable/disable rate limiting for OTP requests (default: true)
+  // Set to 'false' to disable rate limiting (useful for development/testing)
+  enableOtpRateLimit: process.env.ENABLE_OTP_RATE_LIMIT !== 'false',
+
   // Google OAuth - optional; when set, "Login with Google" is enabled. Get credentials from Google Cloud Console.
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID?.trim() || null,

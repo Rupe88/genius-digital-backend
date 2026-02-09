@@ -1,5 +1,6 @@
 import { prisma } from '../config/database.js';
 import { OtpType } from '@prisma/client';
+import { config } from '../config/env.js';
 
 const OTP_EXPIRY_MINUTES = 5;
 const OTP_LENGTH = 6;
@@ -50,6 +51,11 @@ export const verifyOTP = async (mobileAppUserId, otp, type) => {
 };
 
 export const canResendOTP = async (mobileAppUserId, type) => {
+  // Check if rate limiting is enabled (default: true for production, false for development)
+  if (!config.enableOtpRateLimit) {
+    return { canResend: true };
+  }
+
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
   const otpCount = await prisma.mobileAppOtp.count({
     where: {
