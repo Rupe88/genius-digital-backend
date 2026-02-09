@@ -31,6 +31,19 @@ export const verifyAccessToken = (token) => {
   }
 };
 
+/** Mobile app token - non-expiring JWT for passwordless authentication */
+export const generateMobileToken = (payload) => {
+  return jwt.sign(payload, config.jwtSecret); // No expiresIn option = non-expiring
+};
+
+export const verifyMobileToken = (token) => {
+  try {
+    return jwt.verify(token, config.jwtSecret);
+  } catch (error) {
+    throw new Error('Invalid mobile token');
+  }
+};
+
 /** Short-lived token for secure video stream URL (no auth header needed on <video src>) */
 const VIDEO_TOKEN_EXPIRY = process.env.VIDEO_STREAM_TOKEN_EXPIRY || '1h';
 
@@ -117,27 +130,4 @@ export const removeRefreshToken = async (userId) => {
   }
 };
 
-// Mobile app (Numerology app) - separate user table
-export const saveRefreshTokenMobile = async (mobileAppUserId, refreshToken) => {
-  const hashedToken = await hashRefreshToken(refreshToken);
-  await prisma.mobileAppUser.update({
-    where: { id: mobileAppUserId },
-    data: { refreshToken: hashedToken },
-  });
-};
-
-export const verifyRefreshTokenInDBMobile = async (mobileAppUserId, refreshToken) => {
-  const user = await prisma.mobileAppUser.findUnique({
-    where: { id: mobileAppUserId },
-  });
-  if (!user || !user.refreshToken) return false;
-  return await bcrypt.compare(refreshToken, user.refreshToken);
-};
-
-export const removeRefreshTokenMobile = async (mobileAppUserId) => {
-  await prisma.mobileAppUser.update({
-    where: { id: mobileAppUserId },
-    data: { refreshToken: null },
-  });
-};
 

@@ -257,11 +257,9 @@ model Otp {
 model MobileAppUser {
   id              String   @id @default(uuid())
   email           String   @unique @db.VarChar(255)
-  password        String   @db.VarChar(255)
   fullName        String?  @db.VarChar(255)
   phone           String?  @db.VarChar(50)
   isEmailVerified Boolean  @default(false)
-  refreshToken    String?  @db.Text
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

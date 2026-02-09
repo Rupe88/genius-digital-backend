@@ -1,4 +1,4 @@
-import { verifyAccessToken } from '../services/tokenService.js';
+import { verifyAccessToken, verifyMobileToken } from '../services/tokenService.js';
 import { prisma } from '../config/database.js';
 import { asyncHandler } from './errorHandler.js';
 
@@ -88,7 +88,7 @@ export const optionalAuthenticate = async (req, res, next) => {
   }
 };
 
-/** Mobile app (Numerology) auth: Bearer token must be from mobile login (payload has mobileAppUserId). */
+/** Mobile app (Numerology) auth: Bearer token must be from mobile login (payload has mobileAppUserId). Uses non-expiring token. */
 export const authenticateMobile = asyncHandler(async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -96,7 +96,7 @@ export const authenticateMobile = asyncHandler(async (req, res, next) => {
   }
   const token = authHeader.substring(7);
   try {
-    const decoded = verifyAccessToken(token);
+    const decoded = verifyMobileToken(token);
     if (!decoded.mobileAppUserId) {
       return res.status(401).json({ success: false, message: 'Invalid token for mobile app' });
     }
@@ -112,7 +112,7 @@ export const authenticateMobile = asyncHandler(async (req, res, next) => {
   } catch (error) {
     return res.status(401).json({
       success: false,
-      message: error.message || 'Invalid or expired token',
+      message: error.message || 'Invalid token',
     });
   }
 });

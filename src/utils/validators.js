@@ -108,13 +108,8 @@ export const resendOtpValidation = [
 ];
 
 // Mobile app (Numerology) auth validations
-export const mobileRegisterValidation = [
+export const mobileLoginOrRegisterValidation = [
   body('email').isEmail().withMessage('Valid email required').normalizeEmail(),
-  body('password')
-    .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('Password must contain uppercase, lowercase, and number'),
   body('fullName').optional({ values: 'falsy' }).trim().isLength({ max: 255 }).withMessage('Full name max 255 characters'),
   body('phone').optional({ values: 'falsy' }).trim().isLength({ max: 50 }).withMessage('Phone max 50 characters'),
 ];
@@ -124,13 +119,6 @@ export const mobileSendOtpValidation = [
 export const mobileVerifyOtpValidation = [
   body('email').isEmail().withMessage('Valid email required').normalizeEmail(),
   body('otp').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits').isNumeric().withMessage('OTP must be numeric'),
-];
-export const mobileLoginValidation = [
-  body('email').isEmail().withMessage('Valid email required').normalizeEmail(),
-  body('password').notEmpty().withMessage('Password is required'),
-];
-export const mobileRefreshTokenValidation = [
-  body('refreshToken').notEmpty().withMessage('Refresh token is required'),
 ];
 
 export const forgotPasswordValidation = [
