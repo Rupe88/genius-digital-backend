@@ -186,10 +186,27 @@ export async function uploadBuffer(buffer, key, contentType) {
     Key: key,
     Body: buffer,
     ContentType: contentType || getContentType(null, key),
+    ACL: 'public-read', // Make the object publicly accessible
   });
   await client.send(cmd);
   const url = getPublicUrl(key);
   return { url, key };
+}
+
+/**
+ * Update ACL of an existing S3 object to make it public
+ * @param {string} key - S3 object key
+ * @returns {Promise<void>}
+ */
+export async function makeObjectPublic(key) {
+  const client = getS3Client();
+  const cmd = new PutObjectCommand({
+    Bucket: config.s3.bucket,
+    Key: key,
+    ACL: 'public-read',
+  });
+  await client.send(cmd);
+  console.log(`✓ Made object public: ${key}`);
 }
 
 /**
