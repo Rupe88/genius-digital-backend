@@ -4,7 +4,8 @@ import { validationResult } from 'express-validator';
 
 
 /**
- * Get active popup for public display
+ * Get active popup for public display.
+ * When DB is unreachable, returns success with no popup so the app keeps working.
  */
 export const getActivePopup = async (req, res, next) => {
     try {
@@ -18,6 +19,11 @@ export const getActivePopup = async (req, res, next) => {
             data: popup,
         });
     } catch (error) {
+        // DB unreachable (e.g. Supabase paused, network issue) – don't break the app
+        if (error.code === 'P1001' || (error.message && error.message.includes("Can't reach database server"))) {
+            console.warn('[popups] Database unreachable, returning no popup:', error.message?.split('\n')[0]);
+            return res.json({ success: true, data: null });
+        }
         next(error);
     }
 };
