@@ -317,16 +317,12 @@ export const streamCoursePromo = async (req, res, next) => {
 
 /**
  * GET /api/media/image?token=JWT | ?url=ENCODED_S3_URL
- * Token: no S3 URL exposed. Payload { type: 'courseThumbnail'|'lessonThumbnail', id }.
- * Url: legacy proxy (S3 URL in query). Prefer token for security.
+ * Since S3 images are now public, redirect directly to S3 URL instead of proxying.
+ * This improves performance by serving images directly from S3.
  */
 export const streamImage = async (req, res, next) => {
   try {
-    if (!isS3Configured()) {
-      return res.status(400).json({ success: false, message: 'Image not available' });
-    }
-
-    let key = null;
+    let redirectUrl = null;
 
     const tokenParam = req.query.token;
     if (tokenParam && typeof tokenParam === 'string') {
@@ -342,59 +338,43 @@ export const streamImage = async (req, res, next) => {
           where: { id },
           select: { thumbnail: true },
         });
-        if (course?.thumbnail && isOurS3Url(course.thumbnail)) {
-          key = getS3KeyFromStoredUrl(course.thumbnail);
+        if (course?.thumbnail) {
+          redirectUrl = course.thumbnail;
         }
       } else if (type === 'lessonThumbnail' && id) {
         const lesson = await prisma.lesson.findUnique({
           where: { id },
           select: { thumbnail: true },
         });
-        if (lesson?.thumbnail && isOurS3Url(lesson.thumbnail)) {
-          key = getS3KeyFromStoredUrl(lesson.thumbnail);
+        if (lesson?.thumbnail) {
+          redirectUrl = lesson.thumbnail;
         }
       }
-      if (!key) return res.status(404).json({ success: false, message: 'Image not found' });
     } else {
       const rawUrl = req.query.url;
-      if (!rawUrl || typeof rawUrl !== 'string') {
-        return res.status(400).json({ success: false, message: 'Missing token or url parameter' });
+      if (rawUrl && typeof rawUrl === 'string') {
+        try {
+          redirectUrl = decodeURIComponent(rawUrl.trim());
+        } catch {
+          return res.status(400).json({ success: false, message: 'Invalid url' });
+        }
       }
-      let url;
-      try {
-        url = decodeURIComponent(rawUrl.trim());
-      } catch {
-        return res.status(400).json({ success: false, message: 'Invalid url' });
-      }
-      if (isOurS3Url(url)) {
-        key = getS3KeyFromStoredUrl(url);
-      } else if (url && !url.startsWith('http') && !url.includes('..')) {
-        key = url.replace(/^\//, '');
-      }
-      if (!key) return res.status(404).json({ success: false, message: 'Image not found' });
     }
 
-    const { stream, contentLength, contentType } = await getObjectStream(key);
+    if (!redirectUrl) {
+      return res.status(404).json({ success: false, message: 'Image not found' });
+    }
 
-    res.setHeader('Content-Type', contentType || 'image/png');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.setHeader('Content-Length', contentLength);
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    stream.pipe(res);
-    stream.on('error', () => {
-      if (!res.headersSent) res.status(500).json({ success: false, message: 'Stream error' });
-      else res.destroy();
-    });
+    // For S3 URLs, ensure they're public by not adding any signed params
+    // Just redirect to the public URL
+    if (isOurS3Url(redirectUrl)) {
+      // S3 images are public - redirect directly
+      return res.redirect(302, redirectUrl);
+    }
+
+    // For non-S3 URLs, also redirect
+    return res.redirect(302, redirectUrl);
   } catch (error) {
-    const isSignatureMismatch = error?.name === 'SignatureDoesNotMatch' ||
-      (error?.message && String(error.message).includes('signature we calculated does not match'));
-    if (isSignatureMismatch) {
-      console.error(
-        'S3 SignatureDoesNotMatch: Check S3_ACCESS_KEY and S3_SECRET_KEY in production. ' +
-        'Ensure the secret is set exactly (no extra spaces, no quotes around the value). ' +
-        'If the secret contains = or /, set it as an encrypted env var and paste the full string.'
-      );
-    }
     next(error);
   }
 };
