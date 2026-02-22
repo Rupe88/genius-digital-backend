@@ -48,12 +48,20 @@ export const generateSharingLinks = async (req, res, next) => {
       });
     }
 
-    // Smart URL detection: Use production URL if request comes from production domain
-    // This allows local backend to generate production links when called from production frontend
-    const origin = req.get('origin') || req.get('referer') || '';
-    const baseUrl = config.frontendUrl;
+    // Use request origin when it's a trusted (CORS) origin so share links match the site the user is on (production = production links, not localhost).
+    const originRaw = req.get('origin') || req.get('referer') || '';
+    let baseUrl = config.frontendUrl;
+    if (originRaw) {
+      try {
+        const u = originRaw.startsWith('http') ? originRaw : `https://${originRaw}`;
+        const origin = new URL(u).origin;
+        const allowedOrigins = config.corsOrigins || [];
+        const allowed = allowedOrigins.includes(origin) || origin.endsWith('.vercel.app');
+        if (allowed) baseUrl = origin;
+      } catch (_) { /* keep config.frontendUrl */ }
+    }
 
-    console.log(`Request origin: ${origin}, using baseUrl: ${baseUrl}`);
+    console.log(`Request origin: ${originRaw}, using baseUrl: ${baseUrl}`);
     console.log(`Generating sharing links for user ${userId} and course ${courseId}`);
 
     // Pass course slug to avoid extra DB call
