@@ -67,12 +67,12 @@ export const validateCoupon = async (code, userId, amount, courseId = null, prod
     };
   }
 
-  // Check applicability
+  // Check applicability (empty array = applicable to all courses)
   if (coupon.applicableCourses && courseId) {
-    const applicableCourses = typeof coupon.applicableCourses === 'string' 
-      ? JSON.parse(coupon.applicableCourses) 
+    const applicableCourses = typeof coupon.applicableCourses === 'string'
+      ? JSON.parse(coupon.applicableCourses)
       : coupon.applicableCourses;
-    if (Array.isArray(applicableCourses) && !applicableCourses.includes(courseId)) {
+    if (Array.isArray(applicableCourses) && applicableCourses.length > 0 && !applicableCourses.includes(courseId)) {
       return {
         valid: false,
         message: 'Coupon not applicable to this course',
@@ -80,11 +80,12 @@ export const validateCoupon = async (code, userId, amount, courseId = null, prod
     }
   }
 
+  // Empty applicableProducts = applicable to all products
   if (coupon.applicableProducts && productIds.length > 0) {
     const applicableProducts = typeof coupon.applicableProducts === 'string'
       ? JSON.parse(coupon.applicableProducts)
       : coupon.applicableProducts;
-    if (Array.isArray(applicableProducts)) {
+    if (Array.isArray(applicableProducts) && applicableProducts.length > 0) {
       const hasApplicableProduct = productIds.some(id => applicableProducts.includes(id));
       if (!hasApplicableProduct) {
         return {
