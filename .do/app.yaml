@@ -57,9 +57,12 @@ services:
   # Application Settings
   - key: APP_NAME
     value: "Vaastu LMS Platform"
-  # Video optimization (FFmpeg). On VPS: install ffmpeg; if app still can't find it, add env FFMPEG_PATH=/usr/bin/ffmpeg (or output of: which ffmpeg)
+    
+  # Video optimization (FFmpeg). On VPS: install ffmpeg; if app still can't find it, add env FFMPEG_PATH (or output of: which ffmpeg)
   - key: VIDEO_OPTIMIZATION_ENABLED
     value: "true"
+  - key: FFMPEG_PATH
+    value: "/usr/bin/ffmpeg"
   - key: FRONTEND_URL
     value: "https://sanskarvastu.com"
   - key: BACKEND_URL
