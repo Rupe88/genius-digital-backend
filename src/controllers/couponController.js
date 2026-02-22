@@ -39,19 +39,30 @@ export const validateCouponCode = async (req, res, next) => {
   }
 };
 
+/** Start of today UTC for consistent "active" filtering (exclude expired = validUntil in the past) */
+function startOfToday() {
+  const d = new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
 /**
- * Get all active coupons (Public)
+ * Get all active coupons (Public) – only coupons that are currently valid (not yet expired).
+ * validUntil is treated as end-of-day, so "valid until Dec 31" means through end of Dec 31.
  */
 export const getActiveCoupons = async (req, res, next) => {
   try {
+    const now = new Date();
+    const todayStart = startOfToday();
+
     const coupons = await prisma.coupon.findMany({
       where: {
         status: 'ACTIVE',
         validFrom: {
-          lte: new Date(),
+          lte: now,
         },
         validUntil: {
-          gte: new Date(),
+          gte: todayStart,
         },
       },
       select: {
@@ -263,23 +274,33 @@ export const updateCoupon = async (req, res, next) => {
     } = req.body;
 
     const updateData = {};
-    if (code) updateData.code = code.toUpperCase();
+    if (code !== undefined && code !== '') updateData.code = String(code).toUpperCase();
     if (description !== undefined) updateData.description = description;
-    if (couponType) updateData.couponType = couponType;
+    if (couponType !== undefined) updateData.couponType = couponType;
     if (discountValue !== undefined) updateData.discountValue = parseFloat(discountValue);
     if (minPurchase !== undefined) updateData.minPurchase = minPurchase ? parseFloat(minPurchase) : null;
     if (maxDiscount !== undefined) updateData.maxDiscount = maxDiscount ? parseFloat(maxDiscount) : null;
-    if (usageLimit !== undefined) updateData.usageLimit = usageLimit ? parseInt(usageLimit) : null;
-    if (userLimit !== undefined) updateData.userLimit = userLimit ? parseInt(userLimit) : null;
-    if (validFrom) updateData.validFrom = new Date(validFrom);
-    if (validUntil) updateData.validUntil = new Date(validUntil);
+    if (usageLimit !== undefined) updateData.usageLimit = usageLimit ? parseInt(usageLimit, 10) : null;
+    if (userLimit !== undefined) updateData.userLimit = userLimit ? parseInt(userLimit, 10) : null;
+    if (validFrom !== undefined && validFrom !== '') updateData.validFrom = new Date(validFrom);
+    if (validUntil !== undefined && validUntil !== '') updateData.validUntil = new Date(validUntil);
     if (applicableCourses !== undefined) {
-      updateData.applicableCourses = applicableCourses ? JSON.stringify(applicableCourses) : null;
+      const courses = Array.isArray(applicableCourses) ? applicableCourses : [];
+      updateData.applicableCourses = courses.length > 0 ? JSON.stringify(courses) : null;
     }
     if (applicableProducts !== undefined) {
-      updateData.applicableProducts = applicableProducts ? JSON.stringify(applicableProducts) : null;
+      const products = Array.isArray(applicableProducts) ? applicableProducts : [];
+      updateData.applicableProducts = products.length > 0 ? JSON.stringify(products) : null;
     }
-    if (status) updateData.status = status;
+    if (status !== undefined) updateData.status = status;
+
+    if (Object.keys(updateData).length === 0) {
+      const existing = await prisma.coupon.findUnique({ where: { id } });
+      if (!existing) {
+        return res.status(404).json({ success: false, message: 'Coupon not found' });
+      }
+      return res.json({ success: true, data: existing, message: 'No changes to update' });
+    }
 
     const coupon = await prisma.coupon.update({
       where: { id },

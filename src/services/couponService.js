@@ -1,6 +1,18 @@
 import { prisma } from '../config/database.js';
 
+/** End of the given date (23:59:59.999) so "valid until Dec 31" means through end of that day */
+function endOfDay(date) {
+  const d = new Date(date);
+  d.setUTCHours(23, 59, 59, 999);
+  return d;
+}
 
+/** Start of the given date (00:00:00.000) for consistent filtering */
+function startOfDay(date) {
+  const d = new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
 
 /**
  * Validate coupon code
@@ -25,9 +37,18 @@ export const validateCoupon = async (code, userId, amount, courseId = null, prod
     };
   }
 
-  // Check validity dates
+  // Check validity dates (validUntil = end of that day so "valid until Dec 31" means through Dec 31)
   const now = new Date();
-  if (now < coupon.validFrom || now > coupon.validUntil) {
+  const validFrom = coupon.validFrom ? new Date(coupon.validFrom) : null;
+  const validUntilEnd = coupon.validUntil ? endOfDay(coupon.validUntil) : null;
+
+  if (validFrom && now < validFrom) {
+    return {
+      valid: false,
+      message: 'Coupon is not yet valid',
+    };
+  }
+  if (validUntilEnd && now > validUntilEnd) {
     return {
       valid: false,
       message: 'Coupon has expired',
