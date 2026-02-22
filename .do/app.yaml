@@ -84,6 +84,9 @@ services:
   - key: S3_SECRET_KEY
     type: SECRET
     value: "${S3_SECRET_KEY}"
+  # Return signed S3 URLs for playback so videos play when backend cannot stream from S3 (e.g. App Platform)
+  - key: USE_SIGNED_VIDEO_URL
+    value: "true"
   # Payment Gateway
   - key: ESEWA_MERCHANT_ID
     type: SECRET
@@ -102,7 +105,7 @@ services:
     http_path: /health
   # CORS Configuration for production
   - key: CORS_ORIGINS
-    value: "https://vaastu-lms-dp.vercel.app,https://vaastulms.vercel.app,https://aacharyarajbabu.vercel.app,http://localhost:3000"
+    value: "https://sanskarvastu.com,https://www.sanskarvastu.com,https://vaastu-lms-dp.vercel.app,https://vaastulms.vercel.app,https://aacharyarajbabu.vercel.app,http://localhost:3000"
 databases:
 - name: postgres
   engine: PG

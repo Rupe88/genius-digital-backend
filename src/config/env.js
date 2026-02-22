@@ -30,6 +30,8 @@ export const config = {
     : [
       'http://localhost:3000',
       'http://localhost:3001',
+      'https://sanskarvastu.com',
+      'https://www.sanskarvastu.com',
       'https://vaastu-lms-dp.vercel.app',
       'https://aacharyarajbabu.vercel.app',
       'https://vaastulms.vercel.app',
