@@ -10,6 +10,12 @@ import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
 
+// If FFMPEG_PATH is set (e.g. on VPS where Node process PATH doesn't include ffmpeg), use it
+const ffmpegPath = process.env.FFMPEG_PATH?.trim();
+if (ffmpegPath) {
+  ffmpeg.setFfmpegPath(ffmpegPath);
+}
+
 /**
  * Optimize video buffer by moving MP4 metadata to the beginning
  * @param {Buffer} buffer - Video file buffer

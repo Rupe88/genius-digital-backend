@@ -4,8 +4,8 @@ FROM node:18-alpine
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for Prisma
-RUN apk add --no-cache libc6-compat openssl
+# Install system dependencies for Prisma and video optimization (FFmpeg)
+RUN apk add --no-cache libc6-compat openssl ffmpeg
 
 # Copy package files
 COPY package*.json ./

@@ -140,7 +140,7 @@ const apiRoutes = [
   ['chapters', chapterRoutes],
   ['consultations', consultationRoutes],
   ['contact', contactRoutes],
-  ['coupon', couponRoutes],
+  ['coupons', couponRoutes],
   ['courses', courseRoutes],
   ['enrollments', enrollmentRoutes],
   ['events', eventRoutes],
@@ -169,10 +169,16 @@ const apiRoutes = [
 apiRoutes.forEach(([path, router]) => {
   app.use(`${API_BASE}/${path}`, router);
 });
-// When API_BASE is //api, also mount without prefix for proxies that strip /api (e.g. DigitalOcean)
+// When API_BASE is /api, also mount without prefix for proxies that strip /api (e.g. DigitalOcean)
 if (API_BASE === '/api') {
   apiRoutes.forEach(([path, router]) => {
     app.use(`/${path}`, router);
+  });
+}
+// When API_BASE is not /api (e.g. ""), also mount at /api so requests to /api/coupons/admin etc. still match
+if (API_BASE !== '/api') {
+  apiRoutes.forEach(([path, router]) => {
+    app.use(`/api/${path}`, router);
   });
 }
 
