@@ -12,6 +12,8 @@ yarn.lock
 .env.development
 .env.test
 
+
+
 # Prisma
 prisma/migrations/
 

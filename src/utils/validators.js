@@ -220,14 +220,11 @@ export const courseValidation = [
     .isLength({ max: 500 })
     .withMessage('Short description must be less than 500 characters'),
   body('thumbnail')
-    .optional()
     .custom((value, { req }) => {
-      if (value == null || value === '') return true;
       if (req.files?.thumbnail?.length) return true;
-      if (typeof value === 'string' && /^https?:\/\//i.test(value)) return true;
-      return false;
-    })
-    .withMessage('Thumbnail must be a valid URL or upload a file'),
+      if (typeof value === 'string' && value.trim() && /^https?:\/\//i.test(value)) return true;
+      throw new Error('Thumbnail is required: upload an image or provide a valid URL');
+    }),
   body('price')
     .optional({ checkFalsy: true })
     .toFloat()
@@ -316,8 +313,7 @@ export const courseValidation = [
     .isLength({ max: 500 })
     .withMessage('Tags must be a string (max 500 characters)'),
   body('instructorId')
-    .notEmpty()
-    .withMessage('Instructor ID is required')
+    .optional({ checkFalsy: true })
     .trim()
     .isUUID()
     .withMessage('Instructor ID must be a valid UUID'),

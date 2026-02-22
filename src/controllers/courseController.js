@@ -570,13 +570,14 @@ export const createCourse = async (req, res, next) => {
       finalSlug = uniqueSlug;
     }
 
-    // Validate instructor exists
-    const instructor = await prisma.instructor.findUnique({
-      where: { id: instructorId },
-    });
-
-    if (!instructor) {
-      throw new Error('Instructor not found');
+    // Validate instructor exists if provided
+    if (instructorId) {
+      const instructor = await prisma.instructor.findUnique({
+        where: { id: instructorId },
+      });
+      if (!instructor) {
+        throw new Error('Instructor not found');
+      }
     }
 
     // Validate category if provided
@@ -643,7 +644,7 @@ export const createCourse = async (req, res, next) => {
           learningOutcomes: parsedLearningOutcomes,
           skills: parsedSkills,
           videoUrl: videoUrl || null,
-          instructorId,
+          instructorId: instructorId || null,
           categoryId: categoryId || null,
         },
         include: {

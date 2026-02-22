@@ -375,8 +375,8 @@ model Course {
   totalRatings     Int      @default(0)
   totalEnrollments Int      @default(0)
 
-  instructorId String
-  instructor   Instructor @relation(fields: [instructorId], references: [id])
+  instructorId String?
+  instructor   Instructor? @relation(fields: [instructorId], references: [id])
   categoryId   String?
   category     Category?  @relation(fields: [categoryId], references: [id])
 
