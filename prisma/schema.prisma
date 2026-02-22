@@ -906,9 +906,11 @@ model EventRegistration {
   eventId String
   event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  name  String @db.VarChar(255)
-  email String @db.VarChar(255)
-  phone String @db.VarChar(50)
+  name   String  @db.VarChar(255)
+  email  String  @db.VarChar(255)
+  phone  String  @db.VarChar(50)
+  referralSource String? @db.VarChar(100)
+  message        String? @db.Text
 
   attended Boolean @default(false)
 

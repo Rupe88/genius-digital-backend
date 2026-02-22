@@ -25,6 +25,8 @@ router.get(
     query('instructorId').optional().isUUID(),
     query('courseId').optional().isUUID(),
     query('upcoming').optional().isBoolean(),
+    query('search').optional().isString().trim(),
+    query('q').optional().isString().trim(),
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
   ]),

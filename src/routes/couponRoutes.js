@@ -8,15 +8,16 @@ import {
   updateCoupon,
   deleteCoupon,
 } from '../controllers/couponController.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, optionalAuthenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
 import { body, param, query } from 'express-validator';
 
 const router = express.Router();
 
-// Public routes
+// Validate promo/coupon code (optional auth so userLimit is enforced when logged in)
 router.post(
   '/validate',
+  optionalAuthenticate,
   [
     body('code').notEmpty().trim().isString(),
     body('amount').isFloat({ min: 0 }),

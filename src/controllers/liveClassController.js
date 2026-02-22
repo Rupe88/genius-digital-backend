@@ -14,6 +14,8 @@ export const getAllLiveClasses = async (req, res, next) => {
       instructorId,
       courseId,
       upcoming,
+      search,
+      q,
       page = 1,
       limit = 10,
     } = req.query;
@@ -24,6 +26,14 @@ export const getAllLiveClasses = async (req, res, next) => {
     if (status) where.status = status;
     if (instructorId) where.instructorId = instructorId;
     if (courseId) where.courseId = courseId;
+
+    const searchTerm = (search || q || '').trim();
+    if (searchTerm) {
+      where.OR = [
+        { title: { contains: searchTerm, mode: 'insensitive' } },
+        { description: { contains: searchTerm, mode: 'insensitive' } },
+      ];
+    }
 
     // Filter upcoming classes
     if (upcoming === 'true') {

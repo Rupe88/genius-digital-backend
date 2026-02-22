@@ -59,9 +59,9 @@ services:
     value: "Vaastu LMS Platform"
   # Disable video optimization on App Platform (no ffmpeg in buildpack); uploads still work
   - key: VIDEO_OPTIMIZATION_ENABLED
-    value: "false"
+    value: "true"
   - key: FRONTEND_URL
-    value: "https://vaastu-lms-dp.vercel.app"
+    value: "https://sanskarvastu.com"
   - key: BACKEND_URL
     value: "https://goldfish-app-d9t4j.ondigitalocean.app"
   # Google OAuth Configuration

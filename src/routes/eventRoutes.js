@@ -7,9 +7,10 @@ import {
   deleteEvent,
   registerForEvent,
   getEventRegistrations,
+  getAllEventRegistrations,
   markEventAttendance,
 } from '../controllers/eventController.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, optionalAuthenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
 import { optionalSingleUpload, processImageUpload } from '../middleware/cloudinaryUpload.js';
 import { body, param, query } from 'express-validator';
@@ -31,17 +32,35 @@ router.get('/', validate(listEventsQueryValidation), getAllEvents);
 
 router.get('/:id', validate([param('id').notEmpty()]), getEventById);
 
-// Authenticated routes
+// Public/optional-auth: register for event (guests send name, email, phone)
 router.post(
   '/:id/register',
-  authenticate,
+  optionalAuthenticate,
   validate([
     param('id').isUUID(),
     body('name').optional().isString().trim(),
     body('email').optional().isEmail(),
     body('phone').optional().isString().trim(),
+    body('referralSource').optional().isString().trim(),
+    body('message').optional().isString().trim(),
   ]),
   registerForEvent
+);
+
+// Admin: all event registrations (must be before /:id)
+router.get(
+  '/admin/registrations',
+  authenticate,
+  requireAdmin,
+  validate([
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 100 }),
+    query('search').optional().isString().trim(),
+    query('q').optional().isString().trim(),
+    query('eventId').optional().isUUID(),
+    query('referralSource').optional().isString().trim(),
+  ]),
+  getAllEventRegistrations
 );
 
 // Admin routes

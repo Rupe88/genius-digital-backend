@@ -301,7 +301,7 @@ export const deleteEvent = async (req, res, next) => {
 export const registerForEvent = async (req, res, next) => {
   try {
     const { id: eventId } = req.params;
-    const { name, email, phone } = req.body;
+    const { name, email, phone, referralSource, message } = req.body;
     const userId = req.user?.id ?? null;
 
     const event = await prisma.event.findUnique({
@@ -341,6 +341,17 @@ export const registerForEvent = async (req, res, next) => {
       });
     }
 
+    if (!req.user) {
+      const regName = (name || '').trim();
+      const regPhone = (phone || '').trim();
+      if (!regName) {
+        return res.status(400).json({ success: false, message: 'Name is required' });
+      }
+      if (!regPhone) {
+        return res.status(400).json({ success: false, message: 'Phone is required' });
+      }
+    }
+
     const existingReg = await prisma.eventRegistration.findUnique({
       where: {
         eventId_email: { eventId, email: regEmail },
@@ -359,7 +370,9 @@ export const registerForEvent = async (req, res, next) => {
         eventId,
         name: (name || req.user?.fullName || '').trim() || regEmail,
         email: regEmail,
-        phone: (phone || req.user?.phone || '').trim() || null,
+        phone: (phone || req.user?.phone || '').trim() || '',
+        referralSource: (referralSource || '').trim() || null,
+        message: (message || '').trim() || null,
       },
       include: {
         event: true,
@@ -412,6 +425,58 @@ export const getEventRegistrations = async (req, res, next) => {
         },
       }),
       prisma.eventRegistration.count({ where: { eventId } }),
+    ]);
+
+    res.json({
+      success: true,
+      data: registrations,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: total > 0 ? Math.ceil(total / limit) : 1,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// -----------------------------------------------------------------------------
+// Admin: List all event registrations (all events)
+// -----------------------------------------------------------------------------
+
+export const getAllEventRegistrations = async (req, res, next) => {
+  try {
+    const { page, limit, skip, take } = safePageLimit(req.query);
+    const search = (req.query.search || req.query.q || '').trim();
+    const eventId = (req.query.eventId || '').trim() || null;
+    const referralSource = (req.query.referralSource || '').trim() || null;
+
+    const where = {};
+    if (eventId) where.eventId = eventId;
+    if (referralSource) where.referralSource = referralSource;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { message: { contains: search, mode: 'insensitive' } },
+        { event: { title: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [registrations, total] = await Promise.all([
+      prisma.eventRegistration.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          event: { select: { id: true, title: true, slug: true, startDate: true } },
+          user: { select: { id: true, fullName: true, email: true, profileImage: true } },
+        },
+      }),
+      prisma.eventRegistration.count({ where }),
     ]);
 
     res.json({
