@@ -1,4 +1,5 @@
 import { prisma } from '../config/database.js';
+import { generateSlug } from '../utils/helpers.js';
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -153,8 +154,28 @@ export const getEventById = async (req, res, next) => {
 export const createEvent = async (req, res, next) => {
   try {
     const body = req.body;
-    const { title, slug, description, shortDescription, venue, location } = body;
+    const { title, description, shortDescription, venue, location } = body;
     const { startDate, endDate, price, isFree, maxAttendees, featured } = parseEventBody(body);
+
+    let slug = (body.slug && String(body.slug).trim()) || '';
+    if (!slug && title) {
+      let baseSlug = generateSlug(title);
+      let uniqueSlug = baseSlug;
+      let counter = 1;
+      while (true) {
+        const existing = await prisma.event.findUnique({ where: { slug: uniqueSlug } });
+        if (!existing) break;
+        uniqueSlug = `${baseSlug}-${counter}`;
+        counter++;
+      }
+      slug = uniqueSlug;
+    }
+    if (!slug) {
+      return res.status(400).json({
+        success: false,
+        message: 'Event title is required to generate a slug',
+      });
+    }
 
     const existing = await prisma.event.findUnique({
       where: { slug },

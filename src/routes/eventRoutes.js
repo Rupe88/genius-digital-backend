@@ -94,7 +94,7 @@ router.post(
   optionalSingleUpload('image', processImageUpload),
   validate([
     body('title').notEmpty().trim().withMessage('Event title is required'),
-    body('slug').notEmpty().trim().withMessage('Event slug is required'),
+    body('slug').optional().trim(),
     body('startDate').isISO8601().withMessage('Valid start date is required'),
     body('endDate').optional({ checkFalsy: true }).isISO8601().withMessage('Valid end date is required'),
     body('description').optional().isString(),
