@@ -326,9 +326,12 @@ export const courseValidation = [
     .trim()
     .custom((value) => {
       if (!value || value === '') return true;
-      return /^https?:\/\//i.test(value);
+      // We no longer require YouTube-only URLs. Allow:
+      // - https://... (external URLs, including S3 signed URLs)
+      // - /api/media/... (internal streaming/proxy endpoints)
+      return /^https?:\/\//i.test(value) || /^\//.test(value);
     })
-    .withMessage('Video URL must be a valid URL (e.g. YouTube)'),
+    .withMessage('Video URL must be a valid URL or internal media path'),
 ];
 
 export const courseFilterValidation = [
