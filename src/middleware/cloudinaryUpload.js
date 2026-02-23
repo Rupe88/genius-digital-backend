@@ -357,17 +357,45 @@ export const processDocumentUpload = async (req, res, next) => {
   }
 };
 
+const MAX_PROMO_VIDEOS = 5;
+
 /**
- * Course create/update: thumbnail (image) + optional video file.
- * Uses S3 only (uploadImage/uploadVideo from s3Service). Expects req.files.thumbnail[0] and/or req.files.video[0].
+ * Upload a single video buffer to S3 (used for course promo videos).
+ */
+async function uploadOneCourseVideo(file, reqBodyFolder) {
+  if (!Buffer.isBuffer(file.buffer) || file.buffer.length === 0) return null;
+  if (file.buffer.length > videoMaxBytes) {
+    throw new Error(`Video exceeds ${config.upload?.videoMaxMb ?? 3072}MB limit`);
+  }
+  let videoBuffer = file.buffer;
+  if (config.upload?.videoOptimizationEnabled) {
+    try {
+      videoBuffer = await optimizeVideoBuffer(videoBuffer, {
+        timeout: config.upload?.videoOptimizationTimeoutMs || 300000,
+      });
+    } catch (e) {
+      console.warn('[Course upload] Video optimization failed, using original:', e?.message);
+    }
+  }
+  const videoTimeoutMs = config.upload?.videoUploadTimeoutMs ?? 600000;
+  const uploadPromise = uploadVideo(videoBuffer, { folder: reqBodyFolder || 'lms/videos', mimeType: file.mimetype });
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`Video upload timed out after ${videoTimeoutMs / 1000}s`)), videoTimeoutMs)
+  );
+  const result = await Promise.race([uploadPromise, timeoutPromise]);
+  return result?.secure_url ?? null;
+}
+
+/**
+ * Course create/update: thumbnail (image) + optional 1–5 promo videos (URLs and/or file uploads).
+ * Uses S3 only. Expects req.files.thumbnail[0] and/or req.files.video[] (up to 5).
+ * When body.promoVideoSlots is present (JSON array of { type: 'url', url } | { type: 'file' }), builds req.cloudinary.promoVideos and sets videoUrl = first.
  */
 export const processCourseFiles = async (req, res, next) => {
   try {
-    if (!req.files) return next();
-
     req.cloudinary = req.cloudinary || {};
 
-    if (req.files.thumbnail && req.files.thumbnail[0]) {
+    if (req.files?.thumbnail?.[0]) {
       const file = req.files.thumbnail[0];
       if (Buffer.isBuffer(file.buffer) && file.buffer.length > 0) {
         if (file.buffer.length > imageMaxBytes) {
@@ -377,42 +405,55 @@ export const processCourseFiles = async (req, res, next) => {
         const result = await uploadImage(file.buffer, { folder: req.body.folder || 'lms/images', mimeType: file.mimetype });
         req.cloudinary.url = result.secure_url;
         req.cloudinary.publicId = result.public_id;
-        console.log('[Course upload] Thumbnail S3 URL:', result.secure_url);
       }
     }
 
-    if (req.files.video && req.files.video[0]) {
-      const file = req.files.video[0];
-      if (Buffer.isBuffer(file.buffer) && file.buffer.length > 0) {
-        if (file.buffer.length > videoMaxBytes) {
-          return res.status(400).json({ success: false, message: `Video exceeds ${config.upload?.videoMaxMb ?? 3072}MB limit` });
-        }
-        
-        // Optimize video buffer before upload if enabled
-        let videoBuffer = file.buffer;
-        if (config.upload?.videoOptimizationEnabled) {
-          try {
-            console.log('[Course upload] Starting video optimization...');
-            const optimizedBuffer = await optimizeVideoBuffer(videoBuffer, {
-              timeout: config.upload?.videoOptimizationTimeoutMs || 300000,
-            });
-            videoBuffer = optimizedBuffer;
-            console.log('[Course upload] Video optimization successful');
-          } catch (error) {
-            console.warn('[Course upload] Video optimization failed, using original:', error.message);
-            // Continue with original buffer (graceful fallback)
+    const videoFiles = req.files?.video && Array.isArray(req.files.video) ? req.files.video : [];
+    let promoVideoSlots = null;
+    try {
+      const raw = req.body.promoVideoSlots;
+      if (raw) promoVideoSlots = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (e) {
+      console.warn('[Course upload] Invalid promoVideoSlots JSON:', e?.message);
+    }
+
+    if (promoVideoSlots && Array.isArray(promoVideoSlots) && promoVideoSlots.length > 0) {
+      const folder = req.body.folder || 'lms/videos';
+      const urls = [];
+      let fileIndex = 0;
+      for (let i = 0; i < Math.min(promoVideoSlots.length, MAX_PROMO_VIDEOS); i++) {
+        const slot = promoVideoSlots[i];
+        if (slot?.type === 'file') {
+          const file = videoFiles[fileIndex];
+          fileIndex++;
+          if (file) {
+            try {
+              const url = await uploadOneCourseVideo(file, folder);
+              if (url) urls.push(url);
+            } catch (err) {
+              console.error('[Course upload] Video upload failed:', err?.message);
+              return res.status(400).json({ success: false, message: err?.message || 'Video upload failed' });
+            }
           }
+        } else if (slot?.type === 'url' && typeof slot.url === 'string' && slot.url.trim()) {
+          urls.push(slot.url.trim());
         }
-        
-        const videoTimeoutMs = config.upload?.videoUploadTimeoutMs ?? 600000;
-        console.log('[Course upload] Uploading video to S3, size:', videoBuffer.length);
-        const uploadPromise = uploadVideo(videoBuffer, { folder: req.body.folder || 'lms/videos', mimeType: file.mimetype });
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Video upload timed out after ${videoTimeoutMs / 1000}s`)), videoTimeoutMs)
-        );
-        const result = await Promise.race([uploadPromise, timeoutPromise]);
-        req.cloudinary.videoUrl = result.secure_url;
-        console.log('[Course upload] Video S3 URL:', result.secure_url);
+      }
+      req.cloudinary.promoVideos = urls.slice(0, MAX_PROMO_VIDEOS);
+      req.cloudinary.videoUrl = req.cloudinary.promoVideos[0] || null;
+      if (req.cloudinary.promoVideos.length) {
+        console.log('[Course upload] Promo videos:', req.cloudinary.promoVideos.length);
+      }
+    } else if (videoFiles.length > 0 && videoFiles[0]) {
+      const file = videoFiles[0];
+      if (Buffer.isBuffer(file.buffer) && file.buffer.length > 0) {
+        try {
+          const url = await uploadOneCourseVideo(file, req.body.folder || 'lms/videos');
+          req.cloudinary.videoUrl = url;
+          req.cloudinary.promoVideos = url ? [url] : [];
+        } catch (err) {
+          return res.status(400).json({ success: false, message: err?.message || 'Video upload failed' });
+        }
       }
     }
 

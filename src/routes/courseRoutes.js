@@ -37,7 +37,7 @@ router.post(
   '/',
   authenticate,
   requireAdmin,
-  fieldsUpload([{ name: 'thumbnail', maxCount: 1 }, { name: 'video', maxCount: 1 }]),
+  fieldsUpload([{ name: 'thumbnail', maxCount: 1 }, { name: 'video', maxCount: 5 }]),
   processCourseFiles,
   courseValidation,
   createCourse
@@ -47,7 +47,7 @@ router.put(
   '/:id',
   authenticate,
   requireAdmin,
-  fieldsUpload([{ name: 'thumbnail', maxCount: 1 }, { name: 'video', maxCount: 1 }]),
+  fieldsUpload([{ name: 'thumbnail', maxCount: 1 }, { name: 'video', maxCount: 5 }]),
   processCourseFiles,
   [param('id').isUUID(), ...courseValidation],
   updateCourse

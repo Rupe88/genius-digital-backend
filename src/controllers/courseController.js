@@ -458,6 +458,11 @@ export const getCourseById = async (req, res, next) => {
       });
     }
 
+    // Prefer first promo video as videoUrl when promoVideos exists
+    if (course.promoVideos && Array.isArray(course.promoVideos) && course.promoVideos.length > 0 && !course.videoUrl) {
+      course.videoUrl = course.promoVideos[0];
+    }
+
     // S3 promo: by default return stream path so backend serves video in chunks (play after first chunk). Set USE_SIGNED_VIDEO_URL=true for direct S3 when server cannot reach S3.
     if (isS3Configured()) {
       if (course.videoUrl && isOurS3Url(course.videoUrl)) {
@@ -471,6 +476,26 @@ export const getCourseById = async (req, res, next) => {
         } else {
           course.videoUrl = `/api/media/stream/course/${course.id}/promo`;
         }
+      }
+      // Transform promoVideos for S3: first uses same as videoUrl (stream/signed), rest use signed URL
+      if (course.promoVideos && Array.isArray(course.promoVideos) && course.promoVideos.length > 0) {
+        const transformed = [];
+        for (let i = 0; i < course.promoVideos.length; i++) {
+          const url = course.promoVideos[i];
+          if (url && isOurS3Url(url)) {
+            if (i === 0) transformed.push(course.videoUrl || url);
+            else {
+              try {
+                transformed.push(await getSignedUrlForMediaUrl(url, 3600));
+              } catch (err) {
+                transformed.push(url);
+              }
+            }
+          } else {
+            transformed.push(url);
+          }
+        }
+        course.promoVideos = transformed;
       }
       if (course.lessons?.length) {
         for (const lesson of course.lessons) {
@@ -536,9 +561,14 @@ export const createCourse = async (req, res, next) => {
       videoUrl: bodyVideoUrl,
     } = req.body;
 
-    // Video: use uploaded file URL (S3) or YouTube link from body (optional)
-    const videoUrl = req.cloudinary?.videoUrl ?? ((bodyVideoUrl && String(bodyVideoUrl).trim()) || null);
-    if (req.cloudinary?.videoUrl) {
+    // Video: multiple promo videos (req.cloudinary.promoVideos) or single (req.cloudinary.videoUrl / body)
+    const promoVideos = req.cloudinary?.promoVideos;
+    const videoUrl = promoVideos?.length
+      ? promoVideos[0]
+      : (req.cloudinary?.videoUrl ?? ((bodyVideoUrl && String(bodyVideoUrl).trim()) || null));
+    if (promoVideos?.length) {
+      console.log('[Course create] Using promo videos:', promoVideos.length);
+    } else if (req.cloudinary?.videoUrl) {
       console.log('[Course create] Using uploaded video URL:', req.cloudinary.videoUrl);
     }
 
@@ -644,6 +674,7 @@ export const createCourse = async (req, res, next) => {
           learningOutcomes: parsedLearningOutcomes,
           skills: parsedSkills,
           videoUrl: videoUrl || null,
+          promoVideos: promoVideos?.length ? promoVideos : null,
           instructorId: instructorId || null,
           categoryId: categoryId || null,
         },
@@ -888,12 +919,28 @@ export const updateCourse = async (req, res, next) => {
       updateData.categoryId = categoryId || null;
     }
 
-    // Video: uploaded file URL (S3) or YouTube link from body, or clear
-    if (req.cloudinary?.videoUrl) {
+    // Video: multiple promo videos or single URL (allow clear via promoVideoSlots: [])
+    let bodyPromoSlots = null;
+    try {
+      const raw = req.body.promoVideoSlots;
+      if (raw !== undefined) bodyPromoSlots = typeof raw === 'string' ? JSON.parse(raw || '[]') : raw;
+    } catch (e) { /* ignore */ }
+    const promoVideos = req.cloudinary?.promoVideos;
+    if (bodyPromoSlots && Array.isArray(bodyPromoSlots) && bodyPromoSlots.length === 0) {
+      updateData.promoVideos = null;
+      updateData.videoUrl = null;
+    } else if (promoVideos?.length) {
+      updateData.promoVideos = promoVideos;
+      updateData.videoUrl = promoVideos[0];
+      console.log('[Course update] Using promo videos:', promoVideos.length);
+    } else if (req.cloudinary?.videoUrl) {
       updateData.videoUrl = req.cloudinary.videoUrl;
+      updateData.promoVideos = [req.cloudinary.videoUrl];
       console.log('[Course update] Using uploaded video URL:', req.cloudinary.videoUrl);
     } else if (videoUrl !== undefined) {
-      updateData.videoUrl = (String(videoUrl).trim() || null);
+      const trimmed = String(videoUrl).trim() || null;
+      updateData.videoUrl = trimmed;
+      updateData.promoVideos = trimmed ? [trimmed] : null;
     }
 
     const course = await prisma.course.update({

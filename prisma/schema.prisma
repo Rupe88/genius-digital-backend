@@ -367,7 +367,8 @@ model Course {
   endDate          DateTime?
 
   tags             String?  @db.VarChar(500)
-  videoUrl         String?  @db.VarChar(500)   // S3 video or YouTube URL
+  videoUrl         String?  @db.VarChar(500)   // S3 video or YouTube URL (legacy; also set from promoVideos[0])
+  promoVideos     Json?    // Array of up to 5 promo video URLs (YouTube or S3)
   originalPrice    Decimal? @db.Decimal(10, 2)  // For showing discount
   learningOutcomes Json?    // Array of learning outcomes
   skills           Json?    // Array of skills
