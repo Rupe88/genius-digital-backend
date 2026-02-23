@@ -324,8 +324,9 @@ export const createLesson = async (req, res, next) => {
             questions: {
               create: parsedQuizData.questions.map((q, idx) => ({
                 question: q.question,
-                options: q.options,
-                correctAnswer: q.correctAnswer,
+                questionType: q.questionType || 'multiple_choice',
+                options: q.options != null ? q.options : null,
+                correctAnswer: q.correctAnswer != null ? String(q.correctAnswer) : '',
                 points: q.points ? parseInt(q.points) : 1,
                 order: idx,
               })),
@@ -518,8 +519,9 @@ export const updateLesson = async (req, res, next) => {
             questions: {
               create: parsedQuizData.questions.map((q, idx) => ({
                 question: q.question,
-                options: q.options,
-                correctAnswer: q.correctAnswer,
+                questionType: q.questionType || 'multiple_choice',
+                options: q.options != null ? q.options : null,
+                correctAnswer: q.correctAnswer != null ? String(q.correctAnswer) : '',
                 points: q.points ? parseInt(q.points) : 1,
                 order: idx,
               })),
