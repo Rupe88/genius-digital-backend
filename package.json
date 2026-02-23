@@ -8,6 +8,7 @@
     "predev": "lsof -ti :4000 | xargs kill -9 2>/dev/null || true",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "start:migrate": "npx prisma migrate deploy && node src/server.js",
     "build": "prisma generate",
     "postbuild": "echo 'Build completed successfully'",
     "test": "node test-api.js",

@@ -63,6 +63,8 @@ app.use(helmet({
 const allowedOrigins = new Set([
   ...(config.corsOrigins || []),
   'https://vaastu-lms-dp.vercel.app',
+  'https://sanskarvastu.com',
+  'https://www.sanskarvastu.com',
   'http://localhost:3000',
   'http://localhost:3001',
 ]);
