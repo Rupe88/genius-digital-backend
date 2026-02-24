@@ -1,5 +1,17 @@
 import { prisma } from '../config/database.js';
 
+function getBookingDelegate() {
+  const delegate = prisma.upcomingEventBooking;
+  if (!delegate) {
+    const err = new Error(
+      'UpcomingEventBooking model not in Prisma client. Run: npx prisma generate && restart the server.'
+    );
+    err.statusCode = 503;
+    throw err;
+  }
+  return delegate;
+}
+
 function safePageLimit(query) {
   const page = Math.max(1, parseInt(query.page, 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
@@ -77,7 +89,22 @@ export const createBooking = async (req, res, next) => {
       }
     }
 
-    const booking = await prisma.upcomingEventBooking.create({
+    const delegate = getBookingDelegate();
+    const existingWhere = hasEvent
+      ? { email: regEmail, eventId: eventId.trim() }
+      : { email: regEmail, courseId: courseId.trim() };
+    const existing = await delegate.findFirst({
+      where: existingWhere,
+    });
+    if (existing) {
+      return res.status(200).json({
+        success: true,
+        message: 'Already booked. We will contact you soon.',
+        alreadyBooked: true,
+      });
+    }
+
+    const booking = await delegate.create({
       data: {
         eventId: hasEvent ? eventId.trim() : null,
         courseId: hasCourse ? courseId.trim() : null,
@@ -128,8 +155,9 @@ export const getAllBookings = async (req, res, next) => {
       ];
     }
 
+    const delegate = getBookingDelegate();
     const [bookings, total] = await Promise.all([
-      prisma.upcomingEventBooking.findMany({
+      delegate.findMany({
         where,
         skip,
         take,
@@ -139,7 +167,7 @@ export const getAllBookings = async (req, res, next) => {
           course: { select: { id: true, title: true, slug: true } },
         },
       }),
-      prisma.upcomingEventBooking.count({ where }),
+      delegate.count({ where }),
     ]);
 
     res.json({

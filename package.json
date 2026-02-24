@@ -5,7 +5,7 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "predev": "lsof -ti :4000 | xargs kill -9 2>/dev/null || true",
+    "predev": "prisma generate && lsof -ti :4000 | xargs kill -9 2>/dev/null || true",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "start:migrate": "npx prisma migrate deploy && node src/server.js",
