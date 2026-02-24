@@ -30,7 +30,6 @@ enum CourseStatus {
   ARCHIVED
   ONGOING
   UPCOMING_EVENTS
-  POPULAR
 }
 
 enum EnrollmentStatus {
