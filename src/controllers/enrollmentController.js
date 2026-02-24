@@ -1,4 +1,5 @@
 import { prisma } from '../config/database.js';
+import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
 
 import { validationResult } from 'express-validator';
 import * as referralService from '../services/referralService.js';
@@ -155,6 +156,22 @@ export const getUserEnrollments = async (req, res, next) => {
       prisma.enrollment.count({ where }),
     ]);
 
+    // Ensure course thumbnails use signed S3 URLs for reliable loading on frontend
+    if (isS3Configured()) {
+      await Promise.all(
+        enrollments.map(async (enrollment) => {
+          const course = enrollment.course;
+          if (course?.thumbnail && isOurS3Url(course.thumbnail)) {
+            try {
+              course.thumbnail = await getSignedUrlForMediaUrl(course.thumbnail, 3600);
+            } catch (err) {
+              console.warn('[enrollment] Signed thumbnail URL failed:', course.id, err?.message);
+            }
+          }
+        })
+      );
+    }
+
     res.json({
       success: true,
       data: enrollments,
@@ -210,6 +227,15 @@ export const getEnrollmentById = async (req, res, next) => {
         success: false,
         message: 'Access denied',
       });
+    }
+
+    // Mask course thumbnail with signed S3 URL if needed
+    if (isS3Configured() && enrollment.course?.thumbnail && isOurS3Url(enrollment.course.thumbnail)) {
+      try {
+        enrollment.course.thumbnail = await getSignedUrlForMediaUrl(enrollment.course.thumbnail, 3600);
+      } catch (err) {
+        console.warn('[enrollment] Signed thumbnail URL failed (by id):', enrollment.course.id, err?.message);
+      }
     }
 
     res.json({
