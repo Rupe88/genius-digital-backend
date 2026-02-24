@@ -981,7 +981,7 @@ export const updateCourse = async (req, res, next) => {
   }
 };
 
-const VALID_STATUSES = ['DRAFT', 'PUBLISHED', 'ONGOING', 'ARCHIVED', 'UPCOMING_EVENTS'];
+const VALID_STATUSES = ['DRAFT', 'PUBLISHED', 'ONGOING', 'ARCHIVED', 'UPCOMING_EVENTS', 'POPULAR'];
 
 /**
  * Update course status only (Admin only) - for quick status toggle from list.
@@ -994,7 +994,7 @@ export const updateCourseStatus = async (req, res, next) => {
     if (!status || !VALID_STATUSES.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid status. Must be one of: DRAFT, PUBLISHED, ONGOING, ARCHIVED, UPCOMING_EVENTS',
+        message: 'Invalid status. Must be one of: DRAFT, PUBLISHED, ONGOING, ARCHIVED, UPCOMING_EVENTS, POPULAR',
       });
     }
     const isOngoing = status === 'ONGOING';

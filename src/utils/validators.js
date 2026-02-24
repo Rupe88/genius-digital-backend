@@ -269,8 +269,8 @@ export const courseValidation = [
     .withMessage('isFree must be a boolean'),
   body('status')
     .optional({ checkFalsy: true })
-    .isIn(['DRAFT', 'PUBLISHED', 'ARCHIVED', 'ONGOING', 'UPCOMING_EVENTS'])
-    .withMessage('Status must be one of: DRAFT, PUBLISHED, ARCHIVED, ONGOING, UPCOMING_EVENTS'),
+    .isIn(['DRAFT', 'PUBLISHED', 'ARCHIVED', 'ONGOING', 'UPCOMING_EVENTS', 'POPULAR'])
+    .withMessage('Status must be one of: DRAFT, PUBLISHED, ARCHIVED, ONGOING, UPCOMING_EVENTS, POPULAR'),
   body('level')
     .optional({ checkFalsy: true })
     .isIn(['Beginner', 'Intermediate', 'Advanced'])

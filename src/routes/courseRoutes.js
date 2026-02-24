@@ -57,7 +57,7 @@ router.patch(
   '/:id/status',
   authenticate,
   requireAdmin,
-  [param('id').isUUID(), body('status').isIn(['DRAFT', 'PUBLISHED', 'ONGOING', 'ARCHIVED', 'UPCOMING_EVENTS']).withMessage('Invalid status')],
+  [param('id').isUUID(), body('status').isIn(['DRAFT', 'PUBLISHED', 'ONGOING', 'ARCHIVED', 'UPCOMING_EVENTS', 'POPULAR']).withMessage('Invalid status')],
   updateCourseStatus
 );
 
