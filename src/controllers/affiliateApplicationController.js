@@ -6,6 +6,18 @@ function safePageLimit(query) {
   return { page, limit, skip: (page - 1) * limit, take: limit };
 }
 
+function getAffiliateApplicationDelegate() {
+  const delegate = prisma.affiliateApplication;
+  if (!delegate) {
+    const err = new Error(
+      'AffiliateApplication model not in Prisma client. Run: npx prisma generate && restart the server.'
+    );
+    err.statusCode = 503;
+    throw err;
+  }
+  return delegate;
+}
+
 /**
  * Public: Submit affiliate application form
  */
@@ -43,7 +55,8 @@ export const submitApplication = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Phone number is required.' });
     }
 
-    const application = await prisma.affiliateApplication.create({
+    const delegate = getAffiliateApplicationDelegate();
+    const application = await delegate.create({
       data: {
         fullName: name,
         email: regEmail,
@@ -91,14 +104,15 @@ export const getAllApplications = async (req, res, next) => {
       ];
     }
 
+    const delegate = getAffiliateApplicationDelegate();
     const [applications, total] = await Promise.all([
-      prisma.affiliateApplication.findMany({
+      delegate.findMany({
         where,
         skip,
         take,
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.affiliateApplication.count({ where }),
+      delegate.count({ where }),
     ]);
 
     res.json({
