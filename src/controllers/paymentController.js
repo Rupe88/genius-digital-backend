@@ -1,4 +1,5 @@
 import { prisma } from '../config/database.js';
+import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
 import { validationResult } from 'express-validator';
 import * as paymentService from '../services/paymentService.js';
 import * as cardPaymentService from '../services/cardPaymentService.js';
@@ -323,6 +324,22 @@ export const getUserPayments = async (req, res, next) => {
         where: { userId },
       }),
     ]);
+
+    // Ensure course thumbnails use signed S3 URLs so they load correctly in dashboard/payment history
+    if (isS3Configured()) {
+      await Promise.all(
+        payments.map(async (payment) => {
+          const course = payment.course;
+          if (course?.thumbnail && isOurS3Url(course.thumbnail)) {
+            try {
+              course.thumbnail = await getSignedUrlForMediaUrl(course.thumbnail, 3600);
+            } catch (err) {
+              console.warn('[payments] Signed thumbnail URL failed:', course.id, err?.message);
+            }
+          }
+        })
+      );
+    }
 
     res.json({
       success: true,
