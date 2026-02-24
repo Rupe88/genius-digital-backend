@@ -32,7 +32,6 @@ export const getVideoToken = async (req, res, next) => {
     const userId = req.user?.id;
     const base = getBackendBaseUrl(req);
     const { lessonId, courseId, type } = req.query;
-    const useSignedUrl = process.env.USE_SIGNED_VIDEO_URL === 'true';
 
     if (lessonId) {
       if (!userId) {
@@ -67,12 +66,15 @@ export const getVideoToken = async (req, res, next) => {
       if (!lesson.videoUrl) {
         return res.status(404).json({ success: false, message: 'No video for this lesson' });
       }
-      if (useSignedUrl && isS3Configured() && isOurS3Url(lesson.videoUrl)) {
+
+      // Prefer direct signed S3 URL when possible for smoother playback.
+      // Falls back to internal streaming endpoint if S3 is unavailable or signing fails.
+      if (isS3Configured() && isOurS3Url(lesson.videoUrl)) {
         try {
           const signedUrl = await getSignedUrlForMediaUrl(lesson.videoUrl, 3600);
           return res.json({ success: true, url: signedUrl });
         } catch (err) {
-          console.warn('[video-token] Signed URL failed for lesson:', err?.message);
+          console.warn('[video-token] Signed URL failed for lesson, falling back to stream:', err?.message);
         }
       }
       const token = generateVideoStreamToken({ type: 'lesson', lessonId });
@@ -94,12 +96,14 @@ export const getVideoToken = async (req, res, next) => {
       if (!course.videoUrl) {
         return res.status(404).json({ success: false, message: 'No preview video for this course' });
       }
-      if (useSignedUrl && isS3Configured() && isOurS3Url(course.videoUrl)) {
+
+      // Prefer direct signed S3 URL for promo previews as well.
+      if (isS3Configured() && isOurS3Url(course.videoUrl)) {
         try {
           const signedUrl = await getSignedUrlForMediaUrl(course.videoUrl, 3600);
           return res.json({ success: true, url: signedUrl });
         } catch (err) {
-          console.warn('[video-token] Signed URL failed for promo:', err?.message);
+          console.warn('[video-token] Signed URL failed for promo, falling back to stream:', err?.message);
         }
       }
       const token = generateVideoStreamToken({ type: 'promo', courseId: course.id });
