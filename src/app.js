@@ -28,6 +28,7 @@ import courseRoutes from './routes/courseRoutes.js';
 import enrollmentRoutes from './routes/enrollmentRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
 import upcomingEventBookingRoutes from './routes/upcomingEventBookingRoutes.js';
+import affiliateApplicationRoutes from './routes/affiliateApplicationRoutes.js';
 import faqRoutes from './routes/faqRoutes.js';
 import galleryRoutes from './routes/galleryRoutes.js';
 import instructorRoutes from './routes/instructorRoutes.js';
@@ -148,6 +149,7 @@ const apiRoutes = [
   ['enrollments', enrollmentRoutes],
   ['events', eventRoutes],
   ['upcoming-event-bookings', upcomingEventBookingRoutes],
+  ['affiliate-applications', affiliateApplicationRoutes],
   ['faqs', faqRoutes],
   ['gallery', galleryRoutes],
   ['instructors', instructorRoutes],

@@ -1036,6 +1036,28 @@ model Affiliate {
   @@map("affiliates")
 }
 
+// Public affiliate application form submissions (Become an Affiliate)
+model AffiliateApplication {
+  id                    String   @id @default(uuid())
+  fullName              String   @db.VarChar(255)
+  email                 String   @db.VarChar(255)
+  phone                 String   @db.VarChar(50)
+  dateOfBirth           String?  @db.VarChar(20)
+  country               String?  @db.VarChar(100)
+  city                  String?  @db.VarChar(100)
+  currentOccupation     String?  @db.VarChar(255)
+  hasAffiliateExperience Boolean @default(false)
+  experienceDetails    String?  @db.Text
+  occultKnowledge      String?  @db.VarChar(100)  // Numerology, Astrology, Vaastu Shastra, Lal Kitab, Other
+  occultOther           String?  @db.Text
+  whyJoin               String?  @db.Text
+  createdAt             DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt])
+  @@map("affiliate_applications")
+}
+
 model AffiliateEarning {
   id           String     @id @default(uuid())
   affiliateId  String
