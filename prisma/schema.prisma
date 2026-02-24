@@ -29,6 +29,7 @@ enum CourseStatus {
   PUBLISHED
   ARCHIVED
   ONGOING
+  UPCOMING_EVENTS
 }
 
 enum EnrollmentStatus {
