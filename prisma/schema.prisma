@@ -389,12 +389,13 @@ model Course {
   liveClasses       LiveClass[]
   certificates      Certificate[]
   payments          Payment[]
-  wishlistItems     WishlistItem[]
-  affiliateEarnings AffiliateEarning[]
-  testimonials      Testimonial[]
-  successStories    StudentSuccessStory[]
-  expenses          Expense[]
-  instructorEarnings InstructorEarning[]
+  wishlistItems       WishlistItem[]
+  affiliateEarnings   AffiliateEarning[]
+  testimonials        Testimonial[]
+  successStories      StudentSuccessStory[]
+  expenses            Expense[]
+  instructorEarnings  InstructorEarning[]
+  upcomingEventBookings UpcomingEventBooking[]
 
   // Referral system relations
   referralLinks      ReferralLink[]
@@ -888,6 +889,7 @@ model Event {
   featured         Boolean     @default(false)
 
   registrations EventRegistration[]
+  upcomingEventBookings UpcomingEventBooking[]
   consultations Consultation[]
 
   createdAt DateTime @default(now())
@@ -921,6 +923,26 @@ model EventRegistration {
   @@index([eventId])
   @@index([email])
   @@map("event_registrations")
+}
+
+// Book Now form submissions (events + upcoming event courses)
+model UpcomingEventBooking {
+  id             String   @id @default(uuid())
+  eventId        String?
+  event          Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  courseId       String?
+  course         Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name           String   @db.VarChar(255)
+  email          String   @db.VarChar(255)
+  phone          String   @db.VarChar(50)
+  referralSource String?  @db.VarChar(100)
+  message        String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  @@index([eventId])
+  @@index([courseId])
+  @@index([email])
+  @@map("upcoming_event_bookings")
 }
 
 // BLOGS
