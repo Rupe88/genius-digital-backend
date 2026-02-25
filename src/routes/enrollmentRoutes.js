@@ -6,6 +6,7 @@ import {
   unenrollFromCourse,
   getAllEnrollments,
   deleteEnrollment,
+  adminGrantEnrollment,
 } from '../controllers/enrollmentController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
@@ -50,6 +51,17 @@ router.delete(
 );
 
 // Admin routes
+router.post(
+  '/admin/grant',
+  authenticate,
+  requireAdmin,
+  [
+    body('userId').notEmpty().isUUID(),
+    body('courseId').notEmpty().isUUID(),
+  ],
+  adminGrantEnrollment
+);
+
 router.get(
   '/',
   authenticate,

@@ -123,6 +123,98 @@ export const enrollInCourse = async (req, res, next) => {
 };
 
 /**
+ * Admin: grant course access to a user (manual enrollment)
+ */
+export const adminGrantEnrollment = async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+      });
+    }
+
+    const { userId, courseId } = req.body;
+
+    // Ensure user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Ensure course exists
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+    });
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found',
+      });
+    }
+
+    // Check for existing enrollment
+    let enrollment = await prisma.enrollment.findUnique({
+      where: {
+        userId_courseId: {
+          userId,
+          courseId,
+        },
+      },
+    });
+
+    // If already enrolled, ensure it's active and return success (idempotent)
+    if (enrollment) {
+      if (enrollment.status !== 'ACTIVE') {
+        enrollment = await prisma.enrollment.update({
+          where: { id: enrollment.id },
+          data: { status: 'ACTIVE' },
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'User already has access to this course',
+        data: enrollment,
+      });
+    }
+
+    // Create new ACTIVE enrollment granted by admin
+    enrollment = await prisma.enrollment.create({
+      data: {
+        userId,
+        courseId,
+        status: 'ACTIVE',
+      },
+    });
+
+    // Update course enrollment count
+    await prisma.course.update({
+      where: { id: courseId },
+      data: {
+        totalEnrollments: {
+          increment: 1,
+        },
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Course access granted successfully',
+      data: enrollment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get user enrollments
  */
 export const getUserEnrollments = async (req, res, next) => {
