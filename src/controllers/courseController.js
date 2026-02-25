@@ -402,6 +402,7 @@ export const getCourseById = async (req, res, next) => {
       include: {
         instructor: true,
         category: true,
+        installmentPlan: true,
         lessons: {
           orderBy: {
             order: 'asc',
@@ -1059,6 +1060,19 @@ export const updateCourseFeatured = async (req, res, next) => {
 export const deleteCourse = async (req, res, next) => {
   try {
     const { id } = req.params;
+
+    // Safety checks before delete to avoid foreign key violations and accidental data loss
+    const [instructorEarningsCount] = await Promise.all([
+      prisma.instructorEarning.count({ where: { courseId: id } }),
+    ]);
+
+    if (instructorEarningsCount > 0) {
+      return res.status(409).json({
+        success: false,
+        message:
+          'This course has instructor earnings records linked to it. Please clear or archive those earnings before deleting the course.',
+      });
+    }
 
     await prisma.course.delete({
       where: { id },

@@ -423,6 +423,25 @@ export const verifyPayment = async (params) => {
         );
       }
 
+      // If this payment was for an installment (EMI), mark installment PAID and skip enrollment
+      if (payment.metadata?.installmentId) {
+        await prisma.courseInstallment.update({
+          where: { id: payment.metadata.installmentId },
+          data: {
+            status: 'PAID',
+            paymentId: payment.id,
+            paidAt: new Date(),
+          },
+        });
+        return {
+          success: true,
+          payment: await prisma.payment.findUnique({
+            where: { id: payment.id },
+            include: { course: true, order: true },
+          }),
+        };
+      }
+
       // Auto-enroll in course if payment is for a course (only if not already enrolled)
       if (payment.courseId) {
         const enrollment = await enrollUserInCourse(

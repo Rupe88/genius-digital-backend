@@ -77,6 +77,10 @@ router.post(
       .trim()
       .custom((value) => !value || value.startsWith('http://') || value.startsWith('https://'))
       .withMessage('Invalid failure URL format'),
+    body('installmentId')
+      .optional()
+      .isUUID()
+      .withMessage('Invalid installment ID format'),
   ],
   initiatePayment
 );

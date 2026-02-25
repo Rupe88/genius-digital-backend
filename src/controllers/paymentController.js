@@ -2,6 +2,7 @@ import { prisma } from '../config/database.js';
 import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
 import { validationResult } from 'express-validator';
 import * as paymentService from '../services/paymentService.js';
+import * as installmentService from '../services/installmentService.js';
 import * as cardPaymentService from '../services/cardPaymentService.js';
 import * as esewaService from '../services/esewaService.js';
 import { config } from '../config/env.js';
@@ -29,9 +30,32 @@ export const initiatePayment = async (req, res, next) => {
       productName,
       successUrl,
       failureUrl,
+      installmentId,
     } = req.body;
 
     const userId = req.user.id;
+
+    let finalAmount = amount;
+    let finalCourseId = courseId;
+    const metadata = {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+      referralClickId: req.body.referralClickId || req.cookies.referral_click_id,
+    };
+
+    // If paying for an installment: validate and use installment amount/course
+    if (installmentId) {
+      const installment = await installmentService.getInstallmentForPayment(installmentId, userId);
+      if (!installment) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or already paid installment',
+        });
+      }
+      finalAmount = Number(installment.amount);
+      finalCourseId = installment.enrollment.course.id;
+      metadata.installmentId = installmentId;
+    }
 
     // Validate that user is not trying to pay for someone else's order/course
     if (orderId) {
@@ -48,10 +72,9 @@ export const initiatePayment = async (req, res, next) => {
       }
     }
 
-    if (courseId) {
-      const { PrismaClient } = await import('@prisma/client');
+    if (finalCourseId) {
       const course = await prisma.course.findUnique({
-        where: { id: courseId },
+        where: { id: finalCourseId },
       });
 
       if (!course) {
@@ -64,20 +87,16 @@ export const initiatePayment = async (req, res, next) => {
 
     const result = await paymentService.initiatePayment({
       userId,
-      amount,
+      amount: finalAmount,
       paymentMethod,
-      courseId,
+      courseId: finalCourseId,
       orderId,
       couponCode,
       productIds: productIds || [],
-      productName: productName || 'Course/Product Payment',
+      productName: productName || (installmentId ? 'Installment Payment' : 'Course/Product Payment'),
       successUrl,
       failureUrl,
-      metadata: {
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-        referralClickId: req.body.referralClickId || req.cookies.referral_click_id,
-      },
+      metadata,
     });
 
     res.status(201).json({

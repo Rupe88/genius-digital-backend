@@ -39,6 +39,12 @@ enum EnrollmentStatus {
   CANCELLED
 }
 
+enum InstallmentStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
 enum LessonType {
   VIDEO
   TEXT
@@ -397,6 +403,9 @@ model Course {
   instructorEarnings  InstructorEarning[]
   upcomingEventBookings UpcomingEventBooking[]
 
+  // Installment plan (EMI-style): optional per course
+  installmentPlan   CourseInstallmentPlan?
+
   // Referral system relations
   referralLinks      ReferralLink[]
   referralConversions ReferralConversion[]
@@ -413,6 +422,43 @@ model Course {
   @@index([rating])
   @@index([tags])
   @@map("courses")
+}
+
+// EMI-style installment plan for a course (admin-configured)
+model CourseInstallmentPlan {
+  id                    String   @id @default(uuid())
+  courseId              String   @unique
+  course                Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  numberOfInstallments  Int      // e.g. 3 or 4
+  intervalMonths        Int      @default(1) // 1 = monthly
+  minAmountForPlan      Decimal? @db.Decimal(10, 2) // Only show plan if course price >= this (optional)
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  @@index([courseId])
+  @@index([isActive])
+  @@map("course_installment_plans")
+}
+
+// One installment in a user's schedule (per enrollment)
+model CourseInstallment {
+  id              String           @id @default(uuid())
+  enrollmentId    String
+  enrollment      Enrollment       @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  installmentNumber Int            // 1-based: 1, 2, 3...
+  amount          Decimal          @db.Decimal(10, 2)
+  dueDate         DateTime
+  status          InstallmentStatus @default(PENDING)
+  paymentId       String?
+  payment         Payment?         @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  paidAt          DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  @@index([enrollmentId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([paymentId])
+  @@map("course_installments")
 }
 
 // Chapters/Modules for organizing lessons
@@ -488,6 +534,9 @@ model Enrollment {
 
   affiliateEarnings AffiliateEarning[]
   instructorEarnings InstructorEarning[]
+
+  // Installment schedule (when user chose pay-in-installments)
+  installments CourseInstallment[]
 
   // Referral system relations
   referralConversions ReferralConversion[]
@@ -1274,6 +1323,9 @@ model Payment {
   gatewayResponseTime Int? // Milliseconds
 
   metadata Json?
+
+  // When this payment pays an installment (EMI), link is on CourseInstallment.paymentId
+  courseInstallments  CourseInstallment[]
 
   instructorEarnings InstructorEarning[]
   transactions       Transaction[]

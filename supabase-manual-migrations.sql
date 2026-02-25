@@ -75,9 +75,74 @@ CREATE TABLE IF NOT EXISTS "affiliate_applications" (
 CREATE INDEX IF NOT EXISTS "affiliate_applications_email_idx" ON "affiliate_applications"("email");
 CREATE INDEX IF NOT EXISTS "affiliate_applications_createdAt_idx" ON "affiliate_applications"("createdAt");
 
+-- 4) Installment (EMI-style) support: enum + tables
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type WHERE typname = 'InstallmentStatus'
+  ) THEN
+    CREATE TYPE "InstallmentStatus" AS ENUM ('PENDING', 'PAID', 'OVERDUE');
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS "course_installment_plans" (
+    "id" TEXT NOT NULL,
+    "courseId" TEXT NOT NULL,
+    "numberOfInstallments" INTEGER NOT NULL,
+    "intervalMonths" INTEGER NOT NULL DEFAULT 1,
+    "minAmountForPlan" DECIMAL(10,2),
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "course_installment_plans_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "course_installment_plans_courseId_key" ON "course_installment_plans"("courseId");
+CREATE INDEX IF NOT EXISTS "course_installment_plans_courseId_idx" ON "course_installment_plans"("courseId");
+CREATE INDEX IF NOT EXISTS "course_installment_plans_isActive_idx" ON "course_installment_plans"("isActive");
+
+CREATE TABLE IF NOT EXISTS "course_installments" (
+    "id" TEXT NOT NULL,
+    "enrollmentId" TEXT NOT NULL,
+    "installmentNumber" INTEGER NOT NULL,
+    "amount" DECIMAL(10,2) NOT NULL,
+    "dueDate" TIMESTAMP(3) NOT NULL,
+    "status" "InstallmentStatus" NOT NULL DEFAULT 'PENDING',
+    "paymentId" TEXT,
+    "paidAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "course_installments_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "course_installments_enrollmentId_idx" ON "course_installments"("enrollmentId");
+CREATE INDEX IF NOT EXISTS "course_installments_status_idx" ON "course_installments"("status");
+CREATE INDEX IF NOT EXISTS "course_installments_dueDate_idx" ON "course_installments"("dueDate");
+CREATE INDEX IF NOT EXISTS "course_installments_paymentId_idx" ON "course_installments"("paymentId");
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'course_installment_plans_courseId_fkey') THEN
+    ALTER TABLE "course_installment_plans"
+      ADD CONSTRAINT "course_installment_plans_courseId_fkey"
+      FOREIGN KEY ("courseId") REFERENCES "courses"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'course_installments_enrollmentId_fkey') THEN
+    ALTER TABLE "course_installments"
+      ADD CONSTRAINT "course_installments_enrollmentId_fkey"
+      FOREIGN KEY ("enrollmentId") REFERENCES "enrollments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'course_installments_paymentId_fkey') THEN
+    ALTER TABLE "course_installments"
+      ADD CONSTRAINT "course_installments_paymentId_fkey"
+      FOREIGN KEY ("paymentId") REFERENCES "payments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
+
 -- =============================================================================
 -- After running this, mark migrations as applied so Prisma doesn't try again:
 --   npx prisma migrate resolve --applied 20250224000000_add_course_status_upcoming_events
 --   npx prisma migrate resolve --applied 20250224100000_add_upcoming_event_bookings
 --   npx prisma migrate resolve --applied 20250225100000_add_affiliate_applications
+--   npx prisma migrate resolve --applied 20250226000000_add_installments
 -- =============================================================================
