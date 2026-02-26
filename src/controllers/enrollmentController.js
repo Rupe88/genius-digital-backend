@@ -391,13 +391,23 @@ export const unenrollFromCourse = async (req, res, next) => {
  */
 export const getAllEnrollments = async (req, res, next) => {
   try {
-    const { status, courseId, userId, page = 1, limit = 10 } = req.query;
+    const { status, courseId, userId, search, page = 1, limit = 10 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const where = {};
     if (status) where.status = status;
     if (courseId) where.courseId = courseId;
     if (userId) where.userId = userId;
+
+    // Search by student name, email, or course title
+    if (search && typeof search === 'string' && search.trim()) {
+      const searchTerm = search.trim();
+      where.OR = [
+        { user: { fullName: { contains: searchTerm, mode: 'insensitive' } } },
+        { user: { email: { contains: searchTerm, mode: 'insensitive' } } },
+        { course: { title: { contains: searchTerm, mode: 'insensitive' } } },
+      ];
+    }
 
     const [enrollments, total] = await Promise.all([
       prisma.enrollment.findMany({
@@ -440,9 +450,18 @@ export const getAllEnrollments = async (req, res, next) => {
           },
         });
 
+        // When no payment (e.g. admin-granted access), fall back to course price for display
+        const coursePrice = enrollment.course?.price != null
+          ? Number(enrollment.course.price)
+          : 0;
+        const pricePaid = payment
+          ? Number(payment.finalAmount)
+          : coursePrice;
+
         return {
           ...enrollment,
-          pricePaid: payment ? payment.finalAmount : 0,
+          enrolledAt: enrollment.createdAt,
+          pricePaid,
         };
       })
     );
