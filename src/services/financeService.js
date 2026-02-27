@@ -330,11 +330,12 @@ export const getFinancialSummary = async () => {
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const thisYearStart = new Date(now.getFullYear(), 0, 1);
 
-  const [todayIncome, thisWeekIncome, thisMonthIncome, thisYearIncome, todayExpenses, thisMonthExpenses, salaries] = await Promise.all([
+  const [todayIncome, thisWeekIncome, thisMonthIncome, thisYearIncome, totalIncome, todayExpenses, thisMonthExpenses, salaries] = await Promise.all([
     calculateIncome(today.toISOString(), now.toISOString()),
     calculateIncome(thisWeekStart.toISOString(), now.toISOString()),
     calculateIncome(thisMonthStart.toISOString(), now.toISOString()),
     calculateIncome(thisYearStart.toISOString(), now.toISOString()),
+    calculateIncome(null, null), // all-time total
     calculateExpenses(today.toISOString(), now.toISOString()),
     calculateExpenses(thisMonthStart.toISOString(), now.toISOString()),
     calculateSalaryExpenses(null, null),
@@ -349,6 +350,7 @@ export const getFinancialSummary = async () => {
       thisWeek: thisWeekIncome.totalRevenue,
       thisMonth: thisMonthIncome.totalRevenue,
       thisYear: thisYearIncome.totalRevenue,
+      total: totalIncome.totalRevenue,
     },
     expenses: {
       today: todayExpenses.totalExpenses,
