@@ -14,11 +14,11 @@ export const config = {
   // Database
   databaseUrl: process.env.DATABASE_URL,
 
-  // Frontend URL - Where to redirect after OAuth (e.g. Google login). Production: https://vaastu-lms-dp.vercel.app
+  // Frontend URL - Where to redirect after OAuth (e.g. Google login). Set FRONTEND_URL for production.
   frontendUrl: (process.env.FRONTEND_URL?.trim() && process.env.FRONTEND_URL.trim() !== '') 
     ? process.env.FRONTEND_URL.trim()
     : (process.env.NODE_ENV === 'production' || (process.env.BACKEND_URL && process.env.BACKEND_URL.includes('ondigitalocean'))
-      ? 'https://vaastu-lms-dp.vercel.app'
+      ? 'https://sanskarvaastu.vercel.app'
       : 'http://localhost:3000'),
   // Backend URL - used for OAuth redirect_uri (must match Google Cloud Console). No trailing slash.
   backendUrl: process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 4000}`,
@@ -32,6 +32,7 @@ export const config = {
       'http://localhost:3001',
       'https://sanskarvastu.com',
       'https://www.sanskarvastu.com',
+      'https://sanskarvaastu.vercel.app',
       'https://vaastu-lms-dp.vercel.app',
       'https://aacharyarajbabu.vercel.app',
       'https://vaastulms.vercel.app',

@@ -1,83 +1,111 @@
-# Google OAuth Production Setup Guide
+# Google OAuth Production Setup – Fix redirect_uri_mismatch
 
-## ✅ Changes Made
+## Error 400: redirect_uri_mismatch
 
-1. **Updated `.do/app.yaml`**:
-   - Added `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` environment variables
-   - Set `FRONTEND_URL` to `https://vaastu-lms-dp.vercel.app`
-   - Set `BACKEND_URL` to `https://goldfish-app-d9t4j.ondigitalocean.app`
-   - Added `https://vaastu-lms-dp.vercel.app` to `CORS_ORIGINS`
+This error occurs when the redirect URI your app sends to Google does **not** exactly match one of the URIs configured in Google Cloud Console.
 
-2. **Improved `src/config/env.js`**:
-   - Made `frontendUrl` fallback logic more robust to handle empty strings
+The redirect URI for Google OAuth is always your **backend** callback URL, not the frontend.
 
-## 🔧 Required Actions in DigitalOcean Dashboard
+---
 
-After deploying these changes, you **MUST** set the following environment variables in your DigitalOcean App Platform dashboard:
+## Step 1: Identify your backend URL
 
-1. Go to your DigitalOcean App Platform dashboard
-2. Navigate to your `vaastu-lms-backend` app
-3. Go to **Settings** → **App-Level Environment Variables**
-4. Set the following **SECRET** variables:
+Your backend is where your API runs (e.g. DigitalOcean, Render, Railway). For example:
+- `https://stingray-app-2-iy8as.ondigitalocean.app`
+- or `https://goldfish-app-d9t4j.ondigitalocean.app`
 
-   ```
-   GOOGLE_CLIENT_ID=13181422823-73r9r9qlgk9olp4pmd7itmm3flji2qsc.apps.googleusercontent.com
-   GOOGLE_CLIENT_SECRET=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
-   ```
+The callback URL is: `https://YOUR_BACKEND_DOMAIN/api/auth/google/callback`
 
-   **Note**: These are already in your `.env` file. Copy them to DigitalOcean.
+**No trailing slash.** Must use `https` in production.
 
-5. Verify that `FRONTEND_URL` is set to `https://vaastu-lms-dp.vercel.app` (should be auto-set from app.yaml, but verify)
+---
 
-## 🔐 Google Cloud Console Configuration
-
-**CRITICAL**: You must update your Google OAuth redirect URI in Google Cloud Console:
+## Step 2: Update Google Cloud Console
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Select your project
-3. Navigate to **APIs & Services** → **Credentials**
-4. Click on your OAuth 2.0 Client ID
-5. Under **Authorized redirect URIs**, ensure you have:
+3. Go to **APIs & Services** → **Credentials**
+4. Click your **OAuth 2.0 Client ID** (Web application type)
+5. Under **Authorized redirect URIs**, click **ADD URI** and add:
+
    ```
-   https://goldfish-app-d9t4j.ondigitalocean.app/api/auth/google/callback
+   https://YOUR_BACKEND_DOMAIN/api/auth/google/callback
    ```
-6. Also keep the localhost one for development:
+
+   Example (DigitalOcean):
    ```
-   http://localhost:4000/api/auth/google/callback
+   https://stingray-app-2-iy8as.ondigitalocean.app/api/auth/google/callback
    ```
+
+6. Under **Authorized JavaScript origins**, add your **frontend** URLs:
+
+   ```
+   https://sanskarvaastu.vercel.app
+   https://www.sanskarvaastu.vercel.app
+   ```
+
+   Also keep any other origins you use (e.g. localhost for dev):
+   ```
+   http://localhost:3000
+   ```
+
 7. Click **Save**
 
-## 🚀 Deployment Steps
+---
 
-1. **Commit and push the changes**:
-   ```bash
-   git add .do/app.yaml src/config/env.js
-   git commit -m "Fix Google OAuth production configuration"
-   git push origin main
-   ```
+## Step 3: Verify environment variables
 
-2. **DigitalOcean will auto-deploy** (if `deploy_on_push: true` is set)
+### Backend (DigitalOcean / your hosting)
 
-3. **After deployment, verify**:
-   - Check that environment variables are set correctly in DigitalOcean dashboard
-   - Test Google login on production: https://vaastu-lms-dp.vercel.app/login
+Set in your backend environment:
 
-## 🧪 Testing
+| Variable         | Value                                    |
+|------------------|------------------------------------------|
+| `FRONTEND_URL`   | `https://sanskarvaastu.vercel.app`       |
+| `BACKEND_URL`    | `https://YOUR_BACKEND_DOMAIN`            |
+| `GOOGLE_CLIENT_ID` | Your Client ID (from Google Console)  |
+| `GOOGLE_CLIENT_SECRET` | Your Client Secret (from Google Console) |
 
-After deployment:
+### Frontend (Vercel)
 
-1. Visit https://vaastu-lms-dp.vercel.app/login
-2. Click "Continue with Google"
-3. You should be redirected to Google sign-in
-4. After signing in, you should be redirected back to the dashboard (not stuck on login page)
+Set in Vercel project environment:
 
-## ⚠️ Troubleshooting
+| Variable              | Value                                    |
+|-----------------------|------------------------------------------|
+| `NEXT_PUBLIC_API_URL` | `https://YOUR_BACKEND_DOMAIN/api`        |
 
-If you still see "Google login is not configured":
-- Verify `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set in DigitalOcean dashboard
-- Check that the app has been redeployed after setting the variables
-- Verify the redirect URI in Google Cloud Console matches exactly: `https://goldfish-app-d9t4j.ondigitalocean.app/api/auth/google/callback`
+---
 
-If redirect goes to localhost:
-- Verify `FRONTEND_URL` is set to `https://vaastu-lms-dp.vercel.app` in DigitalOcean
-- Check that `NODE_ENV=production` is set (should be auto-set from app.yaml)
+## Step 4: Common mistakes
+
+1. **Wrong domain**: `redirect_uri` must point to the **backend**, e.g.  
+   `https://stingray-app-2-iy8as.ondigitalocean.app/api/auth/google/callback`  
+   Not: `https://sanskarvaastu.vercel.app/...` (unless your backend is hosted there).
+
+2. **http vs https**: Production must use `https` only.
+
+3. **Trailing slash**: Do not add `/` at the end of the redirect URI.
+
+4. **Path**: The path must be exactly `/api/auth/google/callback`.
+
+---
+
+## Step 5: How to see the actual redirect_uri
+
+Backend logs print it when Google OAuth runs:
+
+```
+Google OAuth: callback URL used for redirect_uri: https://...
+```
+
+Use this value in Google Cloud Console (Authorized redirect URIs).
+
+---
+
+## Quick checklist
+
+- [ ] `https://YOUR_BACKEND_DOMAIN/api/auth/google/callback` added in **Authorized redirect URIs**
+- [ ] `https://sanskarvaastu.vercel.app` added in **Authorized JavaScript origins**
+- [ ] `FRONTEND_URL` set to `https://sanskarvaastu.vercel.app` on backend
+- [ ] `NEXT_PUBLIC_API_URL` set to `https://YOUR_BACKEND_DOMAIN/api` on Vercel
+- [ ] Redeployed backend and frontend after env changes

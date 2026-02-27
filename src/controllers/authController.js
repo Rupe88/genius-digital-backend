@@ -526,8 +526,8 @@ function getGoogleCallbackUrl(req) {
 function getFrontendUrl(req) {
   // Check if we're on production backend - if so, use production frontend
   const backendHost = req.get('x-forwarded-host') || req.get('host') || '';
-  if (backendHost.includes('ondigitalocean.app') || backendHost.includes('goldfish-app')) {
-    return 'https://vaastu-lms-dp.vercel.app';
+  if (backendHost.includes('ondigitalocean.app') || backendHost.includes('goldfish-app') || backendHost.includes('stingray-app')) {
+    return config.frontendUrl || 'https://sanskarvaastu.vercel.app';
   }
 
   // Check Origin header (set by browser when frontend makes request)
@@ -538,6 +538,7 @@ function getFrontendUrl(req) {
       // Only use if it's a known production domain or matches CORS origins
       const allowedDomains = [
         'sanskarvastu.com',
+        'sanskarvaastu.vercel.app',
         'vaastu-lms-dp.vercel.app',
         'vaastulms.vercel.app',
         'aacharyarajbabu.vercel.app',
@@ -561,6 +562,7 @@ function getFrontendUrl(req) {
       const refererUrl = new URL(referer);
       const allowedDomains = [
         'sanskarvastu.com',
+        'sanskarvaastu.vercel.app',
         'vaastu-lms-dp.vercel.app',
         'vaastulms.vercel.app',
         'aacharyarajbabu.vercel.app',
@@ -580,7 +582,7 @@ function getFrontendUrl(req) {
   // Fallback to config (which should be set correctly, but this is a safety net)
   // If config is still localhost but we're in production, override it
   if (process.env.NODE_ENV === 'production' || backendHost.includes('ondigitalocean')) {
-    return 'https://vaastu-lms-dp.vercel.app';
+    return config.frontendUrl || 'https://sanskarvaastu.vercel.app';
   }
   
   return config.frontendUrl;
