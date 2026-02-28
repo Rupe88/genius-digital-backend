@@ -103,6 +103,7 @@ export const createSuccessStory = async (req, res, next) => {
     const {
       studentName,
       studentImage,
+      videoUrl,
       courseId,
       title,
       story,
@@ -119,6 +120,7 @@ export const createSuccessStory = async (req, res, next) => {
       data: {
         studentName,
         studentImage: req.cloudinary?.url || studentImage,
+        videoUrl: videoUrl || null,
         courseId,
         title,
         story,
@@ -162,6 +164,7 @@ export const updateSuccessStory = async (req, res, next) => {
     const {
       studentName,
       studentImage,
+      videoUrl,
       courseId,
       title,
       story,
@@ -179,6 +182,7 @@ export const updateSuccessStory = async (req, res, next) => {
     if (req.cloudinary?.url || studentImage) {
       updateData.studentImage = req.cloudinary?.url || studentImage;
     }
+    if (videoUrl !== undefined) updateData.videoUrl = videoUrl || null;
     if (courseId !== undefined) updateData.courseId = courseId;
     if (title) updateData.title = title;
     if (story) updateData.story = story;

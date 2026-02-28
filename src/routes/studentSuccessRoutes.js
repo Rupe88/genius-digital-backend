@@ -40,7 +40,8 @@ router.post(
   processImageUpload,
   [
     body('studentName').notEmpty().trim().isLength({ min: 1, max: 255 }),
-    body('studentImage').optional().isString().isURL(),
+    body('studentImage').optional().isString(),
+    body('videoUrl').optional().trim().isLength({ max: 500 }),
     body('courseId').optional().isUUID(),
     body('title').notEmpty().trim().isLength({ min: 1, max: 255 }),
     body('story').notEmpty().isString(),
@@ -64,7 +65,8 @@ router.put(
   [
     param('id').isUUID(),
     body('studentName').optional().trim().isLength({ min: 1, max: 255 }),
-    body('studentImage').optional().isString().isURL(),
+    body('studentImage').optional().isString(),
+    body('videoUrl').optional().trim().isLength({ max: 500 }),
     body('courseId').optional().isUUID(),
     body('title').optional().trim().isLength({ min: 1, max: 255 }),
     body('story').optional().isString(),

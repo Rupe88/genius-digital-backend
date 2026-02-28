@@ -631,6 +631,7 @@ model StudentSuccessStory {
   id           String  @id @default(uuid())
   studentName  String  @db.VarChar(255)
   studentImage String? @db.VarChar(500)
+  videoUrl     String? @db.VarChar(500) // YouTube URL or video ID for embed
   courseId     String?
   course       Course? @relation(fields: [courseId], references: [id])
 
