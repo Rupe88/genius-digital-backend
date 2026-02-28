@@ -112,6 +112,7 @@ export const mobileLoginOrRegisterValidation = [
   body('email').isEmail().withMessage('Valid email required').normalizeEmail(),
   body('fullName').optional({ values: 'falsy' }).trim().isLength({ max: 255 }).withMessage('Full name max 255 characters'),
   body('mailIn')
+    .optional({ values: 'falsy' })
     .isIn(['phone', 'email'])
     .withMessage('mailIn must be either "phone" or "email"'),
   body('phone')

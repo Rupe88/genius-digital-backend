@@ -132,7 +132,7 @@ const API_BASE = process.env.API_BASE_PATH !== undefined ? process.env.API_BASE_
 // API routes (mounted at both /api/* and /* so they work with or without proxy path stripping)
 const apiRoutes = [
   ['auth', authRoutes],
-  ['mobile-auth', mobileAuthRoutes],
+  ['mobile/auth', mobileAuthRoutes],
   ['admin', adminRoutes],
   ['affiliate', affiliateRoutes],
   ['assignment', assignmentRoutes],

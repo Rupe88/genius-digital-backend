@@ -8,7 +8,7 @@ import {
 } from '../controllers/studentSuccessController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
-import { singleUpload, processImageUpload } from '../middleware/cloudinaryUpload.js';
+import { optionalSingleUpload, processImageUpload } from '../middleware/cloudinaryUpload.js';
 import { body, param, query } from 'express-validator';
 
 const router = express.Router();
@@ -36,8 +36,7 @@ router.post(
   '/',
   authenticate,
   requireAdmin,
-  singleUpload('studentImage'),
-  processImageUpload,
+  optionalSingleUpload('studentImage', processImageUpload),
   [
     body('studentName').notEmpty().trim().isLength({ min: 1, max: 255 }),
     body('studentImage').optional().isString(),
@@ -60,8 +59,7 @@ router.put(
   '/:id',
   authenticate,
   requireAdmin,
-  singleUpload('studentImage'),
-  processImageUpload,
+  optionalSingleUpload('studentImage', processImageUpload),
   [
     param('id').isUUID(),
     body('studentName').optional().trim().isLength({ min: 1, max: 255 }),
