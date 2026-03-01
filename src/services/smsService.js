@@ -75,8 +75,15 @@ export const sendOTPSms = async (phone, otp) => {
     if (response.ok && (data.response_code === 200 || response.status === 200)) {
       return { success: true };
     }
+    // 1008 = Invalid Sender - sender ID not approved for this Sparrow account
+    if (data.response_code === 1008 || data.response === 'Invalid Sender') {
+      const hint = !config.sparrowSms?.from?.trim()
+        ? 'Set SPARROW_SMS_FROM in .env to your NTA-approved sender ID from Sparrow dashboard (https://web.sparrowsms.com/)'
+        : `SPARROW_SMS_FROM="${config.sparrowSms.from}" may be wrong. Use the sender ID from your Sparrow account.`;
+      console.warn('[SMS] Invalid Sender (1008):', hint);
+      return { success: false, message: 'Invalid Sender. Configure SPARROW_SMS_FROM in server settings.' };
+    }
     console.warn('[SMS] Sparrow API error:', response.status, data);
-    // If 1008 Invalid Sender, set SPARROW_SMS_FROM in .env to the sender ID Sparrow assigned to your account
     return { success: false, message: data.response || data.message || 'SMS send failed' };
   } catch (error) {
     console.error('[SMS] Sparrow request failed:', error.message);
