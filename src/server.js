@@ -1,6 +1,8 @@
 import app from './app.js';
 import { config } from './config/env.js';
 import { prisma } from './config/database.js';
+import { isEmailConfigured } from './services/emailService.js';
+import { isSmsConfigured } from './services/smsService.js';
 
 const PORT = process.env.PORT || config.port;
 
@@ -34,6 +36,8 @@ const startServer = async () => {
     console.log(`✓ Server running on port ${PORT}`);
     console.log(`✓ Environment: ${config.nodeEnv}`);
     console.log(`✓ Health check: http://localhost:${PORT}/health`);
+    console.log(`✓ OTP Email configured: ${isEmailConfigured()}`);
+    console.log(`✓ OTP SMS (Sparrow) configured: ${isSmsConfigured()}`);
   });
 
   server.on('error', (err) => {

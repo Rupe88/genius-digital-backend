@@ -3,6 +3,7 @@ import { hashPassword, comparePassword } from '../utils/hashPassword.js';
 import { createOTP, verifyOTP, canResendOTP } from '../services/otpService.js';
 import { sendOTPEmail, sendWelcomeEmail } from '../services/emailService.js';
 import { sendOTPSms, isSmsConfigured } from '../services/smsService.js';
+import { isEmailConfigured } from '../services/emailService.js';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -16,11 +17,14 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 import { config } from '../config/env.js';
 import crypto from 'crypto';
 
-/** Public: return whether SMS OTP is available (for frontend to show/hide SMS option) */
+/** Public: return whether email/SMS OTP services are configured */
 export const getOtpOptions = asyncHandler((req, res) => {
   res.json({
     success: true,
-    data: { smsAvailable: isSmsConfigured() },
+    data: {
+      smsAvailable: isSmsConfigured(),
+      emailConfigured: isEmailConfigured(),
+    },
   });
 });
 

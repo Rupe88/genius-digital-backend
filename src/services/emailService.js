@@ -256,32 +256,37 @@ export const sendEmail = async (to, subject, html) => {
   // Try Resend first (often more reliable, no port/firewall issues)
   if (hasResend) {
     try {
-      return await sendWithResend(to, subject, html);
+      const result = await sendWithResend(to, subject, html);
+      console.log('[Email] Sent successfully via Resend to', to);
+      return result;
     } catch (error) {
       lastError = error;
-      console.warn('[Email] Resend failed:', error.message);
+      console.warn('[Email] Resend failed for', to, ':', error.message);
     }
   }
 
   // Fallback to Nodemailer (SMTP)
   if (hasSmtp) {
     try {
-      return await sendWithNodemailer(to, subject, html);
+      const result = await sendWithNodemailer(to, subject, html);
+      console.log('[Email] Sent successfully via SMTP to', to);
+      return result;
     } catch (error) {
       lastError = error;
-      console.warn('[Email] SMTP failed:', error.message);
+      console.warn('[Email] SMTP failed for', to, ':', error.message);
     }
   }
 
   const msg = lastError?.message || 'Unknown error';
-  console.error('[Email] All services failed:', msg);
+  console.error('[Email] All services failed for', to, ':', msg);
   throw new Error(`Failed to send email. ${msg}`);
 };
 
 // Specific email functions
 export const sendOTPEmail = async (email, otp, purpose = 'verification') => {
-  const subject = purpose === 'password_reset' 
-    ? 'Password Reset OTP' 
+  console.log('[Email] Sending OTP to', email);
+  const subject = purpose === 'password_reset'
+    ? 'Password Reset OTP'
     : 'Email Verification OTP';
   const html = getOTPEmailTemplate(otp, purpose);
   return await sendEmail(email, subject, html);
