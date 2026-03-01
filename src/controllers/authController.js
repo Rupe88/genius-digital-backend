@@ -105,11 +105,19 @@ export const register = asyncHandler(async (req, res) => {
       if (canResend.canResend) {
         const otp = await createOTP(existingUser.id, OtpType.EMAIL_VERIFICATION);
         const useChannel = otpChannel || (existingUser.phone && isSmsConfigured() ? 'both' : 'email');
-        await sendOtpByChannel(otp, {
-          email: existingUser.email,
-          phone: existingUser.phone,
-          otpChannel: useChannel,
-        });
+        try {
+          await sendOtpByChannel(otp, {
+            email: existingUser.email,
+            phone: existingUser.phone,
+            otpChannel: useChannel,
+          });
+        } catch (err) {
+          console.error('[Auth] Resend OTP failed:', err.message);
+          return res.status(503).json({
+            success: false,
+            message: err.message || 'Could not send verification code. Please try again or contact support.',
+          });
+        }
       }
 
       const msg = canResend.canResend
@@ -148,11 +156,23 @@ export const register = asyncHandler(async (req, res) => {
   });
 
   const otp = await createOTP(user.id, OtpType.EMAIL_VERIFICATION);
-  const { sentEmail, sentSms } = await sendOtpByChannel(otp, {
-    email,
-    phone: user.phone,
-    otpChannel,
-  });
+  let sentEmail = false;
+  let sentSms = false;
+  try {
+    const result = await sendOtpByChannel(otp, {
+      email,
+      phone: user.phone,
+      otpChannel,
+    });
+    sentEmail = result.sentEmail;
+    sentSms = result.sentSms;
+  } catch (err) {
+    console.error('[Auth] Send OTP failed:', err.message);
+    return res.status(503).json({
+      success: false,
+      message: err.message || 'Could not send verification code. Please try again or contact support.',
+    });
+  }
 
   let message = 'Registration successful. ';
   if (sentEmail && sentSms) message += 'Please check your email and phone for the verification code.';

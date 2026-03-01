@@ -66,7 +66,7 @@ services:
   - key: FRONTEND_URL
     value: "https://sanskarvastu.com"
   - key: BACKEND_URL
-    value: "https://goldfish-app-d9t4j.ondigitalocean.app"
+    value: "https://stingray-app-2-iy8as.ondigitalocean.app"
   # Google OAuth Configuration
   - key: GOOGLE_CLIENT_ID
     type: SECRET
@@ -103,7 +103,8 @@ services:
   - key: SPARROW_SMS_TOKEN
     type: SECRET
     value: "${SPARROW_SMS_TOKEN}"
-  # SPARROW_SMS_FROM is optional (NTA-approved sender ID)
+  - key: SPARROW_SMS_FROM
+    value: "${SPARROW_SMS_FROM}"
   health_check:
     http_path: /health
   # CORS Configuration for production

@@ -12,9 +12,12 @@ const EMAIL_BACKGROUND = '#f9fafb';
 let transporter = null;
 let resendClient = null;
 
+/** Remove spaces/newlines from Gmail App Password (copy-paste often adds them) */
+const normalizeSmtpPass = (pass) => (typeof pass === 'string' ? pass.replace(/\s/g, '').trim() : '');
+
 /** Check if any email service is configured */
 export const isEmailConfigured = () => {
-  const hasSmtp = config.smtpUser?.trim() && config.smtpPass?.trim();
+  const hasSmtp = config.smtpUser?.trim() && normalizeSmtpPass(config.smtpPass);
   const hasResend = config.resendApiKey?.trim();
   return Boolean(hasSmtp || hasResend);
 };
@@ -22,7 +25,8 @@ export const isEmailConfigured = () => {
 // Initialize Nodemailer transporter (only when SMTP credentials exist)
 const initNodemailer = () => {
   if (!transporter) {
-    if (!config.smtpUser?.trim() || !config.smtpPass?.trim()) {
+    const pass = normalizeSmtpPass(config.smtpPass);
+    if (!config.smtpUser?.trim() || !pass) {
       throw new Error('SMTP credentials (SMTP_USER, SMTP_PASS) are not configured');
     }
     const port = config.smtpPort || 587;
@@ -32,7 +36,7 @@ const initNodemailer = () => {
       secure: port === 465, // Gmail: 465 = SSL, 587 = STARTTLS
       auth: {
         user: config.smtpUser.trim(),
-        pass: config.smtpPass.trim(),
+        pass,
       },
     });
   }
@@ -244,7 +248,7 @@ const sendWithResend = async (to, subject, html) => {
 // Main send email function with fallback (tries Resend first when configured, then SMTP)
 export const sendEmail = async (to, subject, html) => {
   const hasResend = config.resendApiKey?.trim();
-  const hasSmtp = config.smtpUser?.trim() && config.smtpPass?.trim();
+  const hasSmtp = config.smtpUser?.trim() && normalizeSmtpPass(config.smtpPass);
 
   if (!hasResend && !hasSmtp) {
     console.error('[Email] No email service configured. Set RESEND_API_KEY or SMTP_USER+SMTP_PASS.');
