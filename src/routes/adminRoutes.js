@@ -32,9 +32,10 @@ import {
   markExpenseAsPaid,
   getExpenseStatistics,
 } from '../controllers/expenseController.js';
+import { getAudienceCount, sendMassEmail } from '../controllers/massEmailController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
-import { userIdValidation, userIdParamValidation, paginationValidation, validate, body, param } from '../utils/validators.js';
+import { userIdValidation, userIdParamValidation, paginationValidation, validate, body, param, query } from '../utils/validators.js';
 
 const router = express.Router();
 
@@ -172,6 +173,28 @@ router.get('/account/overview', getAccountOverview);
 router.get('/account/transactions', getAllTransactions);
 router.get('/account/balance', getAccountBalance);
 router.get('/account/statement', getAccountStatement);
+
+// ==================== MASS EMAIL ====================
+router.get(
+  '/mass-email/audience-count',
+  validate([
+    query('audience').optional().isIn(['all_users']),
+    query('courseId').optional({ checkFalsy: true }).isUUID().withMessage('courseId must be a valid UUID when provided'),
+  ]),
+  getAudienceCount
+);
+router.post(
+  '/mass-email/send',
+  validate([
+    body('subject').trim().isLength({ min: 1, max: 255 }),
+    body('body').trim().isLength({ min: 1 }),
+    body('audience').optional().isIn(['all_users']),
+    body('courseId').optional({ checkFalsy: true }).isUUID().withMessage('courseId must be a valid UUID when provided'),
+    body('batchSize').optional({ checkFalsy: true }).isInt({ min: 1, max: 50 }),
+    body('delayMs').optional({ checkFalsy: true }).isInt({ min: 100, max: 2000 }),
+  ]),
+  sendMassEmail
+);
 
 export default router;
 
