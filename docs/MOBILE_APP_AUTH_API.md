@@ -86,10 +86,16 @@ sequenceDiagram
 
 | Method | Endpoint | Auth Required | Description |
 |--------|----------|--------------|-------------|
+| GET | `/otp-status` | No | Check if email/SMS OTP services are configured |
 | POST | `/login-or-register` | No | Register new user or login existing user |
-| POST | `/send-otp` | No | Resend OTP to email |
+| POST | `/send-otp` | No | Resend OTP to email or phone |
 | POST | `/verify-otp` | No | Verify OTP and get authentication token |
 | GET | `/me` | Yes | Get current user information |
+
+### Server Configuration (Required for OTP)
+
+- **Email** (required): Set either `RESEND_API_KEY` + `RESEND_FROM_EMAIL` or `SMTP_USER` + `SMTP_PASS`
+- **SMS** (optional): Set `SPARROW_SMS_TOKEN` for Nepal phone OTP. If not set, OTP falls back to email.
 
 ---
 

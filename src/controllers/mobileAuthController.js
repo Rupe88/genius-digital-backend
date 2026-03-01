@@ -1,13 +1,27 @@
 import { prisma } from '../config/database.js';
 import { createOTP, verifyOTP, canResendOTP } from '../services/mobileOtpService.js';
-import { sendOTPEmail } from '../services/emailService.js';
-import { sendOTPSms } from '../services/smsService.js';
+import { sendOTPEmail, isEmailConfigured } from '../services/emailService.js';
+import { sendOTPSms, isSmsConfigured } from '../services/smsService.js';
 import { generateMobileToken } from '../services/tokenService.js';
 import { OtpType } from '@prisma/client';
 import { asyncHandler } from '../middleware/errorHandler.js';
 
 // JWT payload for mobile uses mobileAppUserId (tokens are separate from main LMS)
 const mobileTokenPayload = (user) => ({ mobileAppUserId: user.id });
+
+/**
+ * GET /api/mobile/auth/otp-status
+ * Check if email and SMS OTP services are configured (for app UI / debugging).
+ */
+export const getOtpStatus = asyncHandler(async (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      emailConfigured: isEmailConfigured(),
+      smsConfigured: isSmsConfigured(),
+    },
+  });
+});
 
 /**
  * POST /api/mobile/auth/login-or-register
@@ -65,13 +79,20 @@ export const loginOrRegister = asyncHandler(async (req, res) => {
     });
   }
 
+  // Check email is configured (required for email OTP or SMS fallback)
+  if (!isEmailConfigured()) {
+    return res.status(503).json({
+      success: false,
+      message: 'Email service is not configured. Please contact support.',
+    });
+  }
+
   // Send OTP based on mailIn
   const otp = await createOTP(user.id, OtpType.EMAIL_VERIFICATION);
   let sentVia = 'email';
   let message = 'OTP sent to your email.';
 
   if (mailIn === 'phone') {
-    // Ensure user has a phone number
     const userPhone = user.phone || phone;
     if (!userPhone || String(userPhone).trim() === '') {
       return res.status(400).json({
@@ -79,20 +100,46 @@ export const loginOrRegister = asyncHandler(async (req, res) => {
         message: 'Phone number is required for SMS OTP',
       });
     }
-
-    const smsResult = await sendOTPSms(userPhone, otp);
-    
-    if (!smsResult.success) {
-      // Fallback to email if SMS fails
-      await sendOTPEmail(user.email, otp, 'verification');
-      message = 'SMS failed. OTP sent to your email instead.';
+    if (!isSmsConfigured()) {
+      // SMS not configured - send via email instead
+      try {
+        await sendOTPEmail(user.email, otp, 'verification');
+        message = 'SMS is not configured. OTP sent to your email instead.';
+      } catch (err) {
+        console.error('[Mobile Auth] Email send failed:', err.message);
+        return res.status(503).json({
+          success: false,
+          message: 'Could not send OTP. Please try again or contact support.',
+        });
+      }
     } else {
-      sentVia = 'sms';
-      message = 'OTP sent to your phone via SMS.';
+      const smsResult = await sendOTPSms(userPhone, otp);
+      if (!smsResult.success) {
+        try {
+          await sendOTPEmail(user.email, otp, 'verification');
+          message = 'SMS failed. OTP sent to your email instead.';
+        } catch (err) {
+          console.error('[Mobile Auth] SMS and email fallback failed:', err.message);
+          return res.status(503).json({
+            success: false,
+            message: 'Could not send OTP. Please try again later.',
+          });
+        }
+      } else {
+        sentVia = 'sms';
+        message = 'OTP sent to your phone via SMS.';
+      }
     }
   } else {
-    // mailIn === 'email'
-    await sendOTPEmail(user.email, otp, 'verification');
+    try {
+      await sendOTPEmail(user.email, otp, 'verification');
+    } catch (err) {
+      console.error('[Mobile Auth] Email send failed:', err.message);
+      return res.status(503).json({
+        success: false,
+        message: 'Could not send OTP. Please try again or contact support.',
+      });
+    }
   }
 
   res.status(isNewUser ? 201 : 200).json({
@@ -109,10 +156,11 @@ export const loginOrRegister = asyncHandler(async (req, res) => {
 
 /**
  * POST /api/mobile/auth/send-otp
- * Resend OTP to email for mobile app user (works for both verified and unverified users).
+ * Resend OTP to email or phone for mobile app user (works for both verified and unverified users).
+ * Supports mailIn: 'email' | 'phone' - defaults to email.
  */
 export const sendOtp = asyncHandler(async (req, res) => {
-  const { email } = req.body;
+  const { email, mailIn = 'email', phone } = req.body;
   const user = await prisma.mobileAppUser.findUnique({
     where: { email: email.toLowerCase().trim() },
   });
@@ -126,13 +174,60 @@ export const sendOtp = asyncHandler(async (req, res) => {
     return res.status(429).json({ success: false, message: canResend.message });
   }
 
+  if (!isEmailConfigured()) {
+    return res.status(503).json({
+      success: false,
+      message: 'Email service is not configured. Please contact support.',
+    });
+  }
+
   const otp = await createOTP(user.id, OtpType.EMAIL_VERIFICATION);
-  await sendOTPEmail(user.email, otp, 'verification');
+  let sentVia = 'email';
+  let message = 'OTP sent to your email.';
+
+  if (mailIn === 'phone') {
+    const userPhone = user.phone || phone;
+    if (!userPhone || String(userPhone).trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number required for SMS. Provide phone or ensure user has phone.',
+      });
+    }
+    if (isSmsConfigured()) {
+      const smsResult = await sendOTPSms(userPhone, otp);
+      if (smsResult.success) {
+        sentVia = 'sms';
+        message = 'OTP sent to your phone via SMS.';
+      }
+    }
+    if (sentVia === 'email') {
+      try {
+        await sendOTPEmail(user.email, otp, 'verification');
+        message = isSmsConfigured() ? 'SMS failed. OTP sent to your email instead.' : 'OTP sent to your email.';
+      } catch (err) {
+        console.error('[Mobile Auth] Resend OTP email failed:', err.message);
+        return res.status(503).json({
+          success: false,
+          message: 'Could not send OTP. Please try again.',
+        });
+      }
+    }
+  } else {
+    try {
+      await sendOTPEmail(user.email, otp, 'verification');
+    } catch (err) {
+      console.error('[Mobile Auth] Resend OTP email failed:', err.message);
+      return res.status(503).json({
+        success: false,
+        message: 'Could not send OTP. Please try again.',
+      });
+    }
+  }
 
   res.json({
     success: true,
-    message: 'OTP sent to your email.',
-    data: { email: user.email },
+    message,
+    data: { email: user.email, phone: user.phone ?? undefined, sentVia },
   });
 });
 
@@ -142,7 +237,8 @@ export const sendOtp = asyncHandler(async (req, res) => {
  * Allows re-verification even if email is already verified.
  */
 export const verifyOtp = asyncHandler(async (req, res) => {
-  const { email, otp } = req.body;
+  const { email, otp: otpRaw } = req.body;
+  const otp = String(otpRaw ?? '').trim();
   const user = await prisma.mobileAppUser.findUnique({
     where: { email: email.toLowerCase().trim() },
   });
@@ -151,6 +247,9 @@ export const verifyOtp = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'User not found' });
   }
 
+  if (!otp || otp.length !== 6 || !/^\d+$/.test(otp)) {
+    return res.status(400).json({ success: false, message: 'OTP must be exactly 6 digits' });
+  }
   const verification = await verifyOTP(user.id, otp, OtpType.EMAIL_VERIFICATION);
   if (!verification.valid) {
     return res.status(400).json({ success: false, message: verification.message });

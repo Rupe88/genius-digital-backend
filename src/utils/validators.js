@@ -142,6 +142,8 @@ export const mobileLoginOrRegisterValidation = [
 ];
 export const mobileSendOtpValidation = [
   body('email').isEmail().withMessage('Valid email required').normalizeEmail(),
+  body('mailIn').optional({ values: 'falsy' }).isIn(['phone', 'email']).withMessage('mailIn must be phone or email'),
+  body('phone').optional({ values: 'falsy' }).trim().isLength({ max: 50 }).withMessage('Phone max 50 characters'),
 ];
 export const mobileVerifyOtpValidation = [
   body('email').isEmail().withMessage('Valid email required').normalizeEmail(),

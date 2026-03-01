@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+  getOtpStatus,
   loginOrRegister,
   sendOtp,
   verifyOtp,
@@ -16,6 +17,7 @@ import { authenticateMobile } from '../middleware/auth.js';
 const router = express.Router();
 
 // Public
+router.get('/otp-status', getOtpStatus);
 router.post('/login-or-register', validate(mobileLoginOrRegisterValidation), loginOrRegister);
 router.post('/send-otp', validate(mobileSendOtpValidation), sendOtp);
 router.post('/verify-otp', validate(mobileVerifyOtpValidation), verifyOtp);

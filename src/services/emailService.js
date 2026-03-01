@@ -12,20 +12,27 @@ const EMAIL_BACKGROUND = '#f9fafb';
 let transporter = null;
 let resendClient = null;
 
-// Initialize Nodemailer transporter
+/** Check if any email service is configured */
+export const isEmailConfigured = () => {
+  const hasSmtp = config.smtpUser?.trim() && config.smtpPass?.trim();
+  const hasResend = config.resendApiKey?.trim();
+  return Boolean(hasSmtp || hasResend);
+};
+
+// Initialize Nodemailer transporter (only when SMTP credentials exist)
 const initNodemailer = () => {
   if (!transporter) {
-    if (!config.smtpUser || !config.smtpPass) {
-      throw new Error('SMTP configuration is missing');
+    if (!config.smtpUser?.trim() || !config.smtpPass?.trim()) {
+      throw new Error('SMTP credentials (SMTP_USER, SMTP_PASS) are not configured');
     }
-
+    const port = config.smtpPort || 587;
     transporter = nodemailer.createTransport({
-      host: config.smtpHost,
-      port: config.smtpPort,
-      secure: false,
+      host: config.smtpHost || 'smtp.gmail.com',
+      port,
+      secure: port === 465, // Gmail: 465 = SSL, 587 = STARTTLS
       auth: {
-        user: config.smtpUser,
-        pass: config.smtpPass,
+        user: config.smtpUser.trim(),
+        pass: config.smtpPass.trim(),
       },
     });
   }
@@ -34,8 +41,8 @@ const initNodemailer = () => {
 
 // Initialize Resend client
 const initResend = () => {
-  if (!resendClient && config.resendApiKey) {
-    resendClient = new Resend(config.resendApiKey);
+  if (!resendClient && config.resendApiKey?.trim()) {
+    resendClient = new Resend(config.resendApiKey.trim());
   }
   return resendClient;
 };
@@ -213,8 +220,9 @@ const sendWithResend = async (to, subject, html) => {
       throw new Error('Resend API key not configured');
     }
 
+    // Resend requires verified domain. Set RESEND_FROM_EMAIL (e.g. noreply@yourdomain.com)
     const fromEmail =
-      config.resendFromEmail || config.smtpFrom || `noreply@sanskaracademy.com`;
+      config.resendFromEmail?.trim() || config.smtpFrom?.trim() || config.smtpUser?.trim() || 'noreply@sanskaracademy.com';
 
     const { data, error } = await resend.emails.send({
       from: fromEmail,
@@ -233,27 +241,41 @@ const sendWithResend = async (to, subject, html) => {
   }
 };
 
-// Main send email function with fallback
-export const sendEmail = async (to, subject, html, retries = 2) => {
+// Main send email function with fallback (tries Resend first when configured, then SMTP)
+export const sendEmail = async (to, subject, html) => {
+  const hasResend = config.resendApiKey?.trim();
+  const hasSmtp = config.smtpUser?.trim() && config.smtpPass?.trim();
+
+  if (!hasResend && !hasSmtp) {
+    console.error('[Email] No email service configured. Set RESEND_API_KEY or SMTP_USER+SMTP_PASS.');
+    throw new Error('Email service is not configured. Please contact support.');
+  }
+
   let lastError = null;
 
-  // Try Nodemailer first
-  try {
-    return await sendWithNodemailer(to, subject, html);
-  } catch (error) {
-    lastError = error;
-    console.warn('Nodemailer failed, trying Resend...', error.message);
+  // Try Resend first (often more reliable, no port/firewall issues)
+  if (hasResend) {
+    try {
+      return await sendWithResend(to, subject, html);
+    } catch (error) {
+      lastError = error;
+      console.warn('[Email] Resend failed:', error.message);
+    }
   }
 
-  // Fallback to Resend
-  try {
-    return await sendWithResend(to, subject, html);
-  } catch (error) {
-    lastError = error;
-    console.error('Both email services failed:', error.message);
+  // Fallback to Nodemailer (SMTP)
+  if (hasSmtp) {
+    try {
+      return await sendWithNodemailer(to, subject, html);
+    } catch (error) {
+      lastError = error;
+      console.warn('[Email] SMTP failed:', error.message);
+    }
   }
 
-  throw new Error(`Failed to send email: ${lastError?.message || 'Unknown error'}`);
+  const msg = lastError?.message || 'Unknown error';
+  console.error('[Email] All services failed:', msg);
+  throw new Error(`Failed to send email. ${msg}`);
 };
 
 // Specific email functions
