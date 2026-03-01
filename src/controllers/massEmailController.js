@@ -35,7 +35,7 @@ export const getAudienceCount = asyncHandler(async (req, res) => {
  * Send mass email to selected audience
  */
 export const sendMassEmail = asyncHandler(async (req, res) => {
-  const { subject, body, audience, courseId, batchSize, delayMs } = req.body;
+  const { subject, body, audience, courseId, linkUrl, linkText, batchSize, delayMs } = req.body;
 
   if (!subject || typeof subject !== 'string' || subject.trim().length === 0) {
     return res.status(400).json({
@@ -70,6 +70,8 @@ export const sendMassEmail = asyncHandler(async (req, res) => {
     body.trim(),
     audience,
     courseId || null,
+    (typeof linkUrl === 'string' && linkUrl.trim()) || null,
+    (typeof linkText === 'string' && linkText.trim()) || null,
     Math.min(parseInt(batchSize, 10) || 10, 50),
     Math.min(parseInt(delayMs, 10) || 500, 2000)
   );

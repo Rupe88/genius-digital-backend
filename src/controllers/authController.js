@@ -24,14 +24,15 @@ export const getOtpOptions = asyncHandler((req, res) => {
   });
 });
 
-/** Normalize phone to 10-digit Nepal format for storage/SMS */
+/** Normalize phone to 10-digit Nepal format for storage/SMS. Supports 96, 97, 98 prefixes. */
 function normalizePhone(phone) {
   if (!phone || typeof phone !== 'string') return null;
   const digits = phone.replace(/\D/g, '');
-  if (digits.length === 10 && digits.startsWith('98')) return digits;
-  if (digits.length === 12 && digits.startsWith('977')) return digits.slice(2);
-  if (digits.length === 11 && digits.startsWith('977')) return digits.slice(2);
-  return digits.length === 10 ? digits : null;
+  // 10-digit local: 96/97/98 XXXXXXXX (Nepal mobile prefixes)
+  if (digits.length === 10 && ['96', '97', '98'].includes(digits.slice(0, 2))) return digits;
+  // International: +977 + 10-digit = 13 digits
+  if (digits.startsWith('977') && digits.length === 13) return digits.slice(3);
+  return null;
 }
 
 /** Send OTP to the chosen channel(s). Returns { sentEmail, sentSms }. Does not throw on SMS failure; falls back to email when SMS is chosen but fails. */

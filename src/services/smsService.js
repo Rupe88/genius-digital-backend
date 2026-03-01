@@ -9,26 +9,27 @@ import { config } from '../config/env.js';
 const SPARROW_SMS_API_URL = 'https://api.sparrowsms.com/v2/sms/';
 
 /**
- * Normalize Nepali phone to 10 digits for Sparrow API (e.g. +9779812345678 -> 9812345678, 98XXXXXXXX -> 98XXXXXXXX)
+ * Nepal mobile prefixes: 96 (Smart, Hello), 97 (Ncell, UTL), 98 (Ncell, NTC, Smart)
+ * Normalize to 10 digits for Sparrow API (e.g. +9779812345678 -> 9812345678, 97XXXXXXXX -> 97XXXXXXXX)
  */
+const NEPAL_MOBILE_PREFIXES = ['96', '97', '98'];
+
 const normalizePhoneForSms = (phone) => {
   if (!phone || typeof phone !== 'string') return null;
   const digits = phone.replace(/\D/g, '');
   
-  // Handle 10-digit Nepal numbers (98XXXXXXXX)
-  if (digits.length === 10 && digits.startsWith('98')) return digits;
-  
-  // Handle international format with 977 prefix (11, 12, or 13 digits)
-  // +9779812345678 -> 9779812345678 (12 digits) -> 9812345678
-  // +9779817329620 -> 9779817329620 (13 digits) -> 9817329620
-  if (digits.startsWith('977')) {
-    if (digits.length === 11) return digits.slice(2); // 977XXXXXXXXX -> 9XXXXXXXXX (shouldn't happen but handle it)
-    if (digits.length === 12) return digits.slice(2); // 97798XXXXXX -> 98XXXXXX
-    if (digits.length === 13) return digits.slice(3); // 977981XXXXXXX -> 981XXXXXXX
+  // Handle 10-digit Nepal numbers (96, 97, 98 prefixes)
+  if (digits.length === 10) {
+    const prefix = digits.slice(0, 2);
+    if (NEPAL_MOBILE_PREFIXES.includes(prefix)) return digits;
   }
   
-  // Handle any 10-digit number as fallback
-  if (digits.length === 10) return digits;
+  // Handle international format: +977 + 10-digit local = 13 digits total
+  // e.g. +9779812345678, +9779712345678, +9779612345678
+  if (digits.startsWith('977') && digits.length === 13) {
+    const local = digits.slice(3);
+    if (NEPAL_MOBILE_PREFIXES.includes(local.slice(0, 2))) return local;
+  }
   
   return null;
 };

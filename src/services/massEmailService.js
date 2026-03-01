@@ -67,10 +67,18 @@ export const getRecipients = async (audience, courseId = null) => {
 
 /**
  * Wrap plain/HTML body in branded template
+ * @param {string} body - Email body (plain or HTML)
+ * @param {string|null} linkUrl - Optional CTA link URL
+ * @param {string|null} linkText - Optional CTA link text (button label)
  */
-const wrapInTemplate = (body) => {
+const wrapInTemplate = (body, linkUrl = null, linkText = null) => {
   const isHtml = body.trim().startsWith('<');
   const content = isHtml ? body : `<p style="white-space: pre-wrap; color:${EMAIL_TEXT};">${body.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`;
+
+  const hasCta = linkUrl && linkText && linkUrl.trim() && linkText.trim();
+  const ctaButton = hasCta
+    ? `<div style="margin-top:24px; text-align:center;"><a href="${linkUrl.trim().replace(/"/g, '&quot;')}" style="display:inline-block; padding:12px 24px; background:${EMAIL_PRIMARY}; color:#ffffff; text-decoration:none; font-weight:600; border-radius:8px;">${linkText.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;')}</a></div>`
+    : '';
 
   return `
 <!DOCTYPE html>
@@ -86,6 +94,7 @@ const wrapInTemplate = (body) => {
     </div>
     <div style="background:#ffffff; padding:24px; border-radius:0 0 12px 12px; border:1px solid #e5e7eb;">
       ${content}
+      ${ctaButton}
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:24px 0 12px;">
       <p style="color:#9ca3af; font-size:11px; text-align:center; margin:0;">
         © ${new Date().getFullYear()} Sanskar Vastu · ${config.appName}
@@ -105,6 +114,8 @@ export const sendMassEmail = async (
   body,
   audience,
   courseId = null,
+  linkUrl = null,
+  linkText = null,
   batchSize = 10,
   delayMs = 500
 ) => {
@@ -113,7 +124,7 @@ export const sendMassEmail = async (
     return { sent: 0, failed: 0, errors: ['No recipients found for the selected audience'] };
   }
 
-  const html = wrapInTemplate(body);
+  const html = wrapInTemplate(body, linkUrl, linkText);
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   let sent = 0;

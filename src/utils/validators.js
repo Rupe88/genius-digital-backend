@@ -66,9 +66,13 @@ export const registerValidation = [
     .withMessage('Phone must be at most 50 characters')
     .custom((value) => {
       const digits = String(value).replace(/\D/g, '');
-      const normalized = digits.length === 12 && digits.startsWith('977') ? digits.slice(2) : digits;
-      if (normalized.length !== 10 || !normalized.startsWith('98')) {
-        throw new Error('Please provide a valid 10-digit Nepal mobile number (e.g. 98XXXXXXXX)');
+      // 10-digit local (96/97/98) or international +977 (13 digits)
+      let normalized = digits;
+      if (digits.startsWith('977') && digits.length === 13) normalized = digits.slice(3);
+      const validPrefixes = ['96', '97', '98'];
+      const prefix = normalized.slice(0, 2);
+      if (normalized.length !== 10 || !validPrefixes.includes(prefix)) {
+        throw new Error('Please provide a valid 10-digit Nepal mobile number (96, 97 or 98XXXXXXXX)');
       }
       return true;
     }),
@@ -121,9 +125,17 @@ export const mobileLoginOrRegisterValidation = [
     .isLength({ max: 50 })
     .withMessage('Phone max 50 characters')
     .custom((value, { req }) => {
-      // If mailIn is 'phone', phone is required
-      if (req.body.mailIn === 'phone' && (!value || String(value).trim() === '')) {
+      if (req.body.mailIn !== 'phone') return true;
+      if (!value || String(value).trim() === '') {
         throw new Error('Phone number is required when mailIn is "phone"');
+      }
+      const digits = String(value).replace(/\D/g, '');
+      let normalized = digits;
+      if (digits.startsWith('977') && digits.length === 13) normalized = digits.slice(3);
+      const validPrefixes = ['96', '97', '98'];
+      const prefix = normalized?.slice(0, 2);
+      if (normalized.length !== 10 || !validPrefixes.includes(prefix)) {
+        throw new Error('Please provide a valid 10-digit Nepal mobile number (96, 97 or 98XXXXXXXX)');
       }
       return true;
     }),
