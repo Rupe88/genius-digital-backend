@@ -46,6 +46,7 @@ import progressRoutes from './routes/progressRoutes.js';
 import quizRoutes from './routes/quizRoutes.js';
 import referralRoutes from './routes/referralRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
+import courseCommentRoutes from './routes/courseCommentRoutes.js';
 import studentSuccessRoutes from './routes/studentSuccessRoutes.js';
 import testimonialRoutes from './routes/testimonialRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
@@ -168,6 +169,7 @@ const apiRoutes = [
   ['quizzes', quizRoutes],
   ['referrals', referralRoutes],
   ['reviews', reviewRoutes],
+  ['course-comments', courseCommentRoutes],
   ['student-success', studentSuccessRoutes],
   ['testimonials', testimonialRoutes],
   ['upload', uploadRoutes],

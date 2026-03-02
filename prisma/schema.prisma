@@ -217,6 +217,7 @@ model User {
   enrollments          Enrollment[]           @relation("UserEnrollments")
   progress             LessonProgress[]       @relation("UserProgress")
   reviews              Review[]               @relation("UserReviews")
+  courseComments       CourseComment[]        @relation("UserCourseComments")
   submissions          AssignmentSubmission[] @relation("UserSubmissions")
   quizAttempts         QuizAttempt[]          @relation("UserQuizAttempts")
   certificates         Certificate[]          @relation("UserCertificates")
@@ -392,6 +393,7 @@ model Course {
   lessons           Lesson[]
   enrollments       Enrollment[]
   reviews           Review[]
+  courseComments    CourseComment[]
   assignments       Assignment[]
   liveClasses       LiveClass[]
   certificates      Certificate[]
@@ -1147,6 +1149,22 @@ model Review {
   @@unique([userId, courseId])
   @@index([courseId])
   @@map("reviews")
+}
+
+// Simple flat comments on a course (enrolled users only). No nesting.
+model CourseComment {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation("UserCourseComments", fields: [userId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courseId])
+  @@index([userId])
+  @@map("course_comments")
 }
 
 model ProductReview {
