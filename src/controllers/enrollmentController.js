@@ -706,34 +706,7 @@ export const checkAccessExpiry = async (req, res, next) => {
       });
     }
 
-    const now = new Date();
-    const accessExpiresAt = enrollment.accessExpiresAt;
-
-    let status, daysRemaining, warningLevel;
-
-    if (!accessExpiresAt) {
-      // Full access - no expiration
-      status = 'FULL_ACCESS';
-      daysRemaining = null;
-      warningLevel = 'NONE';
-    } else {
-      const timeDiff = accessExpiresAt.getTime() - now.getTime();
-      daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
-
-      if (daysRemaining < 0) {
-        status = 'EXPIRED';
-        warningLevel = 'CRITICAL';
-      } else if (daysRemaining <= 3) {
-        status = 'EXPIRING_SOON';
-        warningLevel = 'HIGH';
-      } else if (daysRemaining <= 7) {
-        status = 'EXPIRING_SOON';
-        warningLevel = 'MEDIUM';
-      } else {
-        status = 'ACTIVE';
-        warningLevel = 'LOW';
-      }
-    }
+    const accessStatus = getAccessStatus(enrollment);
 
     res.json({
       success: true,
@@ -746,9 +719,7 @@ export const checkAccessExpiry = async (req, res, next) => {
           grantedByAdmin: enrollment.grantedByAdmin,
         },
         course: enrollment.course,
-        accessStatus: status,
-        daysRemaining,
-        warningLevel,
+        ...accessStatus,
       },
     });
   } catch (error) {
@@ -757,3 +728,63 @@ export const checkAccessExpiry = async (req, res, next) => {
 };
 
 
+// Helper function to get access status
+const getAccessStatus = (enrollment) => {
+  const now = new Date();
+  const accessType = enrollment.accessType || 'FULL';
+  
+  if (accessType === 'FULL') {
+    return {
+      accessStatus: 'FULL_ACCESS',
+      daysRemaining: null,
+      warningLevel: 'NONE',
+      accessType: 'FULL'
+    };
+  }
+  
+  if (!enrollment.accessExpiresAt) {
+    return {
+      accessStatus: 'ACTIVE',
+      daysRemaining: null,
+      warningLevel: 'NONE',
+      accessType
+    };
+  }
+  
+  const expiresAt = new Date(enrollment.accessExpiresAt);
+  const daysRemaining = Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
+  
+  if (daysRemaining < 0) {
+    return {
+      accessStatus: 'EXPIRED',
+      daysRemaining,
+      warningLevel: 'CRITICAL',
+      accessType
+    };
+  }
+  
+  if (daysRemaining <= 3) {
+    return {
+      accessStatus: 'EXPIRING_SOON',
+      daysRemaining,
+      warningLevel: 'CRITICAL',
+      accessType
+    };
+  }
+  
+  if (daysRemaining <= 7) {
+    return {
+      accessStatus: 'EXPIRING_SOON',
+      daysRemaining,
+      warningLevel: 'HIGH',
+      accessType
+    };
+  }
+  
+  return {
+    accessStatus: 'ACTIVE',
+    daysRemaining,
+    warningLevel: daysRemaining <= 14 ? 'MEDIUM' : 'LOW',
+    accessType
+  };
+};
