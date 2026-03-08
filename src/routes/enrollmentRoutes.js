@@ -7,6 +7,9 @@ import {
   getAllEnrollments,
   deleteEnrollment,
   adminGrantEnrollment,
+  adminGrantPartialAccess,
+  extendAccess,
+  checkAccessExpiry,
 } from '../controllers/enrollmentController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
@@ -29,7 +32,7 @@ router.get(
   '/my-enrollments',
   authenticate,
   [
-    query('status').optional().isIn(['PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED']),
+    query('status').optional().isIn(['PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED', 'EXPIRED']),
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
   ],
@@ -50,6 +53,13 @@ router.delete(
   unenrollFromCourse
 );
 
+router.get(
+  '/check-expiry/:courseId',
+  authenticate,
+  [param('courseId').isUUID()],
+  checkAccessExpiry
+);
+
 // Admin routes
 router.post(
   '/admin/grant',
@@ -62,12 +72,39 @@ router.post(
   adminGrantEnrollment
 );
 
+router.post(
+  '/admin/grant-partial',
+  authenticate,
+  requireAdmin,
+  [
+    body('userId').notEmpty().isUUID(),
+    body('courseId').notEmpty().isUUID(),
+    body('accessType').isIn(['PARTIAL', 'TRIAL']),
+    body('durationDays').isInt({ min: 1, max: 365 }),
+    body('pricePaid').optional().isDecimal(),
+    body('adminNotes').optional().isString(),
+  ],
+  adminGrantPartialAccess
+);
+
+router.post(
+  '/admin/extend-access',
+  authenticate,
+  requireAdmin,
+  [
+    body('enrollmentId').notEmpty().isUUID(),
+    body('durationDays').isInt({ min: 1, max: 365 }),
+    body('adminNotes').optional().isString(),
+  ],
+  extendAccess
+);
+
 router.get(
   '/',
   authenticate,
   requireAdmin,
   [
-    query('status').optional().isIn(['PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED']),
+    query('status').optional().isIn(['PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED', 'EXPIRED']),
     query('courseId').optional().isUUID(),
     query('userId').optional().isUUID(),
     query('page').optional().isInt({ min: 1 }),

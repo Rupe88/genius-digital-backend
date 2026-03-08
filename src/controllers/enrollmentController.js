@@ -522,4 +522,238 @@ export const deleteEnrollment = async (req, res, next) => {
   }
 };
 
+/**
+ * Admin: grant partial access to a course
+ */
+export const adminGrantPartialAccess = async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+      });
+    }
+
+    const { userId, courseId, accessType, durationDays, pricePaid, adminNotes } = req.body;
+
+    // Ensure user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Ensure course exists
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+    });
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found',
+      });
+    }
+
+    // Calculate expiration date
+    const accessExpiresAt = new Date();
+    accessExpiresAt.setDate(accessExpiresAt.getDate() + parseInt(durationDays));
+
+    // Check for existing enrollment
+    let enrollment = await prisma.enrollment.findUnique({
+      where: {
+        userId_courseId: {
+          userId,
+          courseId,
+        },
+      },
+    });
+
+    if (enrollment) {
+      // Update existing enrollment
+      enrollment = await prisma.enrollment.update({
+        where: { id: enrollment.id },
+        data: {
+          status: 'ACTIVE',
+          accessType,
+          accessExpiresAt,
+          pricePaid: pricePaid ? parseFloat(pricePaid) : null,
+          grantedByAdmin: true,
+          adminNotes,
+        },
+      });
+    } else {
+      // Create new enrollment
+      enrollment = await prisma.enrollment.create({
+        data: {
+          userId,
+          courseId,
+          status: 'ACTIVE',
+          accessType,
+          accessExpiresAt,
+          pricePaid: pricePaid ? parseFloat(pricePaid) : null,
+          grantedByAdmin: true,
+          adminNotes,
+        },
+      });
+    }
+
+    // Update course enrollment count if this is a new enrollment
+    if (!enrollment.grantedByAdmin || enrollment.createdAt.getTime() === enrollment.updatedAt.getTime()) {
+      await prisma.course.update({
+        where: { id: courseId },
+        data: {
+          totalEnrollments: {
+            increment: 1,
+          },
+        },
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Partial access granted successfully for ${durationDays} days`,
+      data: enrollment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin: extend access for an enrollment
+ */
+export const extendAccess = async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+      });
+    }
+
+    const { enrollmentId, durationDays, adminNotes } = req.body;
+
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+    });
+
+    if (!enrollment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Enrollment not found',
+      });
+    }
+
+    // Calculate new expiration date
+    const currentExpiry = enrollment.accessExpiresAt || new Date();
+    const newAccessExpiresAt = new Date(currentExpiry);
+    newAccessExpiresAt.setDate(newAccessExpiresAt.getDate() + parseInt(durationDays));
+
+    const updatedEnrollment = await prisma.enrollment.update({
+      where: { id: enrollmentId },
+      data: {
+        accessExpiresAt: newAccessExpiresAt,
+        status: 'ACTIVE',
+        adminNotes: adminNotes ? `${adminNotes}\nPrevious: ${enrollment.adminNotes || ''}` : enrollment.adminNotes,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: `Access extended successfully by ${durationDays} days`,
+      data: updatedEnrollment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Check access expiry for a user's course enrollment
+ */
+export const checkAccessExpiry = async (req, res, next) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.id;
+
+    const enrollment = await prisma.enrollment.findUnique({
+      where: {
+        userId_courseId: {
+          userId,
+          courseId,
+        },
+      },
+      include: {
+        course: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    if (!enrollment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Enrollment not found',
+      });
+    }
+
+    const now = new Date();
+    const accessExpiresAt = enrollment.accessExpiresAt;
+
+    let status, daysRemaining, warningLevel;
+
+    if (!accessExpiresAt) {
+      // Full access - no expiration
+      status = 'FULL_ACCESS';
+      daysRemaining = null;
+      warningLevel = 'NONE';
+    } else {
+      const timeDiff = accessExpiresAt.getTime() - now.getTime();
+      daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+      if (daysRemaining < 0) {
+        status = 'EXPIRED';
+        warningLevel = 'CRITICAL';
+      } else if (daysRemaining <= 3) {
+        status = 'EXPIRING_SOON';
+        warningLevel = 'HIGH';
+      } else if (daysRemaining <= 7) {
+        status = 'EXPIRING_SOON';
+        warningLevel = 'MEDIUM';
+      } else {
+        status = 'ACTIVE';
+        warningLevel = 'LOW';
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        enrollment: {
+          id: enrollment.id,
+          status: enrollment.status,
+          accessType: enrollment.accessType,
+          accessExpiresAt: enrollment.accessExpiresAt,
+          grantedByAdmin: enrollment.grantedByAdmin,
+        },
+        course: enrollment.course,
+        accessStatus: status,
+        daysRemaining,
+        warningLevel,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 

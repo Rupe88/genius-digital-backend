@@ -38,6 +38,7 @@ enum EnrollmentStatus {
   ACTIVE
   COMPLETED
   CANCELLED
+  EXPIRED
 }
 
 enum InstallmentStatus {
@@ -532,6 +533,14 @@ model Enrollment {
   status      EnrollmentStatus @default(PENDING)
   progress    Int              @default(0)
   completedAt DateTime?
+  
+  // Partial Access Fields
+  accessType        String?  @db.VarChar(50) // 'FULL', 'PARTIAL', 'TRIAL'
+  accessExpiresAt   DateTime? // When access expires
+  pricePaid         Decimal? @db.Decimal(10, 2) // Amount actually paid for this access
+  grantedByAdmin    Boolean  @default(false) // If this was granted by admin
+  adminNotes        String?  @db.Text // Admin notes for partial access
+  
   affiliateId String?
   affiliate   Affiliate?       @relation("AffiliateEnrollments", fields: [affiliateId], references: [userId])
 
@@ -551,6 +560,7 @@ model Enrollment {
   @@index([userId])
   @@index([courseId])
   @@index([status])
+  @@index([accessExpiresAt])
   @@map("enrollments")
 }
 
