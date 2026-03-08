@@ -535,11 +535,11 @@ model Enrollment {
   completedAt DateTime?
   
   // Partial Access Fields
-  accessType        String?  @db.VarChar(50) // 'FULL', 'PARTIAL', 'TRIAL'
-  accessExpiresAt   DateTime? // When access expires
-  pricePaid         Decimal? @db.Decimal(10, 2) // Amount actually paid for this access
-  grantedByAdmin    Boolean  @default(false) // If this was granted by admin
-  adminNotes        String?  @db.Text // Admin notes for partial access
+  accessType        String?  @map("access_type") @db.VarChar(50) // 'FULL', 'PARTIAL', 'TRIAL'
+  accessExpiresAt   DateTime? @map("access_expires_at") // When access expires
+  pricePaid         Decimal? @map("price_paid") @db.Decimal(10, 2) // Amount actually paid for this access
+  grantedByAdmin    Boolean  @map("granted_by_admin") @default(false) // If this was granted by admin
+  adminNotes        String?  @map("admin_notes") @db.Text // Admin notes for partial access
   
   affiliateId String?
   affiliate   Affiliate?       @relation("AffiliateEnrollments", fields: [affiliateId], references: [userId])
