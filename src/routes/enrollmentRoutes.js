@@ -79,7 +79,7 @@ router.post(
   [
     body('userId').notEmpty().isUUID(),
     body('courseId').notEmpty().isUUID(),
-    body('accessType').isIn(['PARTIAL', 'TRIAL']),
+    body('accessType').isIn(['PARTIAL']),
     body('durationDays').isInt({ min: 1, max: 365 }),
     body('pricePaid').optional().isDecimal(),
     body('adminNotes').optional().isString(),
