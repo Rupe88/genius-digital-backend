@@ -77,27 +77,52 @@ export const createGalleryItem = async (req, res, next) => {
       });
     }
 
-    const { title } = req.body;
+    const { title, mediaType, videoUrl: bodyVideoUrl } = req.body;
+    const requestedType = mediaType === 'VIDEO' ? 'VIDEO' : 'IMAGE';
 
     const imageUrls = req.cloudinary?.imageUrls;
+    const uploadedVideoUrl = req.cloudinary?.videoUrl;
+    const trimmedBodyVideoUrl = typeof bodyVideoUrl === 'string' ? bodyVideoUrl.trim() : '';
 
-    if (!imageUrls || imageUrls.length === 0) {
+    if (requestedType === 'IMAGE' && (!imageUrls || imageUrls.length === 0)) {
       return res.status(400).json({
         success: false,
         message: 'No images uploaded',
       });
     }
 
-    const createdItems = await Promise.all(
-      imageUrls.map((url) =>
-        prisma.gallery.create({
-          data: {
-            title: title && title.trim() ? title.trim() : null,
-            imageUrl: url,
-          },
-        })
-      )
-    );
+    if (requestedType === 'VIDEO' && !uploadedVideoUrl && !trimmedBodyVideoUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'No video provided. Please upload a video file or provide a YouTube/Google Drive link.',
+      });
+    }
+
+    let createdItems;
+
+    if (requestedType === 'IMAGE') {
+      createdItems = await Promise.all(
+        imageUrls.map((url) =>
+          prisma.gallery.create({
+            data: {
+              title: title && title.trim() ? title.trim() : null,
+              imageUrl: url,
+              mediaType: 'IMAGE',
+            },
+          })
+        )
+      );
+    } else {
+      const finalVideoUrl = uploadedVideoUrl || trimmedBodyVideoUrl;
+      const item = await prisma.gallery.create({
+        data: {
+          title: title && title.trim() ? title.trim() : null,
+          videoUrl: finalVideoUrl,
+          mediaType: 'VIDEO',
+        },
+      });
+      createdItems = [item];
+    }
 
     res.status(201).json({
       success: true,
@@ -123,7 +148,7 @@ export const updateGalleryItem = async (req, res, next) => {
     }
 
     const { id } = req.params;
-    const { title } = req.body;
+    const { title, mediaType, videoUrl: bodyVideoUrl } = req.body;
 
     const updateData = {};
     if (title !== undefined) {
@@ -134,8 +159,23 @@ export const updateGalleryItem = async (req, res, next) => {
         updateData.title = null;
       }
     }
-    if (req.cloudinary?.url) {
-      updateData.imageUrl = req.cloudinary.url;
+    const imageUrls = req.cloudinary?.imageUrls;
+    const uploadedVideoUrl = req.cloudinary?.videoUrl;
+    const trimmedBodyVideoUrl = typeof bodyVideoUrl === 'string' ? bodyVideoUrl.trim() : '';
+
+    // Media updates: image or video
+    if (Array.isArray(imageUrls) && imageUrls.length > 0) {
+      updateData.imageUrl = imageUrls[0];
+      updateData.videoUrl = null;
+      updateData.mediaType = 'IMAGE';
+    } else if (uploadedVideoUrl || trimmedBodyVideoUrl) {
+      const finalVideoUrl = uploadedVideoUrl || trimmedBodyVideoUrl;
+      updateData.videoUrl = finalVideoUrl;
+      updateData.imageUrl = null;
+      updateData.mediaType = 'VIDEO';
+    } else if (mediaType === 'IMAGE' || mediaType === 'VIDEO') {
+      // If mediaType is explicitly provided without new media, align type only
+      updateData.mediaType = mediaType;
     }
 
     if (Object.keys(updateData).length === 0) {

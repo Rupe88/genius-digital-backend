@@ -220,6 +220,102 @@ export const processMultipleImagesUpload = async (req, res, next) => {
 };
 
 /**
+ * Gallery-specific upload handler: supports multiple images and a single video file.
+ * - Images: expect in req.files.files (create) or req.files.file (update), saved to lms/gallery
+ * - Video: expect in req.files.video[0], saved to lms/videos
+ *
+ * Populates:
+ * - req.cloudinary.imageUrls: string[]
+ * - req.cloudinary.videoUrl: string | undefined
+ */
+export const processGalleryFiles = async (req, res, next) => {
+  try {
+    const folderImages = req.body.folder || 'lms/gallery';
+    const folderVideos = req.body.videoFolder || 'lms/videos';
+
+    const allImageFiles = [];
+    if (req.files) {
+      if (Array.isArray(req.files.files)) {
+        allImageFiles.push(...req.files.files);
+      }
+      if (Array.isArray(req.files.file)) {
+        allImageFiles.push(...req.files.file);
+      }
+    }
+
+    if (allImageFiles.length > 0) {
+      const maxSize = imageMaxBytes;
+      const uploadPromises = allImageFiles.map(async (file) => {
+        if (file.size > maxSize) {
+          throw new Error(`File ${file.originalname} exceeds ${config.upload?.imageMaxMb ?? 10}MB limit`);
+        }
+
+        const result = await uploadImage(file.buffer, {
+          folder: folderImages,
+          mimeType: file.mimetype,
+        });
+
+        return result.secure_url;
+      });
+
+      const imageUrls = await Promise.all(uploadPromises);
+
+      req.cloudinary = {
+        ...(req.cloudinary || {}),
+        imageUrls,
+      };
+
+      console.log(`✓ ${imageUrls.length} gallery images uploaded successfully`);
+    }
+
+    const videoFiles = req.files && Array.isArray(req.files.video) ? req.files.video : [];
+    if (videoFiles.length > 0 && videoFiles[0]) {
+      const file = videoFiles[0];
+      if (!Buffer.isBuffer(file.buffer) || file.buffer.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid video file data',
+        });
+      }
+
+      if (file.buffer.length > videoMaxBytes) {
+        return res.status(400).json({
+          success: false,
+          message: `Video exceeds ${config.upload?.videoMaxMb ?? 3072}MB limit`,
+        });
+      }
+
+      const videoTimeoutMs = config.upload?.videoUploadTimeoutMs ?? 600000;
+      console.log('[Gallery upload] Uploading video to S3, size:', file.buffer.length, 'bytes');
+
+      const uploadPromise = uploadVideo(file.buffer, {
+        folder: folderVideos,
+        mimeType: file.mimetype,
+      });
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Video upload timed out after ${videoTimeoutMs / 1000}s`)), videoTimeoutMs)
+      );
+      const result = await Promise.race([uploadPromise, timeoutPromise]);
+
+      req.cloudinary = {
+        ...(req.cloudinary || {}),
+        videoUrl: result.secure_url,
+      };
+
+      console.log('[Gallery upload] Video uploaded successfully');
+    }
+
+    return next();
+  } catch (error) {
+    console.error('Gallery files upload error:', error);
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Failed to upload gallery media',
+    });
+  }
+};
+
+/**
  * Upload video to Cloudinary after multer processing
  */
 export const processVideoUpload = async (req, res, next) => {
