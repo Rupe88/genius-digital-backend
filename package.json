@@ -7,7 +7,9 @@
   "scripts": {
     "predev": "prisma generate && lsof -ti :4000 | xargs kill -9 2>/dev/null || true",
     "dev": "nodemon src/server.js",
+    "prestart": "prisma generate",
     "start": "node src/server.js",
+    "prestart:migrate": "prisma generate",
     "start:migrate": "npx prisma migrate deploy && node src/server.js",
     "build": "prisma generate",
     "postbuild": "echo 'Build completed successfully'",
