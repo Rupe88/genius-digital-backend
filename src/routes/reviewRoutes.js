@@ -27,7 +27,9 @@ router.post(
   authenticate,
   [
     param('courseId').isUUID().withMessage('Invalid course ID'),
-    body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
+    body('rating')
+      .custom((value) => Number(value) === 5)
+      .withMessage('Only 5-star reviews are allowed'),
     body('comment').optional().trim().isLength({ max: 1000 }),
   ],
   createReview

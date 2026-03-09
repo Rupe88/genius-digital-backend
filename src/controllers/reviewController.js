@@ -17,8 +17,9 @@ export const createReview = async (req, res, next) => {
     }
 
     const { courseId } = req.params;
-    const { rating, comment } = req.body;
+    const { comment } = req.body;
     const userId = req.user.id;
+    const effectiveRating = 5;
 
     // Check if user is enrolled and completed the course
     const enrollment = await prisma.enrollment.findUnique({
@@ -48,11 +49,11 @@ export const createReview = async (req, res, next) => {
       create: {
         userId,
         courseId,
-        rating,
+        rating: effectiveRating,
         comment: comment || null,
       },
       update: {
-        rating,
+        rating: effectiveRating,
         comment: comment || null,
       },
       include: {
