@@ -53,8 +53,7 @@ async function sendOtpByChannel(otp, { email, phone, otpChannel }) {
   if (channel === 'sms' || channel === 'both') {
     if (!isSmsConfigured()) {
       if (channel === 'sms') {
-        await sendOTPEmail(email, otp, 'verification');
-        sentEmail = true;
+        throw new Error('SMS verification is not available right now. Please choose Email to receive OTP.');
       }
     } else {
       const to = normalizePhone(phone);
@@ -64,8 +63,7 @@ async function sendOtpByChannel(otp, { email, phone, otpChannel }) {
         if (!result.success) {
           console.warn('[Auth] SMS OTP failed:', result.message);
           if (channel === 'sms') {
-            await sendOTPEmail(email, otp, 'verification');
-            sentEmail = true;
+            throw new Error('Could not send SMS OTP. Please choose Email to receive OTP.');
           }
         }
       } else if (channel === 'sms') {
