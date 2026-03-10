@@ -35,6 +35,9 @@ Thumbs.db
 *.swo
 *~
 
+# Database backups (local dumps from db:backup)
+backups/
+
 # Build
 dist/
 build/

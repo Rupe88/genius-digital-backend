@@ -22,6 +22,7 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "node prisma/seed.js",
     "db:add-upcoming-events-enum": "node scripts/add-upcoming-events-enum.js",
+    "db:backup": "node scripts/backup-database.js",
     "lint": "echo 'No linting configured yet'",
     "docker:build": "docker build -t vaastu-lms-backend .",
     "docker:run": "docker run -p 4000:4000 vaastu-lms-backend"
