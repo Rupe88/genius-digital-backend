@@ -89,7 +89,7 @@ async function testPhoneNormalization() {
   // Since normalizePhoneForSms is not exported, we test it through sendOTPSms behavior
   
   const testCases = [
-    { input: '9812345678', expected: 'valid', description: '10-digit 98 Nepal number' },
+    { input: '9867993102', expected: 'valid', description: '10-digit 98 Nepal number' },
     { input: '9712345678', expected: 'valid', description: '10-digit 97 Nepal number' },
     { input: '9612345678', expected: 'valid', description: '10-digit 96 Nepal number' },
     { input: '+9779812345678', expected: 'valid', description: 'International format with +977 (98)' },
