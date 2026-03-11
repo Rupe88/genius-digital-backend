@@ -611,12 +611,40 @@ function getFrontendUrl(req) {
   return config.frontendUrl;
 }
 
+// --- Helpers for safe URL building (avoid "Invalid URL" crashes)
+function normalizeAbsoluteUrl(urlLike) {
+  if (!urlLike || typeof urlLike !== 'string') return null;
+  const raw = urlLike.trim();
+  if (!raw) return null;
+  if (!/^https?:\/\//i.test(raw)) return `https://${raw}`;
+  return raw;
+}
+
+function safeFrontendBase(req) {
+  const derived = getFrontendUrl(req);
+  return (
+    normalizeAbsoluteUrl(derived) ||
+    normalizeAbsoluteUrl(config.frontendUrl) ||
+    'https://sanskarvaastu.vercel.app'
+  );
+}
+
+function buildFrontendLoginUrl(req, error) {
+  const base = safeFrontendBase(req);
+  try {
+    const url = new URL('/login', base);
+    if (error) url.searchParams.set('error', error);
+    return url.toString();
+  } catch {
+    const safeBase = base.endsWith('/') ? base.slice(0, -1) : base;
+    const qs = error ? `?error=${encodeURIComponent(error)}` : '';
+    return `${safeBase}/login${qs}`;
+  }
+}
+
 export const googleRedirect = asyncHandler((req, res) => {
   if (!isGoogleAuthConfigured()) {
-    const frontendUrl = getFrontendUrl(req);
-    const redirectUrl = new URL(frontendUrl + '/login');
-    redirectUrl.searchParams.set('error', 'Google login is not configured');
-    return res.redirect(302, redirectUrl.toString());
+    return res.redirect(302, buildFrontendLoginUrl(req, 'Google login is not configured'));
   }
   const redirectUri = getGoogleCallbackUrl(req);
   const scope = 'openid email profile';
@@ -636,10 +664,7 @@ export const googleRedirect = asyncHandler((req, res) => {
 
 export const googleCallback = asyncHandler(async (req, res) => {
   const redirectToLogin = (error) => {
-    const frontendUrl = getFrontendUrl(req);
-    const url = new URL(frontendUrl + '/login');
-    if (error) url.searchParams.set('error', error);
-    res.redirect(302, url.toString());
+    res.redirect(302, buildFrontendLoginUrl(req, error));
   };
 
   if (!isGoogleAuthConfigured()) {
@@ -779,7 +804,9 @@ export const googleCallback = asyncHandler(async (req, res) => {
   let frontendBase = getFrontendUrl(req);
   if (state && typeof state === 'string') {
     try {
-      const stateUrl = new URL(state);
+      const normalizedState = normalizeAbsoluteUrl(state);
+      const stateUrl = normalizedState ? new URL(normalizedState) : null;
+      if (!stateUrl) throw new Error('Invalid state URL');
       const scheme = stateUrl.protocol.replace(':', '');
       const host = stateUrl.hostname || '';
       const isAllowed =
@@ -792,9 +819,10 @@ export const googleCallback = asyncHandler(async (req, res) => {
       // ignore invalid state
     }
   }
-  const redirectTo = `${frontendBase.replace(/\/$/, '')}/login#${hash}`;
+  const base = normalizeAbsoluteUrl(frontendBase) || 'https://sanskarvaastu.vercel.app';
+  const redirectTo = `${base.replace(/\/$/, '')}/login#${hash}`;
   if (process.env.NODE_ENV === 'production') {
-    console.log('Google OAuth: redirecting to frontend:', frontendBase, '(tokens in hash)');
+    console.log('Google OAuth: redirecting to frontend:', base, '(tokens in hash)');
   }
   res.redirect(302, redirectTo);
 });
