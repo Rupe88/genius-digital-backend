@@ -71,6 +71,8 @@ const allowedOrigins = new Set([
   'https://www.sanskarvastu.com',
   'http://localhost:3000',
   'http://localhost:3001',
+  'sanskaracademy.net',
+'www.sanskaracademy.net'
 ]);
 function isOriginAllowed(origin) {
   if (!origin) return true;

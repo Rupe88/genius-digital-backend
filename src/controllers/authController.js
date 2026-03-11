@@ -800,6 +800,8 @@ export const googleCallback = asyncHandler(async (req, res) => {
     'vaastu-lms-dp.vercel.app',
     'vaastulms.vercel.app',
     'aacharyarajbabu.vercel.app',
+    'sanskaracademy.net',
+'www.sanskaracademy.net',
   ];
   let frontendBase = getFrontendUrl(req);
   if (state && typeof state === 'string') {
