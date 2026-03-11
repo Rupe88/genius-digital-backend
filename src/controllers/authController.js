@@ -822,7 +822,7 @@ export const googleCallback = asyncHandler(async (req, res) => {
     }
   }
   const base = normalizeAbsoluteUrl(frontendBase) || 'https://sanskarvaastu.vercel.app';
-  const redirectTo = `${base.replace(/\/$/, '')}/login#${hash}`;
+  const redirectTo = `${base.replace(/\/$/, '')}/oauth/callback#${hash}`;
   if (process.env.NODE_ENV === 'production') {
     console.log('Google OAuth: redirecting to frontend:', base, '(tokens in hash)');
   }
