@@ -89,6 +89,7 @@ export const getAllCourses = async (req, res, next) => {
 export const filterCourses = async (req, res, next) => {
   try {
     const {
+      status,
       category,
       level,
       minPrice,
@@ -109,9 +110,20 @@ export const filterCourses = async (req, res, next) => {
     const pageNumber = parseInt(page);
     const limitNumber = parseInt(limit);
     const skip = (pageNumber - 1) * limitNumber;
-    const where = {
-      status: 'PUBLISHED',
-    };
+    const where = {};
+
+    // Status visibility:
+    // - If a specific status is provided (e.g. DRAFT, PUBLISHED, ONGOING, UPCOMING_EVENTS),
+    //   use it directly.
+    // - Otherwise, default to "visible" course statuses for public listings
+    //   so /courses can show PUBLISHED + ONGOING + UPCOMING_EVENTS.
+    if (status) {
+      where.status = status;
+    } else {
+      where.status = {
+        in: ['PUBLISHED', 'ONGOING', 'UPCOMING_EVENTS'],
+      };
+    }
 
     // Category filter
     if (category) {
