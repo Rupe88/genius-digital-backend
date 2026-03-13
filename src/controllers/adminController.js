@@ -3,6 +3,7 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 import * as financeService from '../services/financeService.js';
 import * as instructorEarningService from '../services/instructorEarningService.js';
 import * as expenseService from '../services/expenseService.js';
+import { hashPassword } from '../utils/hashPassword.js';
 
 export const blockUser = asyncHandler(async (req, res) => {
   const { userId } = req.body;
@@ -168,6 +169,61 @@ export const getAllUsers = asyncHandler(async (req, res) => {
         total,
         pages: Math.ceil(total / limit) || 1,
       },
+    },
+  });
+});
+
+/**
+ * Admin: create a user with direct credentials (no OTP flow).
+ * The created user is marked as email-verified and active so they can login immediately.
+ */
+export const adminCreateUser = asyncHandler(async (req, res) => {
+  const { email, password, fullName, phone, role = 'STUDENT' } = req.body;
+
+  // Disallow creating additional ADMIN users through this endpoint for safety
+  const normalizedRole = role === 'ADMIN' ? 'STUDENT' : role;
+
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  if (existing) {
+    return res.status(409).json({
+      success: false,
+      message: 'A user with this email already exists',
+    });
+  }
+
+  const hashedPassword = await hashPassword(password);
+
+  const user = await prisma.user.create({
+    data: {
+      email,
+      password: hashedPassword,
+      fullName,
+      phone: phone || null,
+      role: normalizedRole,
+      isEmailVerified: true,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      phone: true,
+      role: true,
+      isEmailVerified: true,
+      isActive: true,
+      createdAt: true,
+    },
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'User created successfully',
+    data: {
+      user,
     },
   });
 });

@@ -4,6 +4,7 @@ import {
   unblockUser,
   getAllUsers,
   getUserById,
+  adminCreateUser,
   getDashboardStats,
   getFinancialOverview,
   getIncomeBreakdown,
@@ -48,6 +49,31 @@ router.post('/users/block', validate(userIdValidation), blockUser);
 router.post('/users/unblock', validate(userIdValidation), unblockUser);
 router.get('/users', validate(paginationValidation), getAllUsers);
 router.get('/users/:userId', validate(userIdParamValidation), getUserById);
+router.post(
+  '/users',
+  validate([
+    body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
+    body('fullName')
+      .trim()
+      .isLength({ min: 2, max: 255 })
+      .withMessage('Full name must be between 2 and 255 characters'),
+    body('password')
+      .isLength({ min: 8 })
+      .withMessage('Password must be at least 8 characters long')
+      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+      .withMessage('Password must contain uppercase, lowercase, and a number'),
+    body('phone')
+      .optional({ checkFalsy: true })
+      .trim()
+      .isLength({ max: 50 })
+      .withMessage('Phone must be at most 50 characters'),
+    body('role')
+      .optional({ checkFalsy: true })
+      .isIn(['STUDENT', 'INSTRUCTOR', 'ADMIN'])
+      .withMessage('Role must be STUDENT, INSTRUCTOR or ADMIN'),
+  ]),
+  adminCreateUser
+);
 
 // ==================== DASHBOARD ====================
 router.get('/dashboard/stats', getDashboardStats);
