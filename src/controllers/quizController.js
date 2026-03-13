@@ -184,6 +184,62 @@ export const getUserAttempts = async (req, res, next) => {
 };
 
 /**
+ * Get quiz attempts for admin (all users)
+ */
+export const getAdminQuizAttempts = async (req, res, next) => {
+  try {
+    const { quizId, userId, courseId, isPassed, page = 1, limit = 50 } = req.query;
+
+    const pageNumber = Number(page) || 1;
+    const pageSize = Math.min(Number(limit) || 50, 200);
+    const skip = (pageNumber - 1) * pageSize;
+
+    const [attempts, total] = await Promise.all([
+      quizService.getQuizAttemptsForAdmin({
+        quizId: quizId || undefined,
+        userId: userId || undefined,
+        courseId: courseId || undefined,
+        isPassed: typeof isPassed === 'string' ? isPassed === 'true' : undefined,
+        skip,
+        take: pageSize,
+      }),
+      // Total count for pagination (without skip/take)
+      prisma.quizAttempt.count({
+        where: {
+          ...(quizId ? { quizId } : {}),
+          ...(userId ? { userId } : {}),
+          ...(typeof isPassed === 'string'
+            ? { isPassed: isPassed === 'true' }
+            : {}),
+          ...(courseId
+            ? {
+                quiz: {
+                  lesson: {
+                    courseId,
+                  },
+                },
+              }
+            : {}),
+        },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      data: attempts,
+      pagination: {
+        total,
+        page: pageNumber,
+        limit: pageSize,
+        pages: Math.ceil(total / pageSize),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Create quiz (Admin)
  */
 export const createQuiz = async (req, res, next) => {

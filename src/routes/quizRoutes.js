@@ -3,6 +3,7 @@ import {
   getQuizByLesson,
   submitQuiz,
   getUserAttempts,
+  getAdminQuizAttempts,
   createQuiz,
   updateQuiz,
   deleteQuiz,
@@ -38,6 +39,14 @@ router.get(
   authenticate,
   [param('quizId').isUUID().withMessage('Invalid quiz ID')],
   getUserAttempts
+);
+
+// Admin – list all quiz attempts with filters
+router.get(
+  '/admin/attempts',
+  authenticate,
+  requireAdmin,
+  getAdminQuizAttempts
 );
 
 // Admin routes

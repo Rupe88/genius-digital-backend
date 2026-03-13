@@ -89,8 +89,59 @@ export const getUserQuizAttempts = async (userId, quizId) => {
   });
 };
 
+/**
+ * Get quiz attempts for admin with optional filters
+ */
+export const getQuizAttemptsForAdmin = async ({ quizId, userId, courseId, isPassed, skip = 0, take = 50 }) => {
+  return prisma.quizAttempt.findMany({
+    where: {
+      ...(quizId ? { quizId } : {}),
+      ...(userId ? { userId } : {}),
+      ...(typeof isPassed === 'boolean' ? { isPassed } : {}),
+      ...(courseId
+        ? {
+            quiz: {
+              lesson: {
+                courseId,
+              },
+            },
+          }
+        : {}),
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+        },
+      },
+      quiz: {
+        include: {
+          lesson: {
+            include: {
+              course: {
+                select: {
+                  id: true,
+                  title: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      completedAt: 'desc',
+    },
+    skip,
+    take,
+  });
+};
+
 export default {
   calculateQuizScore,
   getQuizByLessonId,
   getUserQuizAttempts,
+  getQuizAttemptsForAdmin,
 };
