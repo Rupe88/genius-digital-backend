@@ -178,10 +178,7 @@ export const getAllUsers = asyncHandler(async (req, res) => {
  * The created user is marked as email-verified and active so they can login immediately.
  */
 export const adminCreateUser = asyncHandler(async (req, res) => {
-  const { email, password, fullName, phone, role = 'STUDENT' } = req.body;
-
-  // Disallow creating additional ADMIN users through this endpoint for safety
-  const normalizedRole = role === 'ADMIN' ? 'STUDENT' : role;
+  const { email, password, fullName, phone, role } = req.body;
 
   const existing = await prisma.user.findUnique({
     where: { email },
@@ -203,7 +200,8 @@ export const adminCreateUser = asyncHandler(async (req, res) => {
       password: hashedPassword,
       fullName,
       phone: phone || null,
-      role: normalizedRole,
+      // Default role is USER; only allow explicit AFFILIATE from this endpoint
+      ...(role === 'AFFILIATE' ? { role: 'AFFILIATE' } : {}),
       isEmailVerified: true,
       isActive: true,
     },
