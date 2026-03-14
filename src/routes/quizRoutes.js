@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   getQuizByLesson,
+  getQuizByLessonAdmin,
   submitQuiz,
   getUserAttempts,
   getAdminQuizAttempts,
@@ -39,6 +40,15 @@ router.get(
   authenticate,
   [param('quizId').isUUID().withMessage('Invalid quiz ID')],
   getUserAttempts
+);
+
+// Admin – get full quiz by lesson (includes correctAnswer for editing)
+router.get(
+  '/admin/lesson/:lessonId',
+  authenticate,
+  requireAdmin,
+  [param('lessonId').isUUID().withMessage('Invalid lesson ID')],
+  getQuizByLessonAdmin
 );
 
 // Admin – list all quiz attempts with filters

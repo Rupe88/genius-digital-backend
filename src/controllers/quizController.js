@@ -5,6 +5,28 @@ import * as quizService from '../services/quizService.js';
 
 
 /**
+ * Get full quiz by lesson ID (admin only) – includes correctAnswer for editing
+ */
+export const getQuizByLessonAdmin = async (req, res, next) => {
+  try {
+    const { lessonId } = req.params;
+    const quiz = await quizService.getQuizByLessonId(lessonId);
+    if (!quiz) {
+      return res.status(404).json({
+        success: false,
+        message: 'Quiz not found for this lesson',
+      });
+    }
+    res.json({
+      success: true,
+      data: quiz,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get quiz by lesson ID
  */
 export const getQuizByLesson = async (req, res, next) => {
