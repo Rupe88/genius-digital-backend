@@ -3,6 +3,22 @@ import { validationResult } from 'express-validator';
 import { generateSlug } from '../utils/helpers.js';
 import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
 
+/** Instructor fields safe to expose on public course APIs. Excludes PII and financial data. */
+const INSTRUCTOR_PUBLIC_SELECT = {
+  id: true,
+  name: true,
+  slug: true,
+  image: true,
+  bio: true,
+  designation: true,
+  specialization: true,
+  featured: true,
+  order: true,
+  socialLinks: true,
+  createdAt: true,
+  updatedAt: true,
+};
+
 /** Replace S3 thumbnail with signed S3 URL so browser loads image directly from S3 (no backend proxy). Mutates course(s). */
 async function maskCourseThumbnail(req, course) {
   if (!isS3Configured() || !course?.thumbnail || !isOurS3Url(course.thumbnail)) return;
@@ -48,7 +64,7 @@ export const getAllCourses = async (req, res, next) => {
       prisma.course.findMany({
         where,
         include: {
-          instructor: true,
+          instructor: { select: INSTRUCTOR_PUBLIC_SELECT },
           category: true,
           _count: {
             select: {
@@ -231,7 +247,7 @@ export const filterCourses = async (req, res, next) => {
       const allCourses = await prisma.course.findMany({
         where,
         include: {
-          instructor: true,
+          instructor: { select: INSTRUCTOR_PUBLIC_SELECT },
           category: true,
           _count: {
             select: {
@@ -275,7 +291,7 @@ export const filterCourses = async (req, res, next) => {
       prisma.course.findMany({
         where,
         include: {
-          instructor: true,
+          instructor: { select: INSTRUCTOR_PUBLIC_SELECT },
           category: true,
           _count: {
             select: {
@@ -322,7 +338,7 @@ export const getFeaturedCourses = async (req, res, next) => {
     const courses = await prisma.course.findMany({
       where: whereFeatured,
       include: {
-        instructor: true,
+        instructor: { select: INSTRUCTOR_PUBLIC_SELECT },
         category: true,
         _count: {
           select: {
@@ -361,7 +377,7 @@ export const getOngoingCourses = async (req, res, next) => {
       prisma.course.findMany({
         where: whereOngoing,
         include: {
-          instructor: true,
+          instructor: { select: INSTRUCTOR_PUBLIC_SELECT },
           category: true,
           _count: {
             select: {
@@ -403,6 +419,8 @@ export const getOngoingCourses = async (req, res, next) => {
 export const getCourseById = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const isAdmin = req.user?.role === 'ADMIN';
+    const instructorInclude = isAdmin ? true : { select: INSTRUCTOR_PUBLIC_SELECT };
 
     const course = await prisma.course.findFirst({
       where: {
@@ -412,7 +430,7 @@ export const getCourseById = async (req, res, next) => {
         ],
       },
       include: {
-        instructor: true,
+        instructor: instructorInclude,
         category: true,
         installmentPlan: true,
         lessons: {
