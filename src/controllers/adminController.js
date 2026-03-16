@@ -131,8 +131,8 @@ export const getAllUsers = asyncHandler(async (req, res) => {
   const where = {
     ...(search && {
       OR: [
-        { email: { contains: search } },
-        { fullName: { contains: search } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { fullName: { contains: search, mode: 'insensitive' } },
       ],
     }),
   };

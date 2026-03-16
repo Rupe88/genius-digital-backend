@@ -158,8 +158,8 @@ export const uploadCertificateForUser = async (req, res, next) => {
       });
     }
 
-    // Ensure a certificate exists (and user is eligible) – this will create one if needed.
-    const certificate = await certificateService.issueCertificate(userId, courseId);
+    // Admin override: ensure a certificate exists (create if needed) WITHOUT eligibility checks.
+    const certificate = await certificateService.ensureCertificateForAdmin(userId, courseId);
 
     // Update the certificate URL to point to the uploaded document.
     const updatedCertificate = await certificateService.updateCertificateUrl(

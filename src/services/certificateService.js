@@ -138,6 +138,72 @@ export const issueCertificate = async (userId, courseId) => {
 };
 
 /**
+ * Admin-only: create or reuse a certificate for a user/course WITHOUT
+ * enforcing completion/eligibility rules. Used when admin wants to
+ * manually upload a certificate even if the course is not completed.
+ */
+export const ensureCertificateForAdmin = async (userId, courseId) => {
+  const existing = await prisma.certificate.findUnique({
+    where: {
+      userId_courseId: {
+        userId,
+        courseId,
+      },
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+        },
+      },
+      course: {
+        select: {
+          id: true,
+          title: true,
+          thumbnail: true,
+        },
+      },
+    },
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  const certificateId = generateCertificateId();
+  const certificateUrl = await generateCertificateUrl(userId, courseId, certificateId);
+
+  const certificate = await prisma.certificate.create({
+    data: {
+      userId,
+      courseId,
+      certificateId,
+      certificateUrl,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+        },
+      },
+      course: {
+        select: {
+          id: true,
+          title: true,
+          thumbnail: true,
+        },
+      },
+    },
+  });
+
+  return certificate;
+};
+
+/**
  * Update certificate URL (used when admin uploads a signed certificate file).
  */
 export const updateCertificateUrl = async (certificateId, certificateUrl) => {
@@ -240,6 +306,7 @@ export const verifyCertificate = async (certificateId) => {
 
 export default {
   issueCertificate,
+  ensureCertificateForAdmin,
   getUserCertificates,
   getAllCertificates,
   verifyCertificate,
