@@ -4,10 +4,12 @@ import {
   getQuizByLessonAdmin,
   submitQuiz,
   getUserAttempts,
+  getMyConsultationAttempts,
   getAdminQuizAttempts,
   createQuiz,
   updateQuiz,
   deleteQuiz,
+  updateQuizAttemptFeedback,
 } from '../controllers/quizController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
@@ -42,6 +44,13 @@ router.get(
   getUserAttempts
 );
 
+// User – get consultation quiz attempts with visible admin feedback
+router.get(
+  '/my/consultation-attempts',
+  authenticate,
+  getMyConsultationAttempts
+);
+
 // Admin – get full quiz by lesson (includes correctAnswer for editing)
 router.get(
   '/admin/lesson/:lessonId',
@@ -57,6 +66,15 @@ router.get(
   authenticate,
   requireAdmin,
   getAdminQuizAttempts
+);
+
+// Admin – update feedback on a specific quiz attempt
+router.patch(
+  '/admin/attempts/:id/feedback',
+  authenticate,
+  requireAdmin,
+  [param('id').isUUID().withMessage('Invalid attempt ID')],
+  updateQuizAttemptFeedback
 );
 
 // Admin routes

@@ -90,6 +90,44 @@ export const getUserQuizAttempts = async (userId, quizId) => {
 };
 
 /**
+ * Get user's consultation quiz attempts with visible feedback.
+ * Used to show admin replies in user dashboard.
+ */
+export const getUserConsultationAttemptsWithFeedback = async (userId, { skip = 0, take = 50 } = {}) => {
+  return prisma.quizAttempt.findMany({
+    where: {
+      userId,
+      adminVisible: true,
+      adminNotes: { not: null },
+      quiz: {
+        isConsultation: true,
+      },
+    },
+    include: {
+      quiz: {
+        include: {
+          lesson: {
+            include: {
+              course: {
+                select: {
+                  id: true,
+                  title: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      completedAt: 'desc',
+    },
+    skip,
+    take,
+  });
+};
+
+/**
  * Get quiz attempts for admin with optional filters
  */
 export const getQuizAttemptsForAdmin = async ({ quizId, userId, courseId, isPassed, skip = 0, take = 50 }) => {
@@ -143,5 +181,6 @@ export default {
   calculateQuizScore,
   getQuizByLessonId,
   getUserQuizAttempts,
+  getUserConsultationAttemptsWithFeedback,
   getQuizAttemptsForAdmin,
 };

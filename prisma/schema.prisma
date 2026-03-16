@@ -1250,6 +1250,10 @@ model Quiz {
   timeLimit    Int?
   passingScore Int     @default(70)
 
+  // When true, quiz is used as a consultation / scoring form.
+  // Answers are reviewed by an admin and feedback is stored on QuizAttempt.
+  isConsultation Boolean @default(false)
+
   lessonId String @unique
   lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
@@ -1291,6 +1295,11 @@ model QuizAttempt {
   answers     Json
   score       Int?
   isPassed    Boolean?
+
+  // Optional admin feedback for consultation-style quizzes.
+  adminNotes   String?   @db.Text
+  adminVisible Boolean   @default(false)
+
   completedAt DateTime @default(now())
 
   @@index([userId])

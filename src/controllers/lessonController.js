@@ -321,6 +321,7 @@ export const createLesson = async (req, res, next) => {
             description: parsedQuizData.description || description,
             timeLimit: parsedQuizData.timeLimit ? parseInt(parsedQuizData.timeLimit) : null,
             passingScore: parsedQuizData.passingScore ? parseInt(parsedQuizData.passingScore) : 70,
+            isConsultation: parsedQuizData.isConsultation === true,
             questions: {
               create: parsedQuizData.questions.map((q, idx) => ({
                 question: q.question,
@@ -516,6 +517,7 @@ export const updateLesson = async (req, res, next) => {
             description: parsedQuizData.description || description || updatedLesson.description,
             timeLimit: parsedQuizData.timeLimit ? parseInt(parsedQuizData.timeLimit) : null,
             passingScore: parsedQuizData.passingScore ? parseInt(parsedQuizData.passingScore) : 70,
+            isConsultation: parsedQuizData.isConsultation === true,
             questions: {
               create: parsedQuizData.questions.map((q, idx) => ({
                 question: q.question,

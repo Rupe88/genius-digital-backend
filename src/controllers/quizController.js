@@ -206,6 +206,37 @@ export const getUserAttempts = async (req, res, next) => {
 };
 
 /**
+ * Get user's consultation quiz attempts that have visible admin feedback
+ */
+export const getMyConsultationAttempts = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { page = 1, limit = 25 } = req.query;
+    const pageNumber = Number(page) || 1;
+    const pageSize = Math.min(Number(limit) || 25, 100);
+    const skip = (pageNumber - 1) * pageSize;
+
+    const attempts = await quizService.getUserConsultationAttemptsWithFeedback(userId, {
+      skip,
+      take: pageSize,
+    });
+
+    res.json({
+      success: true,
+      data: attempts,
+      pagination: {
+        total: attempts.length,
+        page: pageNumber,
+        limit: pageSize,
+        pages: Math.max(1, Math.ceil(attempts.length / pageSize)),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get quiz attempts for admin (all users)
  */
 export const getAdminQuizAttempts = async (req, res, next) => {
@@ -376,6 +407,48 @@ export const deleteQuiz = async (req, res, next) => {
       message: 'Quiz deleted successfully',
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update admin feedback on a quiz attempt (Admin)
+ */
+export const updateQuizAttemptFeedback = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { adminNotes, adminVisible } = req.body;
+
+    const attempt = await prisma.quizAttempt.update({
+      where: { id },
+      data: {
+        ...(adminNotes !== undefined && { adminNotes }),
+        ...(adminVisible !== undefined && { adminVisible }),
+      },
+      include: {
+        quiz: true,
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      data: attempt,
+      message: 'Quiz attempt feedback updated successfully',
+    });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        success: false,
+        message: 'Quiz attempt not found',
+      });
+    }
     next(error);
   }
 };
