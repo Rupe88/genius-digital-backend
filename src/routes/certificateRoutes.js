@@ -6,10 +6,12 @@ import {
   checkEligibility,
   getAllCertificatesAdmin,
   issueCertificateForUser,
+  uploadCertificateForUser,
 } from '../controllers/certificateController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
 import { param, body } from 'express-validator';
+import { singleUpload, processDocumentUpload } from '../middleware/cloudinaryUpload.js';
 
 const router = express.Router();
 
@@ -37,6 +39,20 @@ router.post(
     body('courseId').isUUID().withMessage('Valid courseId is required'),
   ],
   issueCertificateForUser
+);
+
+// Admin: upload a signed certificate file for a user & course
+router.post(
+  '/admin/upload',
+  authenticate,
+  requireAdmin,
+  singleUpload('file'),
+  processDocumentUpload,
+  [
+    body('userId').isUUID().withMessage('Valid userId is required'),
+    body('courseId').isUUID().withMessage('Valid courseId is required'),
+  ],
+  uploadCertificateForUser
 );
 
 // Authenticated routes

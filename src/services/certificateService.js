@@ -138,6 +138,38 @@ export const issueCertificate = async (userId, courseId) => {
 };
 
 /**
+ * Update certificate URL (used when admin uploads a signed certificate file).
+ */
+export const updateCertificateUrl = async (certificateId, certificateUrl) => {
+  if (!certificateId || !certificateUrl) {
+    throw new Error('certificateId and certificateUrl are required');
+  }
+
+  const updated = await prisma.certificate.update({
+    where: { id: certificateId },
+    data: { certificateUrl },
+    include: {
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+        },
+      },
+      course: {
+        select: {
+          id: true,
+          title: true,
+          thumbnail: true,
+        },
+      },
+    },
+  });
+
+  return updated;
+};
+
+/**
  * Get user certificates
  */
 export const getUserCertificates = async (userId) => {
@@ -212,4 +244,5 @@ export default {
   getAllCertificates,
   verifyCertificate,
   checkCertificateEligibility,
+  updateCertificateUrl,
 };

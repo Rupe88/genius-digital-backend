@@ -127,3 +127,51 @@ export const checkEligibility = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Admin: upload a certificate file for a specific user & course.
+ * Expects multipart/form-data with:
+ * - file: the certificate document (PDF/image)
+ * - userId: UUID
+ * - courseId: UUID
+ *
+ * The file is uploaded to S3 via cloudinaryUpload middleware and its URL
+ * is available in req.cloudinary.url.
+ */
+export const uploadCertificateForUser = async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+      });
+    }
+
+    const { userId, courseId } = req.body;
+    const fileUrl = req.cloudinary?.url;
+
+    if (!fileUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Certificate file is required',
+      });
+    }
+
+    // Ensure a certificate exists (and user is eligible) – this will create one if needed.
+    const certificate = await certificateService.issueCertificate(userId, courseId);
+
+    // Update the certificate URL to point to the uploaded document.
+    const updatedCertificate = await certificateService.updateCertificateUrl(
+      certificate.id,
+      fileUrl
+    );
+
+    res.status(201).json({
+      success: true,
+      data: updatedCertificate,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
