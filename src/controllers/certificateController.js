@@ -47,7 +47,8 @@ export const issueCertificateForUser = async (req, res, next) => {
       });
     }
     const { userId, courseId } = req.body;
-    const certificate = await certificateService.issueCertificate(userId, courseId);
+    // Admin override: create/reuse certificate without completion checks
+    const certificate = await certificateService.ensureCertificateForAdmin(userId, courseId);
     res.status(201).json({
       success: true,
       data: certificate,
