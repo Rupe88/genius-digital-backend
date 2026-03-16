@@ -1,15 +1,20 @@
 import express from 'express';
-import { submitApplication, getAllApplications } from '../controllers/affiliateApplicationController.js';
+import {
+  submitApplication,
+  getAllApplications,
+  updateApplicationStatus,
+} from '../controllers/affiliateApplicationController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
-import { body, query } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import { validate } from '../utils/validators.js';
 
 const router = express.Router();
 
-// Public: submit affiliate application form
+// User: submit affiliate application form
 router.post(
   '/',
+  authenticate,
   validate([
     body('fullName').notEmpty().trim().isLength({ min: 1, max: 255 }).withMessage('Full name is required'),
     body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
@@ -37,8 +42,21 @@ router.get(
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('search').optional().isString().trim(),
     query('q').optional().isString().trim(),
+    query('status').optional().isIn(['PENDING', 'APPROVED', 'REJECTED']),
   ]),
   getAllApplications
+);
+
+// Admin: approve/reject an application (and activate affiliate)
+router.patch(
+  '/:id/status',
+  authenticate,
+  requireAdmin,
+  validate([
+    param('id').isUUID().withMessage('Invalid application ID'),
+    body('status').isIn(['APPROVED', 'REJECTED']).withMessage('Invalid status'),
+  ]),
+  updateApplicationStatus
 );
 
 export default router;

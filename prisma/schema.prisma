@@ -3,7 +3,7 @@
 
 // Performance optimizations for Supabase
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   // Enable connection pooling and better performance
   engineType = "library"
 }
@@ -139,6 +139,12 @@ enum AffiliateStatus {
   SUSPENDED
 }
 
+enum AffiliateApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum FAQCategory {
   GENERAL
   COURSES
@@ -219,31 +225,33 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  otps                 Otp[]
-  enrollments          Enrollment[]           @relation("UserEnrollments")
-  progress             LessonProgress[]       @relation("UserProgress")
-  reviews              Review[]               @relation("UserReviews")
-  courseComments       CourseComment[]        @relation("UserCourseComments")
-  submissions          AssignmentSubmission[] @relation("UserSubmissions")
-  quizAttempts         QuizAttempt[]          @relation("UserQuizAttempts")
-  certificates         Certificate[]          @relation("UserCertificates")
-  payments             Payment[]              @relation("UserPayments")
-  notifications        Notification[]         @relation("UserNotifications")
-  affiliate            Affiliate?             @relation("UserAffiliate")
-  liveClassEnrollments LiveClassEnrollment[]  @relation("UserLiveClassEnrollments")
-  eventRegistrations   EventRegistration[]    @relation("UserEventRegistrations")
-  blogs                Blog[]                 @relation("AuthorBlogs")
-  blogComments         BlogComment[]          @relation("UserBlogComments")
-  productReviews       ProductReview[]        @relation("UserProductReviews")
-  cart                 Cart?                  @relation("UserCart")
-  orders               Order[]                @relation("UserOrders")
-  couponUsages         CouponUsage[]          @relation("UserCouponUsage")
-  auditLogs            AuditLog[]             @relation("UserAuditLogs")
-  wishlistItems        WishlistItem[]         @relation("UserWishlist")
+  otps                          Otp[]
+  enrollments                   Enrollment[]           @relation("UserEnrollments")
+  progress                      LessonProgress[]       @relation("UserProgress")
+  reviews                       Review[]               @relation("UserReviews")
+  courseComments                CourseComment[]        @relation("UserCourseComments")
+  submissions                   AssignmentSubmission[] @relation("UserSubmissions")
+  quizAttempts                  QuizAttempt[]          @relation("UserQuizAttempts")
+  certificates                  Certificate[]          @relation("UserCertificates")
+  payments                      Payment[]              @relation("UserPayments")
+  notifications                 Notification[]         @relation("UserNotifications")
+  affiliate                     Affiliate?             @relation("UserAffiliate")
+  affiliateApplications         AffiliateApplication[] @relation("AffiliateApplicationUser")
+  affiliateApplicationsReviewed AffiliateApplication[] @relation("AffiliateApplicationReviewedBy")
+  liveClassEnrollments          LiveClassEnrollment[]  @relation("UserLiveClassEnrollments")
+  eventRegistrations            EventRegistration[]    @relation("UserEventRegistrations")
+  blogs                         Blog[]                 @relation("AuthorBlogs")
+  blogComments                  BlogComment[]          @relation("UserBlogComments")
+  productReviews                ProductReview[]        @relation("UserProductReviews")
+  cart                          Cart?                  @relation("UserCart")
+  orders                        Order[]                @relation("UserOrders")
+  couponUsages                  CouponUsage[]          @relation("UserCouponUsage")
+  auditLogs                     AuditLog[]             @relation("UserAuditLogs")
+  wishlistItems                 WishlistItem[]         @relation("UserWishlist")
 
   // Referral system relations
-  referralLinks      ReferralLink[]       @relation("ReferralLinks")
-  referralClicks     ReferralClick[]      @relation("ReferralClicks")
+  referralLinks       ReferralLink[]       @relation("ReferralLinks")
+  referralClicks      ReferralClick[]      @relation("ReferralClicks")
   referralConversions ReferralConversion[] @relation("ReferralConversions")
 
   @@index([email])
@@ -368,7 +376,7 @@ model Course {
   slug             String       @unique @db.VarChar(255)
   description      String?      @db.Text
   shortDescription String?      @db.VarChar(500)
-  thumbnail        String?      @db.VarChar(500)   // S3 or image URL
+  thumbnail        String?      @db.VarChar(500) // S3 or image URL
   price            Decimal      @default(0) @db.Decimal(10, 2)
   isFree           Boolean      @default(false)
   status           CourseStatus @default(DRAFT)
@@ -381,11 +389,11 @@ model Course {
   endDate          DateTime?
 
   tags             String?  @db.VarChar(500)
-  videoUrl         String?  @db.VarChar(500)   // S3 video or YouTube URL (legacy; also set from promoVideos[0])
-  promoVideos     Json?    // Array of up to 5 promo video URLs (YouTube or S3)
-  originalPrice    Decimal? @db.Decimal(10, 2)  // For showing discount
-  learningOutcomes Json?    // Array of learning outcomes
-  skills           Json?    // Array of skills
+  videoUrl         String?  @db.VarChar(500) // S3 video or YouTube URL (legacy; also set from promoVideos[0])
+  promoVideos      Json? // Array of up to 5 promo video URLs (YouTube or S3)
+  originalPrice    Decimal? @db.Decimal(10, 2) // For showing discount
+  learningOutcomes Json? // Array of learning outcomes
+  skills           Json? // Array of skills
   rating           Decimal? @db.Decimal(3, 2)
   totalRatings     Int      @default(0)
   totalEnrollments Int      @default(0)
@@ -393,30 +401,30 @@ model Course {
   instructorId String?
   instructor   Instructor? @relation(fields: [instructorId], references: [id])
   categoryId   String?
-  category     Category?  @relation(fields: [categoryId], references: [id])
+  category     Category?   @relation(fields: [categoryId], references: [id])
 
-  chapters          Chapter[]
-  lessons           Lesson[]
-  enrollments       Enrollment[]
-  reviews           Review[]
-  courseComments    CourseComment[]
-  assignments       Assignment[]
-  liveClasses       LiveClass[]
-  certificates      Certificate[]
-  payments          Payment[]
-  wishlistItems       WishlistItem[]
-  affiliateEarnings   AffiliateEarning[]
-  testimonials        Testimonial[]
-  successStories      StudentSuccessStory[]
-  expenses            Expense[]
-  instructorEarnings  InstructorEarning[]
+  chapters              Chapter[]
+  lessons               Lesson[]
+  enrollments           Enrollment[]
+  reviews               Review[]
+  courseComments        CourseComment[]
+  assignments           Assignment[]
+  liveClasses           LiveClass[]
+  certificates          Certificate[]
+  payments              Payment[]
+  wishlistItems         WishlistItem[]
+  affiliateEarnings     AffiliateEarning[]
+  testimonials          Testimonial[]
+  successStories        StudentSuccessStory[]
+  expenses              Expense[]
+  instructorEarnings    InstructorEarning[]
   upcomingEventBookings UpcomingEventBooking[]
 
   // Installment plan (EMI-style): optional per course
-  installmentPlan   CourseInstallmentPlan?
+  installmentPlan CourseInstallmentPlan?
 
   // Referral system relations
-  referralLinks      ReferralLink[]
+  referralLinks       ReferralLink[]
   referralConversions ReferralConversion[]
 
   createdAt DateTime @default(now())
@@ -435,15 +443,16 @@ model Course {
 
 // EMI-style installment plan for a course (admin-configured)
 model CourseInstallmentPlan {
-  id                    String   @id @default(uuid())
-  courseId              String   @unique
-  course                Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  numberOfInstallments  Int      // e.g. 3 or 4
-  intervalMonths        Int      @default(1) // 1 = monthly
-  minAmountForPlan      Decimal? @db.Decimal(10, 2) // Only show plan if course price >= this (optional)
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                   String   @id @default(uuid())
+  courseId             String   @unique
+  course               Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  numberOfInstallments Int // e.g. 3 or 4
+  intervalMonths       Int      @default(1) // 1 = monthly
+  minAmountForPlan     Decimal? @db.Decimal(10, 2) // Only show plan if course price >= this (optional)
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
   @@index([courseId])
   @@index([isActive])
   @@map("course_installment_plans")
@@ -451,18 +460,19 @@ model CourseInstallmentPlan {
 
 // One installment in a user's schedule (per enrollment)
 model CourseInstallment {
-  id              String           @id @default(uuid())
-  enrollmentId    String
-  enrollment      Enrollment       @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  installmentNumber Int            // 1-based: 1, 2, 3...
-  amount          Decimal          @db.Decimal(10, 2)
-  dueDate         DateTime
-  status          InstallmentStatus @default(PENDING)
-  paymentId       String?
-  payment         Payment?         @relation(fields: [paymentId], references: [id], onDelete: SetNull)
-  paidAt          DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id                String            @id @default(uuid())
+  enrollmentId      String
+  enrollment        Enrollment        @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  installmentNumber Int // 1-based: 1, 2, 3...
+  amount            Decimal           @db.Decimal(10, 2)
+  dueDate           DateTime
+  status            InstallmentStatus @default(PENDING)
+  paymentId         String?
+  payment           Payment?          @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  paidAt            DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
   @@index([enrollmentId])
   @@index([status])
   @@index([dueDate])
@@ -472,22 +482,22 @@ model CourseInstallment {
 
 // Chapters/Modules for organizing lessons
 model Chapter {
-  id          String   @id @default(uuid())
-  title       String   @db.VarChar(255)
-  slug        String   @db.VarChar(255)
-  description String?  @db.Text
-  order       Int      @default(0)
-  isLocked    Boolean  @default(false)
-  isPreview   Boolean  @default(false)
-  
+  id          String  @id @default(uuid())
+  title       String  @db.VarChar(255)
+  slug        String  @db.VarChar(255)
+  description String? @db.Text
+  order       Int     @default(0)
+  isLocked    Boolean @default(false)
+  isPreview   Boolean @default(false)
+
   courseId String
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  
+
   lessons Lesson[]
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@unique([courseId, slug])
   @@index([courseId])
   @@index([order])
@@ -496,22 +506,22 @@ model Chapter {
 
 // Lessons/Content
 model Lesson {
-  id            String     @id @default(uuid())
-  title         String     @db.VarChar(255)
-  slug          String     @db.VarChar(255)
-  description   String?    @db.Text
-  content       String?    @db.Text
-  videoUrl      String?    @db.VarChar(500)
-  videoDuration Int?
-  attachmentUrl String?    @db.VarChar(500)
-  lessonType    LessonType @default(VIDEO)
-  order         Int        @default(0)
-  isPreview     Boolean    @default(false)
-  isLocked      Boolean    @default(false)
-  unlockRequirement Json?  // Store prerequisites (e.g., complete previous lesson IDs)
+  id                String     @id @default(uuid())
+  title             String     @db.VarChar(255)
+  slug              String     @db.VarChar(255)
+  description       String?    @db.Text
+  content           String?    @db.Text
+  videoUrl          String?    @db.VarChar(500)
+  videoDuration     Int?
+  attachmentUrl     String?    @db.VarChar(500)
+  lessonType        LessonType @default(VIDEO)
+  order             Int        @default(0)
+  isPreview         Boolean    @default(false)
+  isLocked          Boolean    @default(false)
+  unlockRequirement Json? // Store prerequisites (e.g., complete previous lesson IDs)
 
-  courseId String
-  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   chapterId String?
   chapter   Chapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
 
@@ -538,18 +548,18 @@ model Enrollment {
   status      EnrollmentStatus @default(PENDING)
   progress    Int              @default(0)
   completedAt DateTime?
-  
-  // Partial Access Fields
-  accessType        String?  @map("access_type") @db.VarChar(50) // 'FULL', 'PARTIAL', 'TRIAL'
-  accessExpiresAt   DateTime? @map("access_expires_at") // When access expires
-  pricePaid         Decimal? @map("price_paid") @db.Decimal(10, 2) // Amount actually paid for this access
-  grantedByAdmin    Boolean  @map("granted_by_admin") @default(false) // If this was granted by admin
-  adminNotes        String?  @map("admin_notes") @db.Text // Admin notes for partial access
-  
-  affiliateId String?
-  affiliate   Affiliate?       @relation("AffiliateEnrollments", fields: [affiliateId], references: [userId])
 
-  affiliateEarnings AffiliateEarning[]
+  // Partial Access Fields
+  accessType      String?   @map("access_type") @db.VarChar(50) // 'FULL', 'PARTIAL', 'TRIAL'
+  accessExpiresAt DateTime? @map("access_expires_at") // When access expires
+  pricePaid       Decimal?  @map("price_paid") @db.Decimal(10, 2) // Amount actually paid for this access
+  grantedByAdmin  Boolean   @default(false) @map("granted_by_admin") // If this was granted by admin
+  adminNotes      String?   @map("admin_notes") @db.Text // Admin notes for partial access
+
+  affiliateId String?
+  affiliate   Affiliate? @relation("AffiliateEnrollments", fields: [affiliateId], references: [userId])
+
+  affiliateEarnings  AffiliateEarning[]
   instructorEarnings InstructorEarning[]
 
   // Installment schedule (when user chose pay-in-installments)
@@ -592,14 +602,14 @@ model LessonProgress {
 
 // CONSULTATION SYSTEM
 model ConsultationCategory {
-  id        String   @id @default(uuid())
-  name      String   @db.VarChar(255)
-  slug      String   @unique @db.VarChar(255)
-  image     String?  @db.VarChar(500)
-  order     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String         @id @default(uuid())
+  name          String         @db.VarChar(255)
+  slug          String         @unique @db.VarChar(255)
+  image         String?        @db.VarChar(500)
+  order         Int            @default(0)
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   consultations Consultation[]
 
   @@index([isActive])
@@ -608,14 +618,14 @@ model ConsultationCategory {
 }
 
 model Consultation {
-  id          String   @id @default(uuid())
-  name        String   @db.VarChar(255)
-  email       String   @db.VarChar(255)
-  phone       String   @db.VarChar(50)
-  categoryId  String?
-  category    ConsultationCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  eventId     String?
-  event       Event?   @relation(fields: [eventId], references: [id])
+  id         String                @id @default(uuid())
+  name       String                @db.VarChar(255)
+  email      String                @db.VarChar(255)
+  phone      String                @db.VarChar(50)
+  categoryId String?
+  category   ConsultationCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  eventId    String?
+  event      Event?                @relation(fields: [eventId], references: [id])
 
   // Consultation type (ONLINE or OFFLINE)
   consultationType ConsultationType?
@@ -720,18 +730,18 @@ model LiveClass {
   instructorId String
   instructor   Instructor @relation(fields: [instructorId], references: [id])
 
-  scheduledAt     DateTime
-  duration        Int
-  meetingUrl      String?         @db.VarChar(500)
-  meetingId       String?         @db.VarChar(255)
-  meetingPassword String?         @db.VarChar(100)
-  meetingProvider String?         @db.VarChar(50) // ZOOM, GOOGLE_MEET, OTHER
-  zoomMeetingId   String?         @db.VarChar(255)
-  zoomJoinUrl     String?         @db.VarChar(500)
-  zoomStartUrl    String?         @db.VarChar(500)
-  autoGenerateMeeting Boolean     @default(false)
-  recordingUrl    String?         @db.VarChar(500)
-  status          LiveClassStatus @default(SCHEDULED)
+  scheduledAt         DateTime
+  duration            Int
+  meetingUrl          String?         @db.VarChar(500)
+  meetingId           String?         @db.VarChar(255)
+  meetingPassword     String?         @db.VarChar(100)
+  meetingProvider     String?         @db.VarChar(50) // ZOOM, GOOGLE_MEET, OTHER
+  zoomMeetingId       String?         @db.VarChar(255)
+  zoomJoinUrl         String?         @db.VarChar(500)
+  zoomStartUrl        String?         @db.VarChar(500)
+  autoGenerateMeeting Boolean         @default(false)
+  recordingUrl        String?         @db.VarChar(500)
+  status              LiveClassStatus @default(SCHEDULED)
 
   enrollments LiveClassEnrollment[]
 
@@ -782,7 +792,7 @@ model Product {
   vastuPurpose String? @db.VarChar(255)
   energyType   String? @db.VarChar(50)
   material     String? @db.VarChar(100)
-  dimensions   Json?   // { length, width, height }
+  dimensions   Json? // { length, width, height }
 
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
@@ -958,9 +968,9 @@ model Event {
   status           EventStatus @default(UPCOMING)
   featured         Boolean     @default(false)
 
-  registrations EventRegistration[]
+  registrations         EventRegistration[]
   upcomingEventBookings UpcomingEventBooking[]
-  consultations Consultation[]
+  consultations         Consultation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -979,9 +989,9 @@ model EventRegistration {
   eventId String
   event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  name   String  @db.VarChar(255)
-  email  String  @db.VarChar(255)
-  phone  String  @db.VarChar(50)
+  name           String  @db.VarChar(255)
+  email          String  @db.VarChar(255)
+  phone          String  @db.VarChar(50)
   referralSource String? @db.VarChar(100)
   message        String? @db.Text
 
@@ -1108,22 +1118,30 @@ model Affiliate {
 
 // Public affiliate application form submissions (Become an Affiliate)
 model AffiliateApplication {
-  id                    String   @id @default(uuid())
-  fullName              String   @db.VarChar(255)
-  email                 String   @db.VarChar(255)
-  phone                 String   @db.VarChar(50)
-  dateOfBirth           String?  @db.VarChar(20)
-  country               String?  @db.VarChar(100)
-  city                  String?  @db.VarChar(100)
-  currentOccupation     String?  @db.VarChar(255)
-  hasAffiliateExperience Boolean @default(false)
-  experienceDetails    String?  @db.Text
-  occultKnowledge      String?  @db.VarChar(100)  // Numerology, Astrology, Vaastu Shastra, Lal Kitab, Other
-  occultOther           String?  @db.Text
-  whyJoin               String?  @db.Text
-  createdAt             DateTime @default(now())
+  id                     String                     @id @default(uuid())
+  userId                 String?
+  user                   User?                      @relation("AffiliateApplicationUser", fields: [userId], references: [id], onDelete: SetNull)
+  fullName               String                     @db.VarChar(255)
+  email                  String                     @db.VarChar(255)
+  phone                  String                     @db.VarChar(50)
+  dateOfBirth            String?                    @db.VarChar(20)
+  country                String?                    @db.VarChar(100)
+  city                   String?                    @db.VarChar(100)
+  currentOccupation      String?                    @db.VarChar(255)
+  hasAffiliateExperience Boolean                    @default(false)
+  experienceDetails      String?                    @db.Text
+  occultKnowledge        String?                    @db.VarChar(100) // Numerology, Astrology, Vaastu Shastra, Lal Kitab, Other
+  occultOther            String?                    @db.Text
+  whyJoin                String?                    @db.Text
+  status                 AffiliateApplicationStatus @default(PENDING)
+  reviewedAt             DateTime?
+  reviewedById           String?
+  reviewedBy             User?                      @relation("AffiliateApplicationReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  createdAt              DateTime                   @default(now())
 
+  @@index([userId])
   @@index([email])
+  @@index([status])
   @@index([createdAt])
   @@map("affiliate_applications")
 }
@@ -1271,13 +1289,13 @@ model QuizQuestion {
   quizId String
   quiz   Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
-  question      String @db.Text
-  questionType  String @default("multiple_choice") // multiple_choice, single_choice, true_false, open_ended, short_answer, matching
+  question      String  @db.Text
+  questionType  String  @default("multiple_choice") // multiple_choice, single_choice, true_false, open_ended, short_answer, matching
   description   String? @db.Text // Optional description for question
   options       Json?
-  correctAnswer String @db.Text
-  points        Int    @default(1)
-  order         Int    @default(0)
+  correctAnswer String  @db.Text
+  points        Int     @default(1)
+  order         Int     @default(0)
 
   createdAt DateTime @default(now())
 
@@ -1292,13 +1310,13 @@ model QuizAttempt {
   quizId String
   quiz   Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
-  answers     Json
-  score       Int?
-  isPassed    Boolean?
+  answers  Json
+  score    Int?
+  isPassed Boolean?
 
   // Optional admin feedback for consultation-style quizzes.
-  adminNotes   String?   @db.Text
-  adminVisible Boolean   @default(false)
+  adminNotes   String? @db.Text
+  adminVisible Boolean @default(false)
 
   completedAt DateTime @default(now())
 
@@ -1371,7 +1389,7 @@ model Payment {
   metadata Json?
 
   // When this payment pays an installment (EMI), link is on CourseInstallment.paymentId
-  courseInstallments  CourseInstallment[]
+  courseInstallments CourseInstallment[]
 
   instructorEarnings InstructorEarning[]
   transactions       Transaction[]
@@ -1532,21 +1550,21 @@ model Expense {
 
   // Related entities (optional)
   instructorId String?
-  instructor   Instructor?    @relation(fields: [instructorId], references: [id])
+  instructor   Instructor? @relation(fields: [instructorId], references: [id])
   courseId     String?
-  course       Course?        @relation(fields: [courseId], references: [id])
+  course       Course?     @relation(fields: [courseId], references: [id])
 
   // Payment details
   paymentDate   DateTime?
-  paymentMethod String?       @db.VarChar(50)
-  receiptUrl    String?       @db.VarChar(500)
-  invoiceNumber String?       @db.VarChar(100)
+  paymentMethod String?   @db.VarChar(50)
+  receiptUrl    String?   @db.VarChar(500)
+  invoiceNumber String?   @db.VarChar(100)
 
   // Approval workflow
-  submittedBy   String?       @db.VarChar(255) // User ID
-  approvedBy    String?       @db.VarChar(255) // User ID
-  approvedAt    DateTime?
-  rejectedReason String?      @db.Text
+  submittedBy    String?   @db.VarChar(255) // User ID
+  approvedBy     String?   @db.VarChar(255) // User ID
+  approvedAt     DateTime?
+  rejectedReason String?   @db.Text
 
   transactions Transaction[]
 
@@ -1563,23 +1581,23 @@ model Expense {
 
 // INSTRUCTOR EARNINGS
 model InstructorEarning {
-  id           String   @id @default(uuid())
+  id           String     @id @default(uuid())
   instructorId String
   instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
   courseId     String
-  course       Course   @relation(fields: [courseId], references: [id])
+  course       Course     @relation(fields: [courseId], references: [id])
   paymentId    String
-  payment      Payment  @relation(fields: [paymentId], references: [id])
+  payment      Payment    @relation(fields: [paymentId], references: [id])
   enrollmentId String
   enrollment   Enrollment @relation(fields: [enrollmentId], references: [id])
 
-  amount         Decimal @db.Decimal(10, 2)
-  commissionRate Decimal @db.Decimal(5, 2)
-  status         String  @default("PENDING") // PENDING, PAID, CANCELLED
+  amount         Decimal   @db.Decimal(10, 2)
+  commissionRate Decimal   @db.Decimal(5, 2)
+  status         String    @default("PENDING") // PENDING, PAID, CANCELLED
   paidAt         DateTime?
-  paymentMethod  String? @db.VarChar(50) // BANK_TRANSFER, CASH, etc.
-  transactionId  String? @db.VarChar(255)
-  notes          String? @db.Text
+  paymentMethod  String?   @db.VarChar(50) // BANK_TRANSFER, CASH, etc.
+  transactionId  String?   @db.VarChar(255)
+  notes          String?   @db.Text
 
   transactions Transaction[]
 
@@ -1596,22 +1614,22 @@ model InstructorEarning {
 
 // TRANSACTION LEDGER (Double-entry accounting)
 model Transaction {
-  id          String            @id @default(uuid())
+  id          String              @id @default(uuid())
   type        TransactionType
   category    TransactionCategory
-  amount      Decimal           @db.Decimal(10, 2)
-  description String            @db.VarChar(500)
+  amount      Decimal             @db.Decimal(10, 2)
+  description String              @db.VarChar(500)
 
   // Related entities
-  paymentId          String?
-  payment            Payment?       @relation(fields: [paymentId], references: [id])
-  expenseId          String?
-  expense            Expense?       @relation(fields: [expenseId], references: [id])
+  paymentId           String?
+  payment             Payment?           @relation(fields: [paymentId], references: [id])
+  expenseId           String?
+  expense             Expense?           @relation(fields: [expenseId], references: [id])
   instructorEarningId String?
-  instructorEarning InstructorEarning? @relation(fields: [instructorEarningId], references: [id])
+  instructorEarning   InstructorEarning? @relation(fields: [instructorEarningId], references: [id])
 
-  referenceNumber String?        @db.VarChar(100)
-  transactionDate DateTime       @default(now())
+  referenceNumber String?  @db.VarChar(100)
+  transactionDate DateTime @default(now())
 
   createdAt DateTime @default(now())
 
@@ -1626,17 +1644,17 @@ model Transaction {
 
 // SOCIAL SHARING REFERRAL SYSTEM
 model ReferralLink {
-  id          String   @id @default(uuid())
-  referralCode String  @unique @db.VarChar(50)
-  userId      String   // User who shared the link
-  user        User     @relation("ReferralLinks", fields: [userId], references: [id], onDelete: Cascade)
-  courseId    String   // Course being shared
-  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  id           String @id @default(uuid())
+  referralCode String @unique @db.VarChar(50)
+  userId       String // User who shared the link
+  user         User   @relation("ReferralLinks", fields: [userId], references: [id], onDelete: Cascade)
+  courseId     String // Course being shared
+  course       Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   // Tracking
-  totalClicks    Int @default(0)
-  totalConversions Int @default(0)
-  isActive       Boolean @default(true)
+  totalClicks      Int     @default(0)
+  totalConversions Int     @default(0)
+  isActive         Boolean @default(true)
 
   // Relations
   clicks      ReferralClick[]
@@ -1653,23 +1671,23 @@ model ReferralLink {
 }
 
 model ReferralClick {
-  id             String   @id @default(uuid())
+  id             String       @id @default(uuid())
   referralLinkId String
   referralLink   ReferralLink @relation(fields: [referralLinkId], references: [id], onDelete: Cascade)
 
   // Click tracking
-  ipAddress      String?  @db.VarChar(45)  // IPv4/IPv6
-  userAgent      String?  @db.Text
-  referrer       String?  @db.VarChar(500) // Where they came from
-  deviceInfo     Json?    // Browser, OS, device type
+  ipAddress  String? @db.VarChar(45) // IPv4/IPv6
+  userAgent  String? @db.Text
+  referrer   String? @db.VarChar(500) // Where they came from
+  deviceInfo Json? // Browser, OS, device type
 
   // User tracking (if logged in)
-  clickedById    String?
-  clickedBy      User?    @relation("ReferralClicks", fields: [clickedById], references: [id], onDelete: SetNull)
+  clickedById String?
+  clickedBy   User?   @relation("ReferralClicks", fields: [clickedById], references: [id], onDelete: SetNull)
 
   // Fraud prevention
-  sessionId      String?  @db.VarChar(100) // Track session to prevent fake clicks
-  isValid        Boolean  @default(true)   // Flag suspicious clicks
+  sessionId String? @db.VarChar(100) // Track session to prevent fake clicks
+  isValid   Boolean @default(true) // Flag suspicious clicks
 
   // Relations
   conversions ReferralConversion[]
@@ -1684,28 +1702,28 @@ model ReferralClick {
 }
 
 model ReferralConversion {
-  id             String   @id @default(uuid())
+  id             String        @id @default(uuid())
   referralLinkId String
-  referralLink   ReferralLink @relation(fields: [referralLinkId], references: [id], onDelete: Cascade)
+  referralLink   ReferralLink  @relation(fields: [referralLinkId], references: [id], onDelete: Cascade)
   clickId        String
   click          ReferralClick @relation(fields: [clickId], references: [id], onDelete: Cascade)
 
   // Conversion details
-  convertedById  String   // User who enrolled
-  convertedBy    User     @relation("ReferralConversions", fields: [convertedById], references: [id], onDelete: Cascade)
-  enrollmentId   String   @unique
-  enrollment     Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  courseId       String
-  course         Course    @relation(fields: [courseId], references: [id])
+  convertedById String // User who enrolled
+  convertedBy   User       @relation("ReferralConversions", fields: [convertedById], references: [id], onDelete: Cascade)
+  enrollmentId  String     @unique
+  enrollment    Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  courseId      String
+  course        Course     @relation(fields: [courseId], references: [id])
 
   // Commission details
-  commissionAmount Decimal  @db.Decimal(10, 2)
-  commissionRate   Decimal  @db.Decimal(5, 2) @default(10.00) // Default 10%
-  status           String   @default("PENDING") // PENDING, PAID, CANCELLED
+  commissionAmount Decimal @db.Decimal(10, 2)
+  commissionRate   Decimal @default(10.00) @db.Decimal(5, 2) // Default 10%
+  status           String  @default("PENDING") // PENDING, PAID, CANCELLED
 
   // Fraud prevention
-  isFraudulent    Boolean  @default(false)
-  fraudReason     String?  @db.VarChar(255)
+  isFraudulent Boolean @default(false)
+  fraudReason  String? @db.VarChar(255)
 
   paidAt DateTime?
 
@@ -1722,11 +1740,11 @@ model ReferralConversion {
 
 // POPUP / PROMOTIONS
 model Popup {
-  id        String   @id @default(uuid())
-  title     String   @db.VarChar(255)
-  imageUrl  String   @db.VarChar(500)
-  linkUrl   String?  @db.VarChar(500)
-  isActive  Boolean  @default(true)
+  id       String  @id @default(uuid())
+  title    String  @db.VarChar(255)
+  imageUrl String  @db.VarChar(500)
+  linkUrl  String? @db.VarChar(500)
+  isActive Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1737,10 +1755,10 @@ model Popup {
 // HERO CAROUSEL (home page slides) - each slide has either image OR video (not both)
 model HeroCarouselSlide {
   id            String   @id @default(uuid())
-  image         String?  @db.VarChar(500)  // optional: use when slide is image-only
-  altText       String   @db.VarChar(255)  @default("")
+  image         String?  @db.VarChar(500) // optional: use when slide is image-only
+  altText       String   @default("") @db.VarChar(255)
   videoEmbedUrl String?  @db.VarChar(1000) // optional: YouTube/Vimeo embed URL
-  videoUrl      String?  @db.VarChar(500)  // optional: uploaded video URL
+  videoUrl      String?  @db.VarChar(500) // optional: uploaded video URL
   sortOrder     Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

@@ -21,6 +21,18 @@ export const generateSharingLinks = async (req, res, next) => {
     const userId = req.user.id;
     const { courseId } = req.params;
 
+    // Only approved affiliates can generate share links
+    const affiliate = await prisma.affiliate.findUnique({
+      where: { userId },
+      select: { status: true },
+    });
+    if (!affiliate || affiliate.status !== 'APPROVED') {
+      return res.status(403).json({
+        success: false,
+        message: 'Affiliate access required. Please apply and wait for admin approval.',
+      });
+    }
+
     // Verify course exists and is published
     const course = await prisma.course.findUnique({
       where: { id: courseId },

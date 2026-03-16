@@ -1,9 +1,15 @@
 import { prisma } from '../config/database.js';
+import { validationResult } from 'express-validator';
 
 function safePageLimit(query) {
   const page = Math.max(1, parseInt(query.page, 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
   return { page, limit, skip: (page - 1) * limit, take: limit };
+}
+
+function generateAffiliateCode(userId) {
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `AFF${String(userId).substring(0, 8).toUpperCase()}${random}`;
 }
 
 function getAffiliateApplicationDelegate() {
@@ -19,10 +25,15 @@ function getAffiliateApplicationDelegate() {
 }
 
 /**
- * Public: Submit affiliate application form
+ * User: Submit affiliate application form
  */
 export const submitApplication = async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
     const {
       fullName,
       email,
@@ -55,9 +66,12 @@ export const submitApplication = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Phone number is required.' });
     }
 
+    const userId = req.user?.id || null;
+
     const delegate = getAffiliateApplicationDelegate();
     const application = await delegate.create({
       data: {
+        ...(userId && { userId }),
         fullName: name,
         email: regEmail,
         phone: regPhone,
@@ -72,6 +86,30 @@ export const submitApplication = async (req, res, next) => {
         whyJoin: (whyJoin || '').trim() || null,
       },
     });
+
+    // Ensure the user has an affiliate record (kept PENDING until admin approval).
+    if (userId) {
+      const existing = await prisma.affiliate.findUnique({ where: { userId } });
+      if (!existing) {
+        // Handle rare code collisions by retrying.
+        let created = null;
+        for (let i = 0; i < 5 && !created; i += 1) {
+          try {
+            created = await prisma.affiliate.create({
+              data: {
+                userId,
+                affiliateCode: generateAffiliateCode(userId),
+                status: 'PENDING',
+                commissionRate: 10.0,
+              },
+            });
+          } catch (e) {
+            if (e && e.code === 'P2002') continue;
+            throw e;
+          }
+        }
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -90,8 +128,12 @@ export const getAllApplications = async (req, res, next) => {
   try {
     const { page, limit, skip, take } = safePageLimit(req.query);
     const search = (req.query.search || req.query.q || '').trim();
+    const status = (req.query.status || '').trim();
 
     const where = {};
+    if (status) {
+      where.status = status;
+    }
     if (search) {
       where.OR = [
         { fullName: { contains: search, mode: 'insensitive' } },
@@ -111,6 +153,9 @@ export const getAllApplications = async (req, res, next) => {
         skip,
         take,
         orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, fullName: true, email: true } },
+        },
       }),
       delegate.count({ where }),
     ]);
@@ -124,6 +169,77 @@ export const getAllApplications = async (req, res, next) => {
         total,
         pages: total > 0 ? Math.ceil(total / limit) : 1,
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Admin: Approve/Reject an application and update affiliate status
+ */
+export const updateApplicationStatus = async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const { id } = req.params;
+    const { status } = req.body;
+    const adminId = req.user?.id || null;
+
+    const delegate = getAffiliateApplicationDelegate();
+    const existing = await delegate.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    const updated = await delegate.update({
+      where: { id },
+      data: {
+        status,
+        reviewedAt: new Date(),
+        ...(adminId && { reviewedById: adminId }),
+      },
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+      },
+    });
+
+    if (updated.userId) {
+      const userId = updated.userId;
+      const affiliate = await prisma.affiliate.findUnique({ where: { userId } });
+
+      if (affiliate) {
+        await prisma.affiliate.update({
+          where: { userId },
+          data: { status: status === 'APPROVED' ? 'APPROVED' : 'REJECTED' },
+        });
+      } else if (status === 'APPROVED') {
+        let created = null;
+        for (let i = 0; i < 5 && !created; i += 1) {
+          try {
+            created = await prisma.affiliate.create({
+              data: {
+                userId,
+                affiliateCode: generateAffiliateCode(userId),
+                status: 'APPROVED',
+                commissionRate: 10.0,
+              },
+            });
+          } catch (e) {
+            if (e && e.code === 'P2002') continue;
+            throw e;
+          }
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Application ${status === 'APPROVED' ? 'approved' : 'rejected'} successfully`,
+      data: updated,
     });
   } catch (err) {
     next(err);
