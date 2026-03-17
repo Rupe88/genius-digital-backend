@@ -37,6 +37,60 @@ async function maskCoursesThumbnails(req, courses) {
 }
 
 /**
+ * Admin: attach or update a per-course certificate template file (image/PDF).
+ * Expects req.cloudinary.url from processDocumentUpload middleware.
+ */
+export const attachCourseCertificateTemplate = async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+      });
+    }
+
+    const courseId = req.params.id;
+    const fileUrl = req.cloudinary?.url;
+
+    if (!fileUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Certificate template file is required',
+      });
+    }
+
+    const mimeType = req.file?.mimetype || '';
+    const type = mimeType.startsWith('image/')
+      ? 'IMAGE'
+      : mimeType === 'application/pdf'
+      ? 'PDF'
+      : 'DOCUMENT';
+
+    const updated = await prisma.course.update({
+      where: { id: courseId },
+      data: {
+        certificateTemplateUrl: fileUrl,
+        certificateTemplateType: type,
+      },
+      select: {
+        id: true,
+        title: true,
+        certificateTemplateUrl: true,
+        certificateTemplateType: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: updated,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get all courses with filtering
  */
 export const getAllCourses = async (req, res, next) => {

@@ -176,3 +176,45 @@ export const uploadCertificateForUser = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Proxy a certificate template image (for PDF generation).
+ * This avoids browser CORS restrictions when converting the template to a data URL.
+ *
+ * GET /certificate/template-proxy?url=https://...
+ */
+export const proxyCertificateTemplate = async (req, res, next) => {
+  try {
+    const rawUrl = String(req.query?.url || '');
+    if (!rawUrl) {
+      return res.status(400).json({ success: false, message: 'url query param is required' });
+    }
+
+    let parsed;
+    try {
+      parsed = new URL(rawUrl);
+    } catch {
+      return res.status(400).json({ success: false, message: 'Invalid url' });
+    }
+
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return res.status(400).json({ success: false, message: 'Invalid url protocol' });
+    }
+
+    const upstream = await fetch(rawUrl, { redirect: 'follow' });
+    if (!upstream.ok) {
+      return res
+        .status(502)
+        .json({ success: false, message: `Failed to fetch template (${upstream.status})` });
+    }
+
+    const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+
+    const arrayBuffer = await upstream.arrayBuffer();
+    return res.status(200).send(Buffer.from(arrayBuffer));
+  } catch (error) {
+    next(error);
+  }
+};

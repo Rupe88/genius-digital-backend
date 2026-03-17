@@ -7,6 +7,7 @@ import {
   getAllCertificatesAdmin,
   issueCertificateForUser,
   uploadCertificateForUser,
+  proxyCertificateTemplate,
 } from '../controllers/certificateController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
@@ -21,6 +22,9 @@ router.get(
   [param('certificateId').notEmpty().withMessage('Certificate ID is required')],
   verifyCertificate
 );
+
+// Proxy template image for client-side PDF generation (public; fetches remote image and returns bytes)
+router.get('/template-proxy', proxyCertificateTemplate);
 
 // Admin routes (must be before /course/:courseId to avoid "admin" as courseId)
 router.get(

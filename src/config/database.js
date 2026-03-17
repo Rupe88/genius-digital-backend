@@ -12,7 +12,7 @@ const globalForPrisma = globalThis;
 export const prisma = globalForPrisma.prisma ?? prismaClientSingleton();
 
 if (config.nodeEnv !== 'production') {
-  globalForPrisma.prisma = prisma;  
+  globalForPrisma.prisma = prisma; 
 }
 export default prisma;
 

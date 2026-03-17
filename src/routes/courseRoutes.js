@@ -13,9 +13,10 @@ import {
 } from '../controllers/courseController.js';
 import { authenticate, optionalAuthenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
-import { fieldsUpload, processCourseFiles } from '../middleware/cloudinaryUpload.js';
+import { fieldsUpload, processCourseFiles, singleUpload, processDocumentUpload } from '../middleware/cloudinaryUpload.js';
 import { courseValidation, courseFilterValidation } from '../utils/validators.js';
 import { param, query, body } from 'express-validator';
+import { attachCourseCertificateTemplate } from '../controllers/courseController.js';
 
 const router = express.Router();
 
@@ -51,6 +52,17 @@ router.put(
   processCourseFiles,
   [param('id').isUUID(), ...courseValidation],
   updateCourse
+);
+
+// Admin: attach per-course certificate template (image/PDF) via document upload
+router.post(
+  '/:id/certificate-template',
+  authenticate,
+  requireAdmin,
+  singleUpload('file'),
+  processDocumentUpload,
+  [param('id').isUUID().withMessage('Invalid course ID')],
+  attachCourseCertificateTemplate
 );
 
 router.patch(
