@@ -1,5 +1,6 @@
 import { validationResult } from 'express-validator';
 import * as certificateService from '../services/certificateService.js';
+import sharp from 'sharp';
 
 /**
  * Get user's certificates
@@ -208,12 +209,38 @@ export const proxyCertificateTemplate = async (req, res, next) => {
         .json({ success: false, message: `Failed to fetch template (${upstream.status})` });
     }
 
-    const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-
     const arrayBuffer = await upstream.arrayBuffer();
-    return res.status(200).send(Buffer.from(arrayBuffer));
+    let buf = Buffer.from(arrayBuffer);
+
+    // Detect PDFs early from bytes (even if storage sets a wrong content-type)
+    const isPdf =
+      buf.length >= 4 &&
+      buf[0] === 0x25 && // %
+      buf[1] === 0x50 && // P
+      buf[2] === 0x44 && // D
+      buf[3] === 0x46;   // F
+    if (isPdf) {
+      return res.status(415).json({
+        success: false,
+        message: 'Certificate template is a PDF. Please upload a PNG/JPG certificate template.',
+      });
+    }
+
+    // Many storage providers return application/octet-stream; rely on decoding instead of headers.
+    // Convert everything decodable by sharp into PNG for maximum react-pdf compatibility.
+    try {
+      buf = await sharp(buf).png().toBuffer();
+    } catch {
+      const contentType = (upstream.headers.get('content-type') || '').toLowerCase();
+      return res.status(415).json({
+        success: false,
+        message: `Unsupported template file. Please upload a PNG/JPG certificate template. (${contentType || 'unknown'})`,
+      });
+    }
+
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.status(200).send(buf);
   } catch (error) {
     next(error);
   }
