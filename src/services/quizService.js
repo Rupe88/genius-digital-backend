@@ -1,6 +1,108 @@
 import { prisma } from '../config/database.js';
 
+/**
+ * Store correct answer in DB: arrays/objects as JSON string, primitives as string.
+ */
+export function serializeQuizCorrectAnswer(value) {
+  if (value === undefined || value === null) return '';
+  if (Array.isArray(value)) return JSON.stringify(value);
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
 
+/** Normalize submitted answer to sorted comparable string list */
+function normalizeUserQuizAnswer(value) {
+  if (value === undefined || value === null || value === '') return [];
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v).trim()).filter((s) => s.length > 0).sort();
+  }
+  const s = String(value).trim();
+  return s ? [s].sort() : [];
+}
+
+/**
+ * Parse correctAnswer from DB: JSON array, plain string, or legacy String(array) → "a,b".
+ */
+function parseStoredCorrectAnswer(stored, questionType) {
+  if (stored === undefined || stored === null || stored === '') return [];
+  const raw = String(stored).trim();
+  if (!raw) return [];
+
+  if (raw.startsWith('[') || (raw.startsWith('"') && raw.endsWith('"'))) {
+    try {
+      const p = JSON.parse(raw);
+      if (Array.isArray(p)) {
+        return p.map((v) => String(v).trim()).filter(Boolean).sort();
+      }
+      const one = String(p).trim();
+      return one ? [one].sort() : [];
+    } catch {
+      /* fall through */
+    }
+  }
+
+  if (questionType !== 'multiple_choice') {
+    return [raw].sort();
+  }
+
+  if (!raw.includes(',')) {
+    return [raw].sort();
+  }
+
+  return raw
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .sort();
+}
+
+function normalizedAnswersMatch(userNorm, correctNorm) {
+  if (userNorm.length !== correctNorm.length) return false;
+  for (let i = 0; i < userNorm.length; i += 1) {
+    if (userNorm[i] !== correctNorm[i]) return false;
+  }
+  return true;
+}
+
+export function quizAnswersMatch(userAnswer, storedCorrect, questionType) {
+  const userNorm = normalizeUserQuizAnswer(userAnswer);
+  const correctNorm = parseStoredCorrectAnswer(storedCorrect, questionType);
+  return normalizedAnswersMatch(userNorm, correctNorm);
+}
+
+/** Shape correctAnswer for API/UI: string if single, string[] if multiple */
+function correctAnswerForResponse(stored, questionType) {
+  const norm = parseStoredCorrectAnswer(stored, questionType);
+  if (norm.length === 0) return '';
+  if (norm.length === 1) return norm[0];
+  return norm;
+}
+
+/**
+ * For admin/editor APIs: turn DB value back into string or string[] for the form.
+ */
+export function deserializeQuizCorrectAnswerForEditor(stored) {
+  if (stored === undefined || stored === null || stored === '') return '';
+  const raw = String(stored).trim();
+  if (!raw) return '';
+  if (raw.startsWith('[')) {
+    try {
+      const p = JSON.parse(raw);
+      if (Array.isArray(p)) return p.map((v) => String(v));
+      if (p != null) return String(p);
+    } catch {
+      return raw;
+    }
+  }
+  if (raw.startsWith('"') && raw.endsWith('"')) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw;
+    }
+  }
+  return raw;
+}
 
 /**
  * Calculate quiz score
@@ -26,7 +128,8 @@ export const calculateQuizScore = async (quizId, answers) => {
   for (const question of quiz.questions) {
     maxScore += question.points;
     const userAnswer = answers[question.id];
-    const isCorrect = userAnswer === question.correctAnswer;
+    const qType = question.questionType || 'single_choice';
+    const isCorrect = quizAnswersMatch(userAnswer, question.correctAnswer, qType);
 
     if (isCorrect) {
       totalScore += question.points;
@@ -36,7 +139,7 @@ export const calculateQuizScore = async (quizId, answers) => {
       questionId: question.id,
       question: question.question,
       userAnswer,
-      correctAnswer: question.correctAnswer,
+      correctAnswer: correctAnswerForResponse(question.correctAnswer, qType),
       isCorrect,
       points: isCorrect ? question.points : 0,
     });

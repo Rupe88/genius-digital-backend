@@ -2,6 +2,7 @@ import { prisma } from '../config/database.js';
 import { validationResult } from 'express-validator';
 import { generateSlug } from '../utils/helpers.js';
 import { isS3Configured, isOurS3Url } from '../services/s3Service.js';
+import { serializeQuizCorrectAnswer } from '../services/quizService.js';
 
 
 /**
@@ -327,7 +328,7 @@ export const createLesson = async (req, res, next) => {
                 question: q.question,
                 questionType: q.questionType || 'multiple_choice',
                 options: q.options != null ? q.options : null,
-                correctAnswer: q.correctAnswer != null ? String(q.correctAnswer) : '',
+                correctAnswer: serializeQuizCorrectAnswer(q.correctAnswer),
                 points: q.points ? parseInt(q.points) : 1,
                 order: idx,
               })),
@@ -523,7 +524,7 @@ export const updateLesson = async (req, res, next) => {
                 question: q.question,
                 questionType: q.questionType || 'multiple_choice',
                 options: q.options != null ? q.options : null,
-                correctAnswer: q.correctAnswer != null ? String(q.correctAnswer) : '',
+                correctAnswer: serializeQuizCorrectAnswer(q.correctAnswer),
                 points: q.points ? parseInt(q.points) : 1,
                 order: idx,
               })),

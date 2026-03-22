@@ -17,9 +17,17 @@ export const getQuizByLessonAdmin = async (req, res, next) => {
         message: 'Quiz not found for this lesson',
       });
     }
+    const data = {
+      ...quiz,
+      questions: quiz.questions.map((q) => ({
+        ...q,
+        correctAnswer: quizService.deserializeQuizCorrectAnswerForEditor(q.correctAnswer),
+      })),
+    };
+
     res.json({
       success: true,
-      data: quiz,
+      data,
     });
   } catch (error) {
     next(error);
@@ -333,7 +341,7 @@ export const createQuiz = async (req, res, next) => {
             questionType: q.questionType || 'multiple_choice',
             description: q.description || null,
             options: q.options || null,
-            correctAnswer: q.correctAnswer,
+            correctAnswer: quizService.serializeQuizCorrectAnswer(q.correctAnswer),
             points: q.points || 1,
             order: q.order || index,
           })),
