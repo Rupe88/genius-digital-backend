@@ -292,7 +292,7 @@ export const getAdminQuizAttempts = async (req, res, next) => {
         total,
         page: pageNumber,
         limit: pageSize,
-        pages: Math.ceil(total / pageSize),
+        pages: Math.max(1, Math.ceil(total / pageSize)),
       },
     });
   } catch (error) {

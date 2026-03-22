@@ -17,7 +17,8 @@ import { body, param } from 'express-validator';
 
 const router = express.Router();
 
-// User routes
+// --- Static path segments FIRST (before /:quizId/… or /:id or Express will treat "admin" / "my" as IDs)
+
 router.get(
   '/lesson/:lessonId',
   authenticate,
@@ -25,33 +26,10 @@ router.get(
   getQuizByLesson
 );
 
-router.post(
-  '/:quizId/submit',
-  authenticate,
-  [
-    param('quizId').isUUID().withMessage('Invalid quiz ID'),
-    body('answers')
-      .isObject()
-      .withMessage('Answers must be an object'),
-  ],
-  submitQuiz
-);
+// User – consultation quiz attempts (must be before /:quizId/attempts)
+router.get('/my/consultation-attempts', authenticate, getMyConsultationAttempts);
 
-router.get(
-  '/:quizId/attempts',
-  authenticate,
-  [param('quizId').isUUID().withMessage('Invalid quiz ID')],
-  getUserAttempts
-);
-
-// User – get consultation quiz attempts with visible admin feedback
-router.get(
-  '/my/consultation-attempts',
-  authenticate,
-  getMyConsultationAttempts
-);
-
-// Admin – get full quiz by lesson (includes correctAnswer for editing)
+// Admin – must be before GET /:quizId/attempts (otherwise "admin" is captured as quizId)
 router.get(
   '/admin/lesson/:lessonId',
   authenticate,
@@ -60,15 +38,8 @@ router.get(
   getQuizByLessonAdmin
 );
 
-// Admin – list all quiz attempts with filters
-router.get(
-  '/admin/attempts',
-  authenticate,
-  requireAdmin,
-  getAdminQuizAttempts
-);
+router.get('/admin/attempts', authenticate, requireAdmin, getAdminQuizAttempts);
 
-// Admin – update feedback on a specific quiz attempt
 router.patch(
   '/admin/attempts/:id/feedback',
   authenticate,
@@ -77,7 +48,7 @@ router.patch(
   updateQuizAttemptFeedback
 );
 
-// Admin routes
+// Admin – create quiz (POST /quizzes)
 router.post(
   '/',
   authenticate,
@@ -93,6 +64,24 @@ router.post(
     body('questions.*.points').optional().isInt({ min: 1 }),
   ],
   createQuiz
+);
+
+// User – submit (before generic /:id routes)
+router.post(
+  '/:quizId/submit',
+  authenticate,
+  [
+    param('quizId').isUUID().withMessage('Invalid quiz ID'),
+    body('answers').isObject().withMessage('Answers must be an object'),
+  ],
+  submitQuiz
+);
+
+router.get(
+  '/:quizId/attempts',
+  authenticate,
+  [param('quizId').isUUID().withMessage('Invalid quiz ID')],
+  getUserAttempts
 );
 
 router.put(
