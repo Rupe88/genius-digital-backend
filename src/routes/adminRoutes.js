@@ -2,6 +2,7 @@ import express from 'express';
 import {
   blockUser,
   unblockUser,
+  deleteUser,
   getAllUsers,
   getUserById,
   adminCreateUser,
@@ -47,6 +48,7 @@ router.use(requireAdmin);
 // ==================== USER MANAGEMENT ====================
 router.post('/users/block', validate(userIdValidation), blockUser);
 router.post('/users/unblock', validate(userIdValidation), unblockUser);
+router.delete('/users/:userId', validate(userIdParamValidation), deleteUser);
 router.get('/users', validate(paginationValidation), getAllUsers);
 router.get('/users/:userId', validate(userIdParamValidation), getUserById);
 router.post(

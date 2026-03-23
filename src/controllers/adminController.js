@@ -5,6 +5,13 @@ import * as instructorEarningService from '../services/instructorEarningService.
 import * as expenseService from '../services/expenseService.js';
 import { hashPassword } from '../utils/hashPassword.js';
 
+const SOFT_DELETE_EMAIL_DOMAIN = '@deleted.local';
+
+const isSoftDeletedEmail = (email) =>
+  typeof email === 'string' &&
+  email.toLowerCase().startsWith('deleted+') &&
+  email.toLowerCase().endsWith(SOFT_DELETE_EMAIL_DOMAIN);
+
 export const blockUser = asyncHandler(async (req, res) => {
   const { userId } = req.body;
 
@@ -31,6 +38,13 @@ export const blockUser = asyncHandler(async (req, res) => {
     return res.status(404).json({
       success: false,
       message: 'User not found',
+    });
+  }
+
+  if (isSoftDeletedEmail(user.email)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Cannot block a deleted user',
     });
   }
 
@@ -93,6 +107,13 @@ export const unblockUser = asyncHandler(async (req, res) => {
     });
   }
 
+  if (isSoftDeletedEmail(user.email)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Cannot unblock a deleted user',
+    });
+  }
+
   if (user.isActive) {
     return res.status(400).json({
       success: false,
@@ -129,6 +150,12 @@ export const getAllUsers = asyncHandler(async (req, res) => {
   const search = req.query.search || '';
 
   const where = {
+    // Soft-deleted users are hidden from admin list.
+    email: {
+      not: {
+        endsWith: SOFT_DELETE_EMAIL_DOMAIN,
+      },
+    },
     ...(search && {
       OR: [
         { email: { contains: search, mode: 'insensitive' } },
@@ -243,7 +270,7 @@ export const getUserById = asyncHandler(async (req, res) => {
     },
   });
 
-  if (!user) {
+  if (!user || isSoftDeletedEmail(user.email)) {
     return res.status(404).json({
       success: false,
       message: 'User not found',
@@ -254,6 +281,74 @@ export const getUserById = asyncHandler(async (req, res) => {
     success: true,
     data: {
       user,
+    },
+  });
+});
+
+export const deleteUser = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  if (userId === req.user.id) {
+    return res.status(400).json({
+      success: false,
+      message: 'You cannot delete your own account',
+    });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      role: true,
+    },
+  });
+
+  if (!user || isSoftDeletedEmail(user.email)) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found',
+    });
+  }
+
+  if (user.role === 'ADMIN') {
+    return res.status(403).json({
+      success: false,
+      message: 'Cannot delete admin users',
+    });
+  }
+
+  // Soft delete strategy:
+  // - Keep relational records (orders/payments/enrollments/etc.) intact.
+  // - Make account unusable and anonymize personally identifiable fields.
+  const anonymizedEmail = `deleted+${user.id}${SOFT_DELETE_EMAIL_DOMAIN}`;
+  const deletedPassword = await hashPassword(`deleted-user-${user.id}-${Date.now()}`);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      email: anonymizedEmail,
+      fullName: 'Deleted User',
+      phone: null,
+      profileImage: null,
+      googleId: null,
+      refreshToken: null,
+      password: deletedPassword,
+      preferredPaymentMethod: null,
+      isEmailVerified: false,
+      isActive: false,
+      twoFactorEnabled: false,
+      twoFactorSecret: null,
+      twoFactorBackupCodes: null,
+    },
+  });
+
+  res.json({
+    success: true,
+    message: 'User deleted successfully',
+    data: {
+      id: userId,
     },
   });
 });
