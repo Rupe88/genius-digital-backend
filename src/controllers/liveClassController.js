@@ -2,10 +2,8 @@ import { prisma } from '../config/database.js';
 
 import { validationResult } from 'express-validator';
 import * as zoomService from '../services/zoomService.js';
-import crypto from 'crypto';
 import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
 
-const MAX_RECURRING_SESSIONS = 200;
 const SERIES_MARKER_PREFIX = '[[series:';
 const SERIES_MARKER_REGEX = /\[\[series:([a-f0-9-]{8,})\]\]/i;
 
@@ -40,6 +38,20 @@ async function maskLiveClassesCourseThumbnails(liveClasses) {
   await Promise.all(liveClasses.map((lc) => maskLiveClassCourseThumbnail(lc)));
 }
 
+function dedupeSeriesRows(liveClasses) {
+  if (!Array.isArray(liveClasses) || liveClasses.length === 0) return [];
+  const seen = new Set();
+  const out = [];
+  for (const lc of liveClasses) {
+    const sid = extractSeriesId(lc?.description);
+    const key = sid ? `series:${sid}` : `class:${lc.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(lc);
+  }
+  return out;
+}
+
 const parseTimeToHoursMinutes = (timeStr) => {
   const [h, m] = String(timeStr || '')
     .split(':')
@@ -56,50 +68,19 @@ const buildDateWithTime = (dateInput, timeStr) => {
   return d;
 };
 
-const expandRecurringSchedule = ({
-  recurrenceType,
-  startDate,
-  endDate,
-  startTime,
-  daysOfWeek,
-  monthlyDay,
-}) => {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  start.setHours(0, 0, 0, 0);
-  end.setHours(23, 59, 59, 999);
+const isUnknownAdminNotesArgError = (error) => {
+  const msg = String(error?.message || '');
+  return msg.includes('Unknown argument `adminNotes`');
+};
 
-  if (start > end) return [];
-
-  const scheduleDates = [];
-  const weeklyDays = Array.isArray(daysOfWeek)
-    ? [...new Set(daysOfWeek.map((v) => parseInt(v, 10)).filter((v) => v >= 0 && v <= 6))]
-    : [];
-
-  const current = new Date(start);
-  while (current <= end) {
-    if (recurrenceType === 'DAILY') {
-      const scheduled = buildDateWithTime(current, startTime);
-      if (scheduled) scheduleDates.push(scheduled);
-    } else if (recurrenceType === 'WEEKLY') {
-      const day = current.getDay();
-      if (weeklyDays.includes(day)) {
-        const scheduled = buildDateWithTime(current, startTime);
-        if (scheduled) scheduleDates.push(scheduled);
-      }
-    } else if (recurrenceType === 'MONTHLY') {
-      const dayToUse = parseInt(monthlyDay, 10);
-      const targetDay = Number.isNaN(dayToUse) ? start.getDate() : dayToUse;
-      if (current.getDate() === targetDay) {
-        const scheduled = buildDateWithTime(current, startTime);
-        if (scheduled) scheduleDates.push(scheduled);
-      }
-    }
-    current.setDate(current.getDate() + 1);
-    if (scheduleDates.length > MAX_RECURRING_SESSIONS) break;
-  }
-
-  return scheduleDates;
+const getNextWeekdayDate = (baseDateInput, targetWeekday) => {
+  const baseDate = new Date(baseDateInput);
+  if (Number.isNaN(baseDate.getTime())) return null;
+  const target = parseInt(targetWeekday, 10);
+  if (Number.isNaN(target) || target < 0 || target > 6) return null;
+  const delta = (target - baseDate.getDay() + 7) % 7;
+  baseDate.setDate(baseDate.getDate() + delta);
+  return baseDate;
 };
 
 
@@ -144,7 +125,7 @@ export const getAllLiveClasses = async (req, res, next) => {
       };
     }
 
-    const [liveClasses, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       prisma.liveClass.findMany({
         where,
         include: {
@@ -172,6 +153,7 @@ export const getAllLiveClasses = async (req, res, next) => {
       prisma.liveClass.count({ where }),
     ]);
 
+    const liveClasses = dedupeSeriesRows(rows);
     await maskLiveClassesCourseThumbnails(liveClasses);
 
     res.json({
@@ -256,6 +238,7 @@ export const createLiveClass = async (req, res, next) => {
     const {
       title,
       description,
+      adminNotes,
       courseId,
       instructorId,
       duration,
@@ -267,10 +250,8 @@ export const createLiveClass = async (req, res, next) => {
       hostEmail,
       recurrenceType,
       startDate,
-      endDate,
       startTime,
       daysOfWeek,
-      monthlyDay,
     } = req.body;
 
     // Validate instructor exists
@@ -347,95 +328,93 @@ export const createLiveClass = async (req, res, next) => {
         });
       }
     } else if (meetingUrl) {
+      if (!/zoom/i.test(meetingUrl)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Only Zoom meeting URLs are allowed (example: https://zoom.us/j/123456789).',
+        });
+      }
       // Keep provider fixed to ZOOM; do not auto-switch.
       finalMeetingProvider = 'ZOOM';
     }
 
     const durationMins = parseInt(duration, 10);
-    if (!recurrenceType || !startDate || !endDate || !startTime) {
+    if (!recurrenceType || !startDate || !startTime) {
       return res.status(400).json({
         success: false,
-        message: 'recurrenceType, startDate, endDate and startTime are required for recurring schedule.',
+        message: 'recurrenceType, startDate and startTime are required.',
       });
     }
 
-    if (recurrenceType === 'WEEKLY' && (!Array.isArray(daysOfWeek) || daysOfWeek.length === 0)) {
+    if (recurrenceType !== 'WEEKLY') {
       return res.status(400).json({
         success: false,
-        message: 'Select at least one weekday for weekly recurrence.',
-      });
-    }
-    if (recurrenceType === 'MONTHLY') {
-      const parsedMonthlyDay = parseInt(monthlyDay, 10);
-      if (!Number.isNaN(parsedMonthlyDay) && (parsedMonthlyDay < 1 || parsedMonthlyDay > 31)) {
-        return res.status(400).json({
-          success: false,
-          message: 'monthlyDay must be between 1 and 31.',
-        });
-      }
-    }
-
-    const scheduleDates = expandRecurringSchedule({
-      recurrenceType,
-      startDate,
-      endDate,
-      startTime,
-      daysOfWeek,
-      monthlyDay,
-    });
-
-    if (scheduleDates.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No sessions generated from the selected recurrence settings.',
-      });
-    }
-    if (scheduleDates.length > MAX_RECURRING_SESSIONS) {
-      return res.status(400).json({
-        success: false,
-        message: `Too many sessions generated (${scheduleDates.length}). Reduce date range (max ${MAX_RECURRING_SESSIONS}).`,
+        message: 'Only weekly recurrence is supported.',
       });
     }
 
-    const seriesId = crypto.randomUUID();
-    const descriptionWithSeries = withSeriesMarker(description, seriesId);
+    const selectedWeekday =
+      Array.isArray(daysOfWeek) && daysOfWeek.length > 0 ? parseInt(daysOfWeek[0], 10) : new Date(startDate).getDay();
+    const weeklyDate = getNextWeekdayDate(startDate, selectedWeekday);
+    if (!weeklyDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid weekly day selection.',
+      });
+    }
 
-    const created = await prisma.$transaction(
-      scheduleDates.map((dt) =>
-        prisma.liveClass.create({
-          data: {
-            title,
-            description: descriptionWithSeries,
-            courseId: courseId || null,
-            instructorId,
-            scheduledAt: dt,
-            duration: durationMins,
-            meetingUrl: finalMeetingUrl,
-            meetingId: finalMeetingId,
-            meetingPassword: finalMeetingPassword,
-            meetingProvider: finalMeetingProvider,
-            autoGenerateMeeting: autoGenerateMeeting || false,
-            ...zoomMeetingData,
-            status: 'SCHEDULED',
-          },
-          include: {
-            instructor: true,
-            course: true,
-          },
-        })
-      )
-    );
+    const firstScheduledAt = buildDateWithTime(weeklyDate, startTime);
+    if (!firstScheduledAt) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid start date/time.',
+      });
+    }
 
-    await maskLiveClassesCourseThumbnails(created);
+    const createData = {
+      title,
+      description: description || null,
+      ...(adminNotes !== undefined ? { adminNotes: adminNotes || null } : {}),
+      courseId: courseId || null,
+      instructorId,
+      scheduledAt: firstScheduledAt,
+      duration: durationMins,
+      meetingUrl: finalMeetingUrl,
+      meetingId: finalMeetingId,
+      meetingPassword: finalMeetingPassword,
+      meetingProvider: finalMeetingProvider,
+      autoGenerateMeeting: autoGenerateMeeting || false,
+      ...zoomMeetingData,
+      status: 'SCHEDULED',
+    };
+
+    let created;
+    try {
+      created = await prisma.liveClass.create({
+        data: createData,
+        include: {
+          instructor: true,
+          course: true,
+        },
+      });
+    } catch (error) {
+      if (!isUnknownAdminNotesArgError(error)) throw error;
+      delete createData.adminNotes;
+      created = await prisma.liveClass.create({
+        data: createData,
+        include: {
+          instructor: true,
+          course: true,
+        },
+      });
+    }
+
+    await maskLiveClassCourseThumbnail(created);
 
     res.status(201).json({
       success: true,
-      message: `Live class series created successfully (${created.length} sessions).`,
-      data: created[0],
-      meta: {
-        createdCount: created.length,
-        seriesId,
-      },
+      message: 'Live class created successfully.',
+      data: created,
     });
   } catch (error) {
     next(error);
@@ -453,6 +432,7 @@ export const updateLiveClass = async (req, res, next) => {
     const {
       title,
       description,
+      adminNotes,
       courseId,
       instructorId,
       scheduledAt,
@@ -525,6 +505,7 @@ export const updateLiveClass = async (req, res, next) => {
     let updateData = {
       ...(title && { title }),
       ...(nextDescription !== undefined && { description: nextDescription }),
+      ...(adminNotes !== undefined && { adminNotes }),
       ...(courseId !== undefined && { courseId: courseId || null }),
       ...(instructorId && { instructorId }),
       ...(scheduledAt && { scheduledAt: new Date(scheduledAt) }),
@@ -606,14 +587,28 @@ export const updateLiveClass = async (req, res, next) => {
       updateData.meetingProvider = 'ZOOM';
     }
 
-    const updatedLiveClass = await prisma.liveClass.update({
-      where: { id },
-      data: updateData,
-      include: {
-        instructor: true,
-        course: true,
-      },
-    });
+    let updatedLiveClass;
+    try {
+      updatedLiveClass = await prisma.liveClass.update({
+        where: { id },
+        data: updateData,
+        include: {
+          instructor: true,
+          course: true,
+        },
+      });
+    } catch (error) {
+      if (!isUnknownAdminNotesArgError(error)) throw error;
+      delete updateData.adminNotes;
+      updatedLiveClass = await prisma.liveClass.update({
+        where: { id },
+        data: updateData,
+        include: {
+          instructor: true,
+          course: true,
+        },
+      });
+    }
 
     await maskLiveClassCourseThumbnail(updatedLiveClass);
 
@@ -916,7 +911,7 @@ export const getMyAvailableLiveClasses = async (req, res, next) => {
       status: { in: ['SCHEDULED', 'LIVE'] },
     };
 
-    const [liveClasses, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       prisma.liveClass.findMany({
         where,
         include: {
@@ -944,6 +939,7 @@ export const getMyAvailableLiveClasses = async (req, res, next) => {
       prisma.liveClass.count({ where }),
     ]);
 
+    const liveClasses = dedupeSeriesRows(rows);
     await maskLiveClassesCourseThumbnails(liveClasses);
 
     res.json({

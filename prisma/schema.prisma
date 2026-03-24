@@ -727,6 +727,7 @@ model LiveClass {
   id          String  @id @default(uuid())
   title       String  @db.VarChar(255)
   description String? @db.Text
+  adminNotes  String? @db.Text
   courseId    String?
   course      Course? @relation(fields: [courseId], references: [id])
 

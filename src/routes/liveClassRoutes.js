@@ -82,35 +82,31 @@ router.post(
   validate([
     body('title').notEmpty().trim().withMessage('Title is required'),
     body('instructorId').isUUID().withMessage('Valid instructor ID is required'),
-    body('recurrenceType').isIn(['DAILY', 'WEEKLY', 'MONTHLY']).withMessage('Valid recurrence type is required'),
+    body('recurrenceType').isIn(['WEEKLY']).withMessage('Only weekly recurrence is supported'),
     body('startDate')
       .notEmpty()
       .isISO8601()
       .withMessage('startDate must be a valid date'),
-    body('endDate')
-      .notEmpty()
-      .isISO8601()
-      .withMessage('endDate must be a valid date'),
     body('startTime')
       .notEmpty()
       .matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
       .withMessage('startTime must be in HH:mm format'),
     body('daysOfWeek')
       .optional()
-      .isArray()
-      .withMessage('daysOfWeek must be an array'),
+      .isArray({ min: 1 })
+      .withMessage('daysOfWeek must be a non-empty array'),
     body('daysOfWeek.*')
       .optional()
       .isInt({ min: 0, max: 6 })
       .withMessage('daysOfWeek values must be between 0 and 6'),
-    body('monthlyDay')
-      .optional()
-      .isInt({ min: 1, max: 31 })
-      .withMessage('monthlyDay must be between 1 and 31'),
     body('duration').isInt({ min: 1 }).withMessage('Duration must be a positive integer'),
     body('description').optional().isString(),
+    body('adminNotes').optional().isString(),
     body('courseId').optional({ checkFalsy: true }).isUUID(),
-    body('meetingUrl').optional({ checkFalsy: true }).isURL(),
+    body('meetingUrl')
+      .optional({ checkFalsy: true })
+      .isURL({ require_protocol: true })
+      .withMessage('meetingUrl must be a valid URL (example: https://zoom.us/j/123456789)'),
     body('meetingId').optional({ checkFalsy: true }).isString(),
     body('meetingPassword').optional({ checkFalsy: true }).isString(),
     body('meetingProvider').optional({ checkFalsy: true }).isIn(['ZOOM']),
@@ -130,8 +126,12 @@ router.put(
     body('scheduledAt').optional().isISO8601(),
     body('duration').optional().isInt({ min: 1 }),
     body('description').optional().isString(),
+    body('adminNotes').optional().isString(),
     body('courseId').optional({ checkFalsy: true }).isUUID(),
-    body('meetingUrl').optional({ checkFalsy: true }).isURL(),
+    body('meetingUrl')
+      .optional({ checkFalsy: true })
+      .isURL({ require_protocol: true })
+      .withMessage('meetingUrl must be a valid URL (example: https://zoom.us/j/123456789)'),
     body('meetingId').optional({ checkFalsy: true }).isString(),
     body('meetingPassword').optional({ checkFalsy: true }).isString(),
     body('meetingProvider').optional({ checkFalsy: true }).isIn(['ZOOM']),
