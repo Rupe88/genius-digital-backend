@@ -2,6 +2,105 @@ import { prisma } from '../config/database.js';
 
 import { validationResult } from 'express-validator';
 import * as zoomService from '../services/zoomService.js';
+import crypto from 'crypto';
+import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
+
+const MAX_RECURRING_SESSIONS = 200;
+const SERIES_MARKER_PREFIX = '[[series:';
+const SERIES_MARKER_REGEX = /\[\[series:([a-f0-9-]{8,})\]\]/i;
+
+const extractSeriesId = (description) => {
+  const text = String(description || '');
+  const match = text.match(SERIES_MARKER_REGEX);
+  return match?.[1] || null;
+};
+
+const stripSeriesMarker = (description) => {
+  return String(description || '').replace(SERIES_MARKER_REGEX, '').trim();
+};
+
+const withSeriesMarker = (description, seriesId) => {
+  const clean = stripSeriesMarker(description);
+  if (!seriesId) return clean;
+  return clean ? `${clean}\n${SERIES_MARKER_PREFIX}${seriesId}]]` : `${SERIES_MARKER_PREFIX}${seriesId}]]`;
+};
+
+async function maskLiveClassCourseThumbnail(liveClass) {
+  const thumb = liveClass?.course?.thumbnail;
+  if (!isS3Configured() || !thumb || !isOurS3Url(thumb)) return;
+  try {
+    liveClass.course.thumbnail = await getSignedUrlForMediaUrl(thumb, 3600);
+  } catch (err) {
+    console.warn('[live-class] Signed course thumbnail failed:', liveClass?.id, err?.message);
+  }
+}
+
+async function maskLiveClassesCourseThumbnails(liveClasses) {
+  if (!Array.isArray(liveClasses)) return;
+  await Promise.all(liveClasses.map((lc) => maskLiveClassCourseThumbnail(lc)));
+}
+
+const parseTimeToHoursMinutes = (timeStr) => {
+  const [h, m] = String(timeStr || '')
+    .split(':')
+    .map((v) => parseInt(v, 10));
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return { hours: h, minutes: m };
+};
+
+const buildDateWithTime = (dateInput, timeStr) => {
+  const t = parseTimeToHoursMinutes(timeStr);
+  if (!t) return null;
+  const d = new Date(dateInput);
+  d.setHours(t.hours, t.minutes, 0, 0);
+  return d;
+};
+
+const expandRecurringSchedule = ({
+  recurrenceType,
+  startDate,
+  endDate,
+  startTime,
+  daysOfWeek,
+  monthlyDay,
+}) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+
+  if (start > end) return [];
+
+  const scheduleDates = [];
+  const weeklyDays = Array.isArray(daysOfWeek)
+    ? [...new Set(daysOfWeek.map((v) => parseInt(v, 10)).filter((v) => v >= 0 && v <= 6))]
+    : [];
+
+  const current = new Date(start);
+  while (current <= end) {
+    if (recurrenceType === 'DAILY') {
+      const scheduled = buildDateWithTime(current, startTime);
+      if (scheduled) scheduleDates.push(scheduled);
+    } else if (recurrenceType === 'WEEKLY') {
+      const day = current.getDay();
+      if (weeklyDays.includes(day)) {
+        const scheduled = buildDateWithTime(current, startTime);
+        if (scheduled) scheduleDates.push(scheduled);
+      }
+    } else if (recurrenceType === 'MONTHLY') {
+      const dayToUse = parseInt(monthlyDay, 10);
+      const targetDay = Number.isNaN(dayToUse) ? start.getDate() : dayToUse;
+      if (current.getDate() === targetDay) {
+        const scheduled = buildDateWithTime(current, startTime);
+        if (scheduled) scheduleDates.push(scheduled);
+      }
+    }
+    current.setDate(current.getDate() + 1);
+    if (scheduleDates.length > MAX_RECURRING_SESSIONS) break;
+  }
+
+  return scheduleDates;
+};
 
 
 /**
@@ -55,6 +154,7 @@ export const getAllLiveClasses = async (req, res, next) => {
               id: true,
               title: true,
               slug: true,
+              thumbnail: true,
             },
           },
           _count: {
@@ -71,6 +171,8 @@ export const getAllLiveClasses = async (req, res, next) => {
       }),
       prisma.liveClass.count({ where }),
     ]);
+
+    await maskLiveClassesCourseThumbnails(liveClasses);
 
     res.json({
       success: true,
@@ -103,6 +205,7 @@ export const getLiveClassById = async (req, res, next) => {
             id: true,
             title: true,
             slug: true,
+            thumbnail: true,
           },
         },
         enrollments: {
@@ -132,6 +235,8 @@ export const getLiveClassById = async (req, res, next) => {
       });
     }
 
+    await maskLiveClassCourseThumbnail(liveClass);
+
     res.json({
       success: true,
       data: liveClass,
@@ -153,7 +258,6 @@ export const createLiveClass = async (req, res, next) => {
       description,
       courseId,
       instructorId,
-      scheduledAt,
       duration,
       meetingUrl,
       meetingId,
@@ -161,6 +265,12 @@ export const createLiveClass = async (req, res, next) => {
       meetingProvider,
       autoGenerateMeeting,
       hostEmail,
+      recurrenceType,
+      startDate,
+      endDate,
+      startTime,
+      daysOfWeek,
+      monthlyDay,
     } = req.body;
 
     // Validate instructor exists
@@ -189,14 +299,22 @@ export const createLiveClass = async (req, res, next) => {
       }
     }
 
+    // Zoom-only provider in admin panel
+    if (meetingProvider && meetingProvider !== 'ZOOM') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only Zoom is supported as meeting provider.',
+      });
+    }
+
     // Handle Zoom meeting generation
     let zoomMeetingData = {};
-    let finalMeetingProvider = meetingProvider || 'OTHER';
+    let finalMeetingProvider = 'ZOOM';
     let finalMeetingUrl = meetingUrl || null;
     let finalMeetingId = meetingId || null;
     let finalMeetingPassword = meetingPassword || null;
 
-    if (autoGenerateMeeting && meetingProvider === 'ZOOM') {
+    if (autoGenerateMeeting) {
       try {
         if (!zoomService.isZoomConfigured()) {
           return res.status(400).json({
@@ -207,7 +325,7 @@ export const createLiveClass = async (req, res, next) => {
 
         const zoomData = await zoomService.createMeeting({
           title,
-          scheduledAt,
+          scheduledAt: buildDateWithTime(startDate, startTime) || new Date(startDate),
           duration: parseInt(duration),
           hostEmail: hostEmail || instructor.email,
         });
@@ -229,41 +347,95 @@ export const createLiveClass = async (req, res, next) => {
         });
       }
     } else if (meetingUrl) {
-      // Validate manual meeting URL if provided
-      if (meetingProvider && zoomService.validateMeetingUrl(meetingUrl, meetingProvider)) {
-        finalMeetingProvider = meetingProvider;
-      } else if (!meetingProvider) {
-        // Auto-detect provider from URL
-        finalMeetingProvider = zoomService.parseMeetingProvider(meetingUrl) || 'OTHER';
+      // Keep provider fixed to ZOOM; do not auto-switch.
+      finalMeetingProvider = 'ZOOM';
+    }
+
+    const durationMins = parseInt(duration, 10);
+    if (!recurrenceType || !startDate || !endDate || !startTime) {
+      return res.status(400).json({
+        success: false,
+        message: 'recurrenceType, startDate, endDate and startTime are required for recurring schedule.',
+      });
+    }
+
+    if (recurrenceType === 'WEEKLY' && (!Array.isArray(daysOfWeek) || daysOfWeek.length === 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Select at least one weekday for weekly recurrence.',
+      });
+    }
+    if (recurrenceType === 'MONTHLY') {
+      const parsedMonthlyDay = parseInt(monthlyDay, 10);
+      if (!Number.isNaN(parsedMonthlyDay) && (parsedMonthlyDay < 1 || parsedMonthlyDay > 31)) {
+        return res.status(400).json({
+          success: false,
+          message: 'monthlyDay must be between 1 and 31.',
+        });
       }
     }
 
-    const liveClass = await prisma.liveClass.create({
-      data: {
-        title,
-        description,
-        courseId: courseId || null,
-        instructorId,
-        scheduledAt: new Date(scheduledAt),
-        duration: parseInt(duration),
-        meetingUrl: finalMeetingUrl,
-        meetingId: finalMeetingId,
-        meetingPassword: finalMeetingPassword,
-        meetingProvider: finalMeetingProvider,
-        autoGenerateMeeting: autoGenerateMeeting || false,
-        ...zoomMeetingData,
-        status: 'SCHEDULED',
-      },
-      include: {
-        instructor: true,
-        course: true,
-      },
+    const scheduleDates = expandRecurringSchedule({
+      recurrenceType,
+      startDate,
+      endDate,
+      startTime,
+      daysOfWeek,
+      monthlyDay,
     });
+
+    if (scheduleDates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No sessions generated from the selected recurrence settings.',
+      });
+    }
+    if (scheduleDates.length > MAX_RECURRING_SESSIONS) {
+      return res.status(400).json({
+        success: false,
+        message: `Too many sessions generated (${scheduleDates.length}). Reduce date range (max ${MAX_RECURRING_SESSIONS}).`,
+      });
+    }
+
+    const seriesId = crypto.randomUUID();
+    const descriptionWithSeries = withSeriesMarker(description, seriesId);
+
+    const created = await prisma.$transaction(
+      scheduleDates.map((dt) =>
+        prisma.liveClass.create({
+          data: {
+            title,
+            description: descriptionWithSeries,
+            courseId: courseId || null,
+            instructorId,
+            scheduledAt: dt,
+            duration: durationMins,
+            meetingUrl: finalMeetingUrl,
+            meetingId: finalMeetingId,
+            meetingPassword: finalMeetingPassword,
+            meetingProvider: finalMeetingProvider,
+            autoGenerateMeeting: autoGenerateMeeting || false,
+            ...zoomMeetingData,
+            status: 'SCHEDULED',
+          },
+          include: {
+            instructor: true,
+            course: true,
+          },
+        })
+      )
+    );
+
+    await maskLiveClassesCourseThumbnails(created);
 
     res.status(201).json({
       success: true,
-      message: 'Live class created successfully',
-      data: liveClass,
+      message: `Live class series created successfully (${created.length} sessions).`,
+      data: created[0],
+      meta: {
+        createdCount: created.length,
+        seriesId,
+      },
     });
   } catch (error) {
     next(error);
@@ -294,6 +466,13 @@ export const updateLiveClass = async (req, res, next) => {
       status,
       hostEmail,
     } = req.body;
+
+    if (meetingProvider && meetingProvider !== 'ZOOM') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only Zoom is supported as meeting provider.',
+      });
+    }
 
     const liveClass = await prisma.liveClass.findUnique({
       where: { id },
@@ -337,9 +516,15 @@ export const updateLiveClass = async (req, res, next) => {
     }
 
     // Handle Zoom meeting updates
+    const existingSeriesId = extractSeriesId(liveClass.description);
+    const nextDescription =
+      description !== undefined
+        ? withSeriesMarker(description, existingSeriesId)
+        : undefined;
+
     let updateData = {
       ...(title && { title }),
-      ...(description !== undefined && { description }),
+      ...(nextDescription !== undefined && { description: nextDescription }),
       ...(courseId !== undefined && { courseId: courseId || null }),
       ...(instructorId && { instructorId }),
       ...(scheduledAt && { scheduledAt: new Date(scheduledAt) }),
@@ -350,7 +535,7 @@ export const updateLiveClass = async (req, res, next) => {
 
     // Handle meeting provider changes
     if (meetingProvider !== undefined) {
-      updateData.meetingProvider = meetingProvider;
+      updateData.meetingProvider = 'ZOOM';
     }
 
     if (autoGenerateMeeting !== undefined) {
@@ -358,7 +543,7 @@ export const updateLiveClass = async (req, res, next) => {
     }
 
     // If auto-generating Zoom meeting and it's not already created or needs update
-    if (autoGenerateMeeting && meetingProvider === 'ZOOM') {
+    if (autoGenerateMeeting) {
       try {
         if (!zoomService.isZoomConfigured()) {
           return res.status(400).json({
@@ -418,12 +603,7 @@ export const updateLiveClass = async (req, res, next) => {
         updateData.meetingPassword = meetingPassword;
       }
 
-      // Validate and detect provider
-      if (meetingProvider && zoomService.validateMeetingUrl(meetingUrl, meetingProvider)) {
-        updateData.meetingProvider = meetingProvider;
-      } else if (meetingUrl) {
-        updateData.meetingProvider = zoomService.parseMeetingProvider(meetingUrl) || 'OTHER';
-      }
+      updateData.meetingProvider = 'ZOOM';
     }
 
     const updatedLiveClass = await prisma.liveClass.update({
@@ -435,10 +615,50 @@ export const updateLiveClass = async (req, res, next) => {
       },
     });
 
+    await maskLiveClassCourseThumbnail(updatedLiveClass);
+
     res.json({
       success: true,
       message: 'Live class updated successfully',
       data: updatedLiveClass,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Cancel all sessions in a recurring series (Admin only)
+ */
+export const cancelLiveClassSeries = async (req, res, next) => {
+  try {
+    const { seriesId } = req.params;
+    const marker = `${SERIES_MARKER_PREFIX}${seriesId}]]`;
+
+    const affected = await prisma.liveClass.updateMany({
+      where: {
+        description: { contains: marker },
+        status: { in: ['SCHEDULED', 'LIVE'] },
+      },
+      data: {
+        status: 'CANCELLED',
+      },
+    });
+
+    if (!affected.count) {
+      return res.status(404).json({
+        success: false,
+        message: 'No active sessions found for this series',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Series cancelled successfully (${affected.count} sessions).`,
+      data: {
+        seriesId,
+        cancelledCount: affected.count,
+      },
     });
   } catch (error) {
     next(error);
@@ -631,6 +851,7 @@ export const getMyLiveClasses = async (req, res, next) => {
                   id: true,
                   title: true,
                   slug: true,
+                  thumbnail: true,
                 },
               },
             },
@@ -644,6 +865,8 @@ export const getMyLiveClasses = async (req, res, next) => {
       }),
       prisma.liveClassEnrollment.count({ where: { userId } }),
     ]);
+
+    await maskLiveClassesCourseThumbnails(enrollments.map((e) => e.liveClass).filter(Boolean));
 
     res.json({
       success: true,
@@ -703,6 +926,7 @@ export const getMyAvailableLiveClasses = async (req, res, next) => {
               id: true,
               title: true,
               slug: true,
+              thumbnail: true,
             },
           },
           _count: {
@@ -719,6 +943,8 @@ export const getMyAvailableLiveClasses = async (req, res, next) => {
       }),
       prisma.liveClass.count({ where }),
     ]);
+
+    await maskLiveClassesCourseThumbnails(liveClasses);
 
     res.json({
       success: true,

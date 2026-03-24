@@ -4,6 +4,7 @@ import {
   getLiveClassById,
   createLiveClass,
   updateLiveClass,
+  cancelLiveClassSeries,
   deleteLiveClass,
   enrollInLiveClass,
   markAttendance,
@@ -81,14 +82,38 @@ router.post(
   validate([
     body('title').notEmpty().trim().withMessage('Title is required'),
     body('instructorId').isUUID().withMessage('Valid instructor ID is required'),
-    body('scheduledAt').isISO8601().withMessage('Valid scheduled date is required'),
+    body('recurrenceType').isIn(['DAILY', 'WEEKLY', 'MONTHLY']).withMessage('Valid recurrence type is required'),
+    body('startDate')
+      .notEmpty()
+      .isISO8601()
+      .withMessage('startDate must be a valid date'),
+    body('endDate')
+      .notEmpty()
+      .isISO8601()
+      .withMessage('endDate must be a valid date'),
+    body('startTime')
+      .notEmpty()
+      .matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+      .withMessage('startTime must be in HH:mm format'),
+    body('daysOfWeek')
+      .optional()
+      .isArray()
+      .withMessage('daysOfWeek must be an array'),
+    body('daysOfWeek.*')
+      .optional()
+      .isInt({ min: 0, max: 6 })
+      .withMessage('daysOfWeek values must be between 0 and 6'),
+    body('monthlyDay')
+      .optional()
+      .isInt({ min: 1, max: 31 })
+      .withMessage('monthlyDay must be between 1 and 31'),
     body('duration').isInt({ min: 1 }).withMessage('Duration must be a positive integer'),
     body('description').optional().isString(),
     body('courseId').optional({ checkFalsy: true }).isUUID(),
     body('meetingUrl').optional({ checkFalsy: true }).isURL(),
     body('meetingId').optional({ checkFalsy: true }).isString(),
     body('meetingPassword').optional({ checkFalsy: true }).isString(),
-    body('meetingProvider').optional({ checkFalsy: true }).isIn(['ZOOM', 'GOOGLE_MEET', 'OTHER']),
+    body('meetingProvider').optional({ checkFalsy: true }).isIn(['ZOOM']),
     body('autoGenerateMeeting').optional().isBoolean(),
     body('hostEmail').optional({ checkFalsy: true }).isEmail(),
   ]),
@@ -109,13 +134,22 @@ router.put(
     body('meetingUrl').optional({ checkFalsy: true }).isURL(),
     body('meetingId').optional({ checkFalsy: true }).isString(),
     body('meetingPassword').optional({ checkFalsy: true }).isString(),
-    body('meetingProvider').optional({ checkFalsy: true }).isIn(['ZOOM', 'GOOGLE_MEET', 'OTHER']),
+    body('meetingProvider').optional({ checkFalsy: true }).isIn(['ZOOM']),
     body('autoGenerateMeeting').optional().isBoolean(),
     body('hostEmail').optional({ checkFalsy: true }).isEmail(),
     body('recordingUrl').optional({ checkFalsy: true }).isURL(),
     body('status').optional().isIn(['SCHEDULED', 'LIVE', 'COMPLETED', 'CANCELLED']),
   ]),
   updateLiveClass
+);
+
+router.post(
+  '/series/:seriesId/cancel',
+  requireAdmin,
+  validate([
+    param('seriesId').isString().trim().notEmpty(),
+  ]),
+  cancelLiveClassSeries
 );
 
 router.delete(
