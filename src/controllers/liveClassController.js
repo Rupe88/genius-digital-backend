@@ -1,5 +1,6 @@
 import { prisma } from '../config/database.js';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 import { validationResult } from 'express-validator';
 import * as zoomService from '../services/zoomService.js';
@@ -72,6 +73,72 @@ function dedupeSeriesRows(liveClasses) {
   return out;
 }
 
+const buildWeeklyScheduleFromSessions = (sessions) => {
+  const weeklySchedule = {};
+  for (const session of sessions || []) {
+    const scheduled = new Date(session.scheduledAt);
+    if (Number.isNaN(scheduled.getTime())) continue;
+    const weekday = scheduled.getDay();
+    if (weeklySchedule[weekday]) continue;
+    weeklySchedule[weekday] = scheduled.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  }
+  return weeklySchedule;
+};
+
+const attachSeriesScheduleMetadata = async (liveClasses) => {
+  if (!Array.isArray(liveClasses) || liveClasses.length === 0) return;
+  const seriesIds = [...new Set(liveClasses.map((lc) => extractSeriesId(lc?.description)).filter(Boolean))];
+  const seriesMetaMap = new Map();
+
+  await Promise.all(
+    seriesIds.map(async (seriesId) => {
+      const marker = `${SERIES_MARKER_PREFIX}${seriesId}]]`;
+      const sessions = await prisma.liveClass.findMany({
+        where: {
+          description: { contains: marker },
+        },
+        select: {
+          scheduledAt: true,
+        },
+        orderBy: {
+          scheduledAt: 'asc',
+        },
+      });
+      if (!sessions.length) return;
+      const first = sessions[0].scheduledAt;
+      const last = sessions[sessions.length - 1].scheduledAt;
+      seriesMetaMap.set(seriesId, {
+        weeklySchedule: buildWeeklyScheduleFromSessions(sessions),
+        startDate: first.toISOString().slice(0, 10),
+        endDate: last.toISOString().slice(0, 10),
+      });
+    })
+  );
+
+  for (const liveClass of liveClasses) {
+    const seriesId = extractSeriesId(liveClass?.description);
+    if (seriesId) {
+      const meta = seriesMetaMap.get(seriesId);
+      if (meta) {
+        liveClass.weeklySchedule = meta.weeklySchedule;
+        liveClass.startDate = meta.startDate;
+        liveClass.endDate = meta.endDate;
+      }
+      continue;
+    }
+    const d = new Date(liveClass.scheduledAt);
+    if (!Number.isNaN(d.getTime())) {
+      const day = d.toISOString().slice(0, 10);
+      liveClass.startDate = day;
+      liveClass.endDate = day;
+    }
+  }
+};
+
 const parseTimeToHoursMinutes = (timeStr) => {
   const [h, m] = String(timeStr || '')
     .split(':')
@@ -92,17 +159,6 @@ const isUnknownAdminNotesArgError = (error) => {
   const msg = String(error?.message || '');
   return msg.includes('Unknown argument `adminNotes`');
 };
-
-const getNextWeekdayDate = (baseDateInput, targetWeekday) => {
-  const baseDate = new Date(baseDateInput);
-  if (Number.isNaN(baseDate.getTime())) return null;
-  const target = parseInt(targetWeekday, 10);
-  if (Number.isNaN(target) || target < 0 || target > 6) return null;
-  const delta = (target - baseDate.getDay() + 7) % 7;
-  baseDate.setDate(baseDate.getDate() + delta);
-  return baseDate;
-};
-
 
 /**
  * Get all live classes with filtering
@@ -174,6 +230,9 @@ export const getAllLiveClasses = async (req, res, next) => {
     ]);
 
     const liveClasses = dedupeSeriesRows(rows);
+
+    await attachSeriesScheduleMetadata(liveClasses);
+
     await maskLiveClassesCourseThumbnails(liveClasses);
     await enrichLiveClassesWithAdminNotes(liveClasses);
 
@@ -272,8 +331,10 @@ export const createLiveClass = async (req, res, next) => {
       hostEmail,
       recurrenceType,
       startDate,
+      endDate,
       startTime,
       daysOfWeek,
+      dayTimes,
     } = req.body;
 
     // Validate instructor exists
@@ -361,10 +422,10 @@ export const createLiveClass = async (req, res, next) => {
     }
 
     const durationMins = parseInt(duration, 10);
-    if (!recurrenceType || !startDate || !startTime) {
+    if (!recurrenceType || !startDate || !endDate) {
       return res.status(400).json({
         success: false,
-        message: 'recurrenceType, startDate and startTime are required.',
+        message: 'recurrenceType, startDate and endDate are required.',
       });
     }
 
@@ -375,31 +436,58 @@ export const createLiveClass = async (req, res, next) => {
       });
     }
 
-    const selectedWeekday =
-      Array.isArray(daysOfWeek) && daysOfWeek.length > 0 ? parseInt(daysOfWeek[0], 10) : new Date(startDate).getDay();
-    const weeklyDate = getNextWeekdayDate(startDate, selectedWeekday);
-    if (!weeklyDate) {
+    const selectedWeekdays =
+      Array.isArray(daysOfWeek) && daysOfWeek.length > 0
+        ? [...new Set(daysOfWeek.map((v) => parseInt(v, 10)).filter((v) => v >= 0 && v <= 6))]
+        : [new Date(startDate).getDay()];
+
+    if (!selectedWeekdays.length) {
       return res.status(400).json({
         success: false,
         message: 'Invalid weekly day selection.',
       });
     }
 
-    const firstScheduledAt = buildDateWithTime(weeklyDate, startTime);
-    if (!firstScheduledAt) {
+    const startBoundary = new Date(startDate);
+    const endBoundary = new Date(endDate);
+    if (Number.isNaN(startBoundary.getTime()) || Number.isNaN(endBoundary.getTime()) || endBoundary < startBoundary) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid start date/time.',
+        message: 'Invalid startDate/endDate range.',
       });
     }
 
-    const createData = {
+    const normalizedDayTimes = dayTimes && typeof dayTimes === 'object' ? dayTimes : {};
+    const scheduleEntries = [];
+    const cursor = new Date(startBoundary);
+    while (cursor <= endBoundary) {
+      const weekday = cursor.getDay();
+      if (selectedWeekdays.includes(weekday)) {
+        const timeForDay = normalizedDayTimes[weekday] || normalizedDayTimes[String(weekday)] || startTime;
+        const scheduledAt = buildDateWithTime(new Date(cursor), timeForDay);
+        if (scheduledAt) {
+          scheduleEntries.push({ weekday, scheduledAt });
+        }
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    if (!scheduleEntries.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid start date/time. Please set valid time for selected weekdays.',
+      });
+    }
+
+    const seriesId = randomUUID();
+    const descriptionWithSeriesMarker = withSeriesMarker(description, seriesId);
+    const createRows = scheduleEntries.map((entry) => ({
       title,
-      description: description || null,
+      description: descriptionWithSeriesMarker || null,
       ...(adminNotes !== undefined ? { adminNotes: adminNotes || null } : {}),
       courseId: courseId || null,
       instructorId,
-      scheduledAt: firstScheduledAt,
+      scheduledAt: entry.scheduledAt,
       duration: durationMins,
       meetingUrl: finalMeetingUrl,
       meetingId: finalMeetingId,
@@ -408,36 +496,51 @@ export const createLiveClass = async (req, res, next) => {
       autoGenerateMeeting: autoGenerateMeeting || false,
       ...zoomMeetingData,
       status: 'SCHEDULED',
-    };
+    }));
 
     let created;
     try {
-      created = await prisma.liveClass.create({
-        data: createData,
-        include: {
-          instructor: true,
-          course: true,
-        },
-      });
+      created = await prisma.$transaction(
+        createRows.map((row) =>
+          prisma.liveClass.create({
+            data: row,
+            include: {
+              instructor: true,
+              course: true,
+            },
+          })
+        )
+      );
     } catch (error) {
       if (!isUnknownAdminNotesArgError(error)) throw error;
-      delete createData.adminNotes;
-      created = await prisma.liveClass.create({
-        data: createData,
-        include: {
-          instructor: true,
-          course: true,
-        },
+      const fallbackRows = createRows.map((row) => {
+        const nextRow = { ...row };
+        delete nextRow.adminNotes;
+        return nextRow;
       });
+      created = await prisma.$transaction(
+        fallbackRows.map((row) =>
+          prisma.liveClass.create({
+            data: row,
+            include: {
+              instructor: true,
+              course: true,
+            },
+          })
+        )
+      );
     }
 
-    await maskLiveClassCourseThumbnail(created);
-    await enrichLiveClassesWithAdminNotes([created]);
+    await maskLiveClassesCourseThumbnails(created);
+    await enrichLiveClassesWithAdminNotes(created);
 
     res.status(201).json({
       success: true,
-      message: 'Live class created successfully.',
-      data: created,
+      message: `Live classes created successfully (${created.length}).`,
+      data: created[0],
+      meta: {
+        createdCount: created.length,
+      },
     });
   } catch (error) {
     next(error);
@@ -702,7 +805,48 @@ export const deleteLiveClass = async (req, res, next) => {
       });
     }
 
-    // Delete Zoom meeting if it exists
+    const seriesId = extractSeriesId(liveClass.description);
+    if (seriesId) {
+      const marker = `${SERIES_MARKER_PREFIX}${seriesId}]]`;
+      const seriesClasses = await prisma.liveClass.findMany({
+        where: {
+          description: { contains: marker },
+        },
+        select: {
+          id: true,
+          zoomMeetingId: true,
+        },
+      });
+
+      // Best effort: delete associated Zoom meetings before DB rows.
+      if (zoomService.isZoomConfigured()) {
+        for (const row of seriesClasses) {
+          if (!row.zoomMeetingId) continue;
+          try {
+            await zoomService.deleteMeeting(row.zoomMeetingId);
+          } catch (error) {
+            console.error('Failed to delete Zoom meeting:', error);
+          }
+        }
+      }
+
+      const deleted = await prisma.liveClass.deleteMany({
+        where: {
+          description: { contains: marker },
+        },
+      });
+
+      return res.json({
+        success: true,
+        message: `Live class series deleted successfully (${deleted.count} sessions).`,
+        data: {
+          deletedCount: deleted.count,
+          seriesId,
+        },
+      });
+    }
+
+    // Non-series class delete
     if (liveClass.zoomMeetingId && zoomService.isZoomConfigured()) {
       try {
         await zoomService.deleteMeeting(liveClass.zoomMeetingId);
@@ -712,9 +856,7 @@ export const deleteLiveClass = async (req, res, next) => {
       }
     }
 
-    await prisma.liveClass.delete({
-      where: { id },
-    });
+    await prisma.liveClass.delete({ where: { id } });
 
     res.json({
       success: true,
@@ -966,6 +1108,7 @@ export const getMyAvailableLiveClasses = async (req, res, next) => {
     ]);
 
     const liveClasses = dedupeSeriesRows(rows);
+    await attachSeriesScheduleMetadata(liveClasses);
     await maskLiveClassesCourseThumbnails(liveClasses);
     await enrichLiveClassesWithAdminNotes(liveClasses);
 

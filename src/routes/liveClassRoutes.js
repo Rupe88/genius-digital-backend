@@ -87,6 +87,10 @@ router.post(
       .notEmpty()
       .isISO8601()
       .withMessage('startDate must be a valid date'),
+    body('endDate')
+      .notEmpty()
+      .isISO8601()
+      .withMessage('endDate must be a valid date'),
     body('startTime')
       .notEmpty()
       .matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
@@ -99,6 +103,14 @@ router.post(
       .optional()
       .isInt({ min: 0, max: 6 })
       .withMessage('daysOfWeek values must be between 0 and 6'),
+    body('dayTimes')
+      .optional()
+      .isObject()
+      .withMessage('dayTimes must be an object with weekday keys and HH:mm values'),
+    body('dayTimes.*')
+      .optional()
+      .matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+      .withMessage('Each dayTimes value must be in HH:mm format'),
     body('duration').isInt({ min: 1 }).withMessage('Duration must be a positive integer'),
     body('description').optional().isString(),
     body('adminNotes').optional().isString(),
