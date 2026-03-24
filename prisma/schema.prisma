@@ -1511,6 +1511,38 @@ model ContactSubmission {
   @@map("contact_submissions")
 }
 
+// Numerology app submissions/leads
+model NumerologyLead {
+  id        String   @id @default(uuid())
+  fullName  String   @db.VarChar(255)
+  email     String   @db.VarChar(255)
+  phone     String?  @db.VarChar(50)
+  message   String?  @db.Text
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([createdAt])
+  @@map("numerology_leads")
+}
+
+// Compass app submissions/leads
+model CompassLead {
+  id        String   @id @default(uuid())
+  fullName  String   @db.VarChar(255)
+  email     String   @db.VarChar(255)
+  phone     String?  @db.VarChar(50)
+  message   String?  @db.Text
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([createdAt])
+  @@map("compass_leads")
+}
+
 // Newsletter Subscribers
 model NewsletterSubscriber {
   id             String    @id @default(uuid())

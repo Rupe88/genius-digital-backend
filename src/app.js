@@ -52,6 +52,8 @@ import testimonialRoutes from './routes/testimonialRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import mediaRoutes from './routes/mediaRoutes.js';
 import wishlistRoutes from './routes/wishlistRoutes.js';
+import numerologyLeadRoutes from './routes/numerologyLeadRoutes.js';
+import compassLeadRoutes from './routes/compassLeadRoutes.js';
 
 const app = express();
 
@@ -177,6 +179,8 @@ const apiRoutes = [
   ['upload', uploadRoutes],
   ['media', mediaRoutes],
   ['wishlist', wishlistRoutes],
+  ['numerology-leads', numerologyLeadRoutes],
+  ['compass-leads', compassLeadRoutes],
 ];
 apiRoutes.forEach(([path, router]) => {
   app.use(`${API_BASE}/${path}`, router);
