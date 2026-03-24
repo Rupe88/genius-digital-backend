@@ -1,4 +1,5 @@
 import { prisma } from '../config/database.js';
+import { Prisma } from '@prisma/client';
 
 import { validationResult } from 'express-validator';
 import * as zoomService from '../services/zoomService.js';
@@ -36,6 +37,25 @@ async function maskLiveClassCourseThumbnail(liveClass) {
 async function maskLiveClassesCourseThumbnails(liveClasses) {
   if (!Array.isArray(liveClasses)) return;
   await Promise.all(liveClasses.map((lc) => maskLiveClassCourseThumbnail(lc)));
+}
+
+async function enrichLiveClassesWithAdminNotes(liveClasses) {
+  if (!Array.isArray(liveClasses) || liveClasses.length === 0) return;
+  const missing = liveClasses.filter((lc) => lc && lc.adminNotes === undefined).map((lc) => lc.id);
+  if (!missing.length) return;
+  try {
+    const rows = await prisma.$queryRaw(
+      Prisma.sql`SELECT id, "adminNotes" FROM "live_classes" WHERE id IN (${Prisma.join(missing)})`
+    );
+    const notesMap = new Map(rows.map((r) => [r.id, r.adminNotes ?? null]));
+    liveClasses.forEach((lc) => {
+      if (lc && lc.adminNotes === undefined) {
+        lc.adminNotes = notesMap.get(lc.id) ?? null;
+      }
+    });
+  } catch {
+    // Ignore fallback failure; API should still return base live class data.
+  }
 }
 
 function dedupeSeriesRows(liveClasses) {
@@ -155,6 +175,7 @@ export const getAllLiveClasses = async (req, res, next) => {
 
     const liveClasses = dedupeSeriesRows(rows);
     await maskLiveClassesCourseThumbnails(liveClasses);
+    await enrichLiveClassesWithAdminNotes(liveClasses);
 
     res.json({
       success: true,
@@ -218,6 +239,7 @@ export const getLiveClassById = async (req, res, next) => {
     }
 
     await maskLiveClassCourseThumbnail(liveClass);
+    await enrichLiveClassesWithAdminNotes([liveClass]);
 
     res.json({
       success: true,
@@ -410,6 +432,7 @@ export const createLiveClass = async (req, res, next) => {
     }
 
     await maskLiveClassCourseThumbnail(created);
+    await enrichLiveClassesWithAdminNotes([created]);
 
     res.status(201).json({
       success: true,
@@ -611,6 +634,7 @@ export const updateLiveClass = async (req, res, next) => {
     }
 
     await maskLiveClassCourseThumbnail(updatedLiveClass);
+    await enrichLiveClassesWithAdminNotes([updatedLiveClass]);
 
     res.json({
       success: true,
@@ -861,7 +885,9 @@ export const getMyLiveClasses = async (req, res, next) => {
       prisma.liveClassEnrollment.count({ where: { userId } }),
     ]);
 
-    await maskLiveClassesCourseThumbnails(enrollments.map((e) => e.liveClass).filter(Boolean));
+    const enrollmentLiveClasses = enrollments.map((e) => e.liveClass).filter(Boolean);
+    await maskLiveClassesCourseThumbnails(enrollmentLiveClasses);
+    await enrichLiveClassesWithAdminNotes(enrollmentLiveClasses);
 
     res.json({
       success: true,
@@ -941,6 +967,7 @@ export const getMyAvailableLiveClasses = async (req, res, next) => {
 
     const liveClasses = dedupeSeriesRows(rows);
     await maskLiveClassesCourseThumbnails(liveClasses);
+    await enrichLiveClassesWithAdminNotes(liveClasses);
 
     res.json({
       success: true,
