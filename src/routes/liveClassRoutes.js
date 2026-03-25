@@ -136,6 +136,29 @@ router.put(
     body('title').optional().notEmpty().trim(),
     body('instructorId').optional().isUUID(),
     body('scheduledAt').optional().isISO8601(),
+    body('recurrenceType').optional().isIn(['WEEKLY']),
+    body('startDate').optional().isISO8601(),
+    body('endDate').optional().isISO8601(),
+    body('startTime')
+      .optional()
+      .matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+      .withMessage('startTime must be in HH:mm format'),
+    body('daysOfWeek')
+      .optional()
+      .isArray({ min: 1 })
+      .withMessage('daysOfWeek must be a non-empty array'),
+    body('daysOfWeek.*')
+      .optional()
+      .isInt({ min: 0, max: 6 })
+      .withMessage('daysOfWeek values must be between 0 and 6'),
+    body('dayTimes')
+      .optional()
+      .isObject()
+      .withMessage('dayTimes must be an object with weekday keys and HH:mm values'),
+    body('dayTimes.*')
+      .optional()
+      .matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+      .withMessage('Each dayTimes value must be in HH:mm format'),
     body('duration').optional().isInt({ min: 1 }),
     body('description').optional().isString(),
     body('adminNotes').optional().isString(),

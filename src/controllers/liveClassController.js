@@ -76,6 +76,9 @@ function dedupeSeriesRows(liveClasses) {
 const buildWeeklyScheduleFromSessions = (sessions) => {
   const weeklySchedule = {};
   for (const session of sessions || []) {
+    // When admin removes a weekday from a series, we cancel those sessions
+    // but we keep their scheduledAt values in the DB. Do not count cancelled sessions.
+    if (session?.status === 'CANCELLED') continue;
     const scheduled = new Date(session.scheduledAt);
     if (Number.isNaN(scheduled.getTime())) continue;
     const weekday = scheduled.getDay();
@@ -103,6 +106,7 @@ const attachSeriesScheduleMetadata = async (liveClasses) => {
         },
         select: {
           scheduledAt: true,
+          status: true,
         },
         orderBy: {
           scheduledAt: 'asc',
@@ -113,8 +117,8 @@ const attachSeriesScheduleMetadata = async (liveClasses) => {
       const last = sessions[sessions.length - 1].scheduledAt;
       seriesMetaMap.set(seriesId, {
         weeklySchedule: buildWeeklyScheduleFromSessions(sessions),
-        startDate: first.toISOString().slice(0, 10),
-        endDate: last.toISOString().slice(0, 10),
+        startDate: toDateInputLocal(first),
+        endDate: toDateInputLocal(last),
       });
     })
   );
@@ -132,7 +136,7 @@ const attachSeriesScheduleMetadata = async (liveClasses) => {
     }
     const d = new Date(liveClass.scheduledAt);
     if (!Number.isNaN(d.getTime())) {
-      const day = d.toISOString().slice(0, 10);
+      const day = toDateInputLocal(d);
       liveClass.startDate = day;
       liveClass.endDate = day;
     }
@@ -153,6 +157,32 @@ const buildDateWithTime = (dateInput, timeStr) => {
   const d = new Date(dateInput);
   d.setHours(t.hours, t.minutes, 0, 0);
   return d;
+};
+
+// Parse YYYY-MM-DD as a *local* date (not UTC midnight)
+const parseDateInputLocal = (dateInput) => {
+  const text = String(dateInput || '');
+  const m = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return new Date(text);
+  const year = parseInt(m[1], 10);
+  const monthIndex = parseInt(m[2], 10) - 1;
+  const day = parseInt(m[3], 10);
+  return new Date(year, monthIndex, day);
+};
+
+const toDateInputLocal = (dateObj) => {
+  const d = dateObj instanceof Date ? dateObj : new Date(dateObj);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const toDayKey = (d) => {
+  const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return null;
+  return toDateInputLocal(dt);
 };
 
 const isUnknownAdminNotesArgError = (error) => {
@@ -439,7 +469,7 @@ export const createLiveClass = async (req, res, next) => {
     const selectedWeekdays =
       Array.isArray(daysOfWeek) && daysOfWeek.length > 0
         ? [...new Set(daysOfWeek.map((v) => parseInt(v, 10)).filter((v) => v >= 0 && v <= 6))]
-        : [new Date(startDate).getDay()];
+        : [parseDateInputLocal(startDate).getDay()];
 
     if (!selectedWeekdays.length) {
       return res.status(400).json({
@@ -448,8 +478,8 @@ export const createLiveClass = async (req, res, next) => {
       });
     }
 
-    const startBoundary = new Date(startDate);
-    const endBoundary = new Date(endDate);
+    const startBoundary = parseDateInputLocal(startDate);
+    const endBoundary = parseDateInputLocal(endDate);
     if (Number.isNaN(startBoundary.getTime()) || Number.isNaN(endBoundary.getTime()) || endBoundary < startBoundary) {
       return res.status(400).json({
         success: false,
@@ -571,6 +601,12 @@ export const updateLiveClass = async (req, res, next) => {
       recordingUrl,
       status,
       hostEmail,
+      recurrenceType,
+      startDate,
+      endDate,
+      startTime,
+      daysOfWeek,
+      dayTimes,
     } = req.body;
 
     if (meetingProvider && meetingProvider !== 'ZOOM') {
@@ -627,6 +663,202 @@ export const updateLiveClass = async (req, res, next) => {
       description !== undefined
         ? withSeriesMarker(description, existingSeriesId)
         : undefined;
+
+    // ===== Recurring series edit (weekly) =====
+    const wantsSeriesUpdate =
+      recurrenceType === 'WEEKLY' ||
+      startDate !== undefined ||
+      endDate !== undefined ||
+      daysOfWeek !== undefined ||
+      dayTimes !== undefined;
+
+    if (wantsSeriesUpdate) {
+      if (!existingSeriesId) {
+        return res.status(400).json({
+          success: false,
+          message: 'This live class is not part of a recurring series.',
+        });
+      }
+      if (recurrenceType && recurrenceType !== 'WEEKLY') {
+        return res.status(400).json({
+          success: false,
+          message: 'Only weekly recurrence is supported.',
+        });
+      }
+      if (!startDate || !endDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'startDate and endDate are required for weekly series update.',
+        });
+      }
+      const selectedWeekdays =
+        Array.isArray(daysOfWeek) && daysOfWeek.length > 0
+          ? [...new Set(daysOfWeek.map((v) => parseInt(v, 10)).filter((v) => v >= 0 && v <= 6))]
+          : [];
+      if (!selectedWeekdays.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please select at least one weekday.',
+        });
+      }
+
+      const startBoundary = parseDateInputLocal(startDate);
+      const endBoundary = parseDateInputLocal(endDate);
+      if (Number.isNaN(startBoundary.getTime()) || Number.isNaN(endBoundary.getTime()) || endBoundary < startBoundary) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid startDate/endDate range.',
+        });
+      }
+
+      const marker = `${SERIES_MARKER_PREFIX}${existingSeriesId}]]`;
+      const sessions = await prisma.liveClass.findMany({
+        where: { description: { contains: marker } },
+        orderBy: { scheduledAt: 'asc' },
+      });
+
+      const normalizedDayTimes = dayTimes && typeof dayTimes === 'object' ? dayTimes : {};
+      const fallbackTime = startTime || '21:00';
+      const selectedWeekdaySet = new Set(selectedWeekdays);
+
+      const timeForWeekday = (weekday) =>
+        normalizedDayTimes[weekday] || normalizedDayTimes[String(weekday)] || fallbackTime;
+
+      // Desired sessions keyed by local date (YYYY-MM-DD)
+      const desiredByDateKey = new Map();
+      const desiredCursor = new Date(startBoundary);
+      while (desiredCursor <= endBoundary) {
+        const weekday = desiredCursor.getDay();
+        if (selectedWeekdaySet.has(weekday)) {
+          const dateKey = toDayKey(desiredCursor);
+          const desiredTime = timeForWeekday(weekday);
+          const dt = buildDateWithTime(new Date(desiredCursor), desiredTime);
+          if (dateKey && dt) {
+            desiredByDateKey.set(dateKey, { dateKey, scheduledAt: dt, weekday });
+          }
+        }
+        desiredCursor.setDate(desiredCursor.getDate() + 1);
+      }
+
+      if (!desiredByDateKey.size) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid weekly schedule. Please set valid time for selected weekdays.',
+        });
+      }
+
+      const existingByDateKey = new Map();
+      for (const s of sessions) {
+        const key = toDayKey(s.scheduledAt);
+        if (!key) continue;
+        const list = existingByDateKey.get(key) || [];
+        list.push(s);
+        existingByDateKey.set(key, list);
+      }
+
+      const finalDescription = nextDescription !== undefined ? nextDescription : liveClass.description;
+      const nextMeetingUrl = meetingUrl !== undefined ? meetingUrl : liveClass.meetingUrl;
+      const nextMeetingId = meetingId !== undefined ? meetingId : liveClass.meetingId;
+      const nextMeetingPassword = meetingPassword !== undefined ? meetingPassword : liveClass.meetingPassword;
+      const nextMeetingProvider = 'ZOOM';
+      const nextDuration = duration !== undefined ? parseInt(duration, 10) : liveClass.duration;
+
+      const commonUpdates = {
+        ...(title && { title }),
+        ...(finalDescription !== undefined && { description: finalDescription }),
+        ...(adminNotes !== undefined && { adminNotes }),
+        ...(courseId !== undefined && { courseId: courseId || null }),
+        ...(instructorId && { instructorId }),
+        ...(duration !== undefined && { duration: nextDuration }),
+        ...(recordingUrl !== undefined && { recordingUrl }),
+        ...(status && { status }),
+        meetingProvider: nextMeetingProvider,
+        meetingUrl: nextMeetingUrl,
+        meetingId: nextMeetingId,
+        meetingPassword: nextMeetingPassword,
+      };
+
+      const tx = [];
+      // Update desired sessions (activate or create)
+      for (const [, desired] of desiredByDateKey.entries()) {
+        const existingSessions = existingByDateKey.get(desired.dateKey) || [];
+        if (existingSessions.length > 0) {
+          const [keep, ...rest] = existingSessions;
+          tx.push(
+            prisma.liveClass.update({
+              where: { id: keep.id },
+              data: {
+                ...commonUpdates,
+                scheduledAt: desired.scheduledAt,
+                status: 'SCHEDULED',
+              },
+            })
+          );
+          // If duplicates exist for same day, cancel the extras
+          for (const extra of rest) {
+            tx.push(
+              prisma.liveClass.update({
+                where: { id: extra.id },
+                data: { status: 'CANCELLED' },
+              })
+            );
+          }
+        } else {
+          tx.push(
+            prisma.liveClass.create({
+              data: {
+                title: title || liveClass.title,
+                description: finalDescription || null,
+                ...(adminNotes !== undefined ? { adminNotes: adminNotes || null } : {}),
+                courseId: courseId !== undefined ? (courseId || null) : liveClass.courseId,
+                instructorId: instructorId || liveClass.instructorId,
+                scheduledAt: desired.scheduledAt,
+                duration: nextDuration,
+                meetingUrl: nextMeetingUrl,
+                meetingId: nextMeetingId,
+                meetingPassword: nextMeetingPassword,
+                meetingProvider: nextMeetingProvider,
+                autoGenerateMeeting: liveClass.autoGenerateMeeting || false,
+                zoomMeetingId: liveClass.zoomMeetingId || null,
+                zoomJoinUrl: liveClass.zoomJoinUrl || null,
+                zoomStartUrl: liveClass.zoomStartUrl || null,
+                status: 'SCHEDULED',
+              },
+            })
+          );
+        }
+      }
+
+      // Cancel sessions not in desired range/day selection
+      for (const [dateKey, existingSessions] of existingByDateKey.entries()) {
+        if (desiredByDateKey.has(dateKey)) continue;
+        for (const s of existingSessions) {
+          tx.push(
+            prisma.liveClass.update({
+              where: { id: s.id },
+              data: { status: 'CANCELLED' },
+            })
+          );
+        }
+      }
+
+      await prisma.$transaction(tx);
+
+      const updatedRow = await prisma.liveClass.findFirst({
+        where: { description: { contains: marker } },
+        include: { instructor: true, course: true },
+        orderBy: { scheduledAt: 'asc' },
+      });
+
+      await maskLiveClassCourseThumbnail(updatedRow);
+      await enrichLiveClassesWithAdminNotes([updatedRow]);
+
+      return res.json({
+        success: true,
+        message: 'Live class series updated successfully',
+        data: updatedRow,
+      });
+    }
 
     let updateData = {
       ...(title && { title }),
