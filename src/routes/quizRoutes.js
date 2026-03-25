@@ -5,6 +5,8 @@ import {
   submitQuiz,
   getUserAttempts,
   getMyConsultationAttempts,
+  getMyQuizAttempts,
+  getMyQuizAttemptDetails,
   getAdminQuizAttempts,
   createQuiz,
   updateQuiz,
@@ -28,6 +30,12 @@ router.get(
 
 // User – consultation quiz attempts (must be before /:quizId/attempts)
 router.get('/my/consultation-attempts', authenticate, getMyConsultationAttempts);
+
+// User – single quiz attempt details (must be before /:quizId/attempts)
+router.get('/my/attempts/:attemptId', authenticate, getMyQuizAttemptDetails);
+
+// User – quiz attempts history (must be before /:quizId/attempts)
+router.get('/my/attempts', authenticate, getMyQuizAttempts);
 
 // Admin – must be before GET /:quizId/attempts (otherwise "admin" is captured as quizId)
 router.get(

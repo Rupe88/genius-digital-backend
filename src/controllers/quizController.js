@@ -245,6 +245,104 @@ export const getMyConsultationAttempts = async (req, res, next) => {
 };
 
 /**
+ * Get user's quiz attempts (history) for all quiz types
+ */
+export const getMyQuizAttempts = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { page = 1, limit = 25 } = req.query;
+    const pageNumber = Number(page) || 1;
+    const pageSize = Math.min(Number(limit) || 25, 100);
+    const skip = (pageNumber - 1) * pageSize;
+
+    const attempts = await prisma.quizAttempt.findMany({
+      where: { userId },
+      include: {
+        quiz: {
+          include: {
+            lesson: {
+              include: {
+                course: {
+                  select: {
+                    id: true,
+                    title: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { completedAt: 'desc' },
+      skip,
+      take: pageSize,
+    });
+
+    res.json({
+      success: true,
+      data: attempts,
+      pagination: {
+        total: attempts.length,
+        page: pageNumber,
+        limit: pageSize,
+        pages: 1,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get full details (question results) for a single user quiz attempt
+ */
+export const getMyQuizAttemptDetails = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { attemptId } = req.params;
+
+    const attempt = await prisma.quizAttempt.findFirst({
+      where: { id: attemptId, userId },
+      include: {
+        quiz: {
+          include: {
+            lesson: {
+              include: {
+                course: {
+                  select: {
+                    id: true,
+                    title: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        message: 'Quiz attempt not found',
+      });
+    }
+
+    const report = await quizService.calculateQuizScore(attempt.quizId, attempt.answers);
+
+    res.json({
+      success: true,
+      data: {
+        attempt,
+        report,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get quiz attempts for admin (all users)
  */
 export const getAdminQuizAttempts = async (req, res, next) => {
