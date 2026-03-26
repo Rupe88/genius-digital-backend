@@ -21,7 +21,7 @@ import { attachCourseCertificateTemplate } from '../controllers/courseController
 const router = express.Router();
 
 // Public routes
-router.get('/', getAllCourses);
+router.get('/', optionalAuthenticate, getAllCourses);
 router.get('/filter', courseFilterValidation, filterCourses);
 router.get('/featured', getFeaturedCourses);
 router.get('/ongoing', getOngoingCourses);

@@ -108,10 +108,20 @@ export const getAllCourses = async (req, res, next) => {
       limit = 10,
     } = req.query;
 
+    const isAdmin = req.user?.role === 'ADMIN';
+    const visibleStatuses = ['PUBLISHED', 'ONGOING', 'UPCOMING_EVENTS'];
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const where = {};
 
-    if (status) where.status = status;
+    if (status) {
+      // Public callers can only query public statuses; admins can query any status.
+      where.status = isAdmin
+        ? status
+        : (visibleStatuses.includes(status) ? status : { in: visibleStatuses });
+    } else if (!isAdmin) {
+      // Hide draft/archived from unauthenticated and non-admin callers.
+      where.status = { in: visibleStatuses };
+    }
     if (featured === 'true') where.featured = true;
     if (isOngoing === 'true') where.isOngoing = true;
     if (instructorId) where.instructorId = instructorId;
@@ -477,6 +487,7 @@ export const getCourseById = async (req, res, next) => {
   try {
     const { id } = req.params;
     const isAdmin = req.user?.role === 'ADMIN';
+    const visibleStatuses = ['PUBLISHED', 'ONGOING', 'UPCOMING_EVENTS'];
     const instructorInclude = isAdmin ? true : { select: INSTRUCTOR_PUBLIC_SELECT };
 
     const course = await prisma.course.findFirst({
@@ -544,6 +555,14 @@ export const getCourseById = async (req, res, next) => {
           progress: true,
           completedAt: true,
         },
+      });
+    }
+
+    // Non-admin users can access non-public statuses only when they are enrolled.
+    if (!isAdmin && !visibleStatuses.includes(course.status) && !enrollment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found',
       });
     }
 
