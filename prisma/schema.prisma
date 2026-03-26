@@ -22,6 +22,7 @@ enum Role {
 
 enum OtpType {
   EMAIL_VERIFICATION
+  PHONE_VERIFICATION
   PASSWORD_RESET
 }
 
@@ -278,16 +279,16 @@ model Otp {
 // Numerology / Mobile App users (separate from main LMS User)
 model MobileAppUser {
   id              String   @id @default(uuid())
-  email           String   @unique @db.VarChar(255)
+  email           String?  @unique @db.VarChar(255)
   fullName        String?  @db.VarChar(255)
-  phone           String?  @db.VarChar(50)
+  phone           String?  @unique @db.VarChar(50)
   isEmailVerified Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   otps MobileAppOtp[]
 
-  @@index([email])
+  @@index([phone])
   @@map("mobile_app_users")
 }
 

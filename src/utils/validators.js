@@ -113,22 +113,18 @@ export const resendOtpValidation = [
 
 // Mobile app (Numerology) auth validations
 export const mobileLoginOrRegisterValidation = [
-  body('email').isEmail().withMessage('Valid email required').normalizeEmail(),
   body('fullName').optional({ values: 'falsy' }).trim().isLength({ max: 255 }).withMessage('Full name max 255 characters'),
   body('mailIn')
     .optional({ values: 'falsy' })
     .isIn(['phone', 'email'])
     .withMessage('mailIn must be either "phone" or "email"'),
   body('phone')
-    .optional({ values: 'falsy' })
+    .notEmpty()
+    .withMessage('Phone number is required')
     .trim()
     .isLength({ max: 50 })
     .withMessage('Phone max 50 characters')
     .custom((value, { req }) => {
-      if (req.body.mailIn !== 'phone') return true;
-      if (!value || String(value).trim() === '') {
-        throw new Error('Phone number is required when mailIn is "phone"');
-      }
       const digits = String(value).replace(/\D/g, '');
       let normalized = digits;
       if (digits.startsWith('977') && digits.length === 13) normalized = digits.slice(3);
@@ -139,14 +135,57 @@ export const mobileLoginOrRegisterValidation = [
       }
       return true;
     }),
+  body('email')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail(),
 ];
 export const mobileSendOtpValidation = [
-  body('email').isEmail().withMessage('Valid email required').normalizeEmail(),
   body('mailIn').optional({ values: 'falsy' }).isIn(['phone', 'email']).withMessage('mailIn must be phone or email'),
-  body('phone').optional({ values: 'falsy' }).trim().isLength({ max: 50 }).withMessage('Phone max 50 characters'),
+  body('phone')
+    .notEmpty()
+    .withMessage('Phone number is required')
+    .trim()
+    .isLength({ max: 50 })
+    .withMessage('Phone max 50 characters')
+    .custom((value) => {
+      const digits = String(value).replace(/\D/g, '');
+      let normalized = digits;
+      if (digits.startsWith('977') && digits.length === 13) normalized = digits.slice(3);
+      const validPrefixes = ['96', '97', '98'];
+      const prefix = normalized?.slice(0, 2);
+      if (normalized.length !== 10 || !validPrefixes.includes(prefix)) {
+        throw new Error('Please provide a valid 10-digit Nepal mobile number (96, 97 or 98XXXXXXXX)');
+      }
+      return true;
+    }),
+  body('email')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail(),
 ];
 export const mobileVerifyOtpValidation = [
-  body('email').isEmail().withMessage('Valid email required').normalizeEmail(),
+  body('phone')
+    .notEmpty()
+    .withMessage('Phone is required')
+    .trim()
+    .isLength({ max: 50 })
+    .withMessage('Phone max 50 characters')
+    .custom((value) => {
+      const digits = String(value).replace(/\D/g, '');
+      let normalized = digits;
+      if (digits.startsWith('977') && digits.length === 13) normalized = digits.slice(3);
+      const validPrefixes = ['96', '97', '98'];
+      const prefix = normalized?.slice(0, 2);
+      if (normalized.length !== 10 || !validPrefixes.includes(prefix)) {
+        throw new Error('Please provide a valid 10-digit Nepal mobile number (96, 97 or 98XXXXXXXX)');
+      }
+      return true;
+    }),
   body('otp').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits').isNumeric().withMessage('OTP must be numeric'),
 ];
 
