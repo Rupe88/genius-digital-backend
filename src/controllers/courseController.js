@@ -493,6 +493,7 @@ export const getCourseById = async (req, res, next) => {
           },
         },
         reviews: {
+          where: isAdmin ? {} : { isApproved: true },
           include: {
             user: {
               select: {

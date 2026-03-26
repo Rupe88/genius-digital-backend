@@ -230,6 +230,7 @@ model User {
   enrollments                   Enrollment[]           @relation("UserEnrollments")
   progress                      LessonProgress[]       @relation("UserProgress")
   reviews                       Review[]               @relation("UserReviews")
+  moderatedReviews              Review[]               @relation("ReviewModerator")
   courseComments                CourseComment[]        @relation("UserCourseComments")
   submissions                   AssignmentSubmission[] @relation("UserSubmissions")
   quizAttempts                  QuizAttempt[]          @relation("UserQuizAttempts")
@@ -1180,14 +1181,20 @@ model Review {
   courseId String
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
-  rating  Int
-  comment String? @db.Text
+  rating       Int
+  comment      String?  @db.Text
+  isApproved   Boolean  @default(false)
+  reviewedAt   DateTime?
+  reviewedById String?
+  reviewedBy   User?    @relation("ReviewModerator", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([userId, courseId])
   @@index([courseId])
+  @@index([isApproved])
+  @@index([reviewedById])
   @@map("reviews")
 }
 

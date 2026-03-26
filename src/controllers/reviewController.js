@@ -51,10 +51,16 @@ export const createReview = async (req, res, next) => {
         courseId,
         rating: effectiveRating,
         comment: comment || null,
+        isApproved: false,
+        reviewedAt: null,
+        reviewedById: null,
       },
       update: {
         rating: effectiveRating,
         comment: comment || null,
+        isApproved: false,
+        reviewedAt: null,
+        reviewedById: null,
       },
       include: {
         user: {
@@ -78,6 +84,7 @@ export const createReview = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
+      message: 'Review submitted successfully. It will be visible after admin approval.',
       data: review,
     });
   } catch (error) {
@@ -95,9 +102,10 @@ export const getCourseReviews = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    const where = { courseId, isApproved: true };
     const [reviews, total] = await Promise.all([
       prisma.review.findMany({
-        where: { courseId },
+        where,
         include: {
           user: {
             select: {
@@ -112,13 +120,13 @@ export const getCourseReviews = async (req, res, next) => {
         take: limit,
       }),
       prisma.review.count({
-        where: { courseId },
+        where,
       }),
     ]);
 
     // Calculate average rating
     const avgRating = await prisma.review.aggregate({
-      where: { courseId },
+      where,
       _avg: { rating: true },
       _count: { rating: true },
     });
@@ -231,7 +239,7 @@ export const deleteReview = async (req, res, next) => {
  */
 const updateCourseRating = async (courseId) => {
   const ratingStats = await prisma.review.aggregate({
-    where: { courseId },
+    where: { courseId, isApproved: true },
     _avg: { rating: true },
     _count: { rating: true },
   });
@@ -243,4 +251,99 @@ const updateCourseRating = async (courseId) => {
       totalRatings: ratingStats._count.rating,
     },
   });
+};
+
+/**
+ * Admin: list all course reviews with moderation status
+ */
+export const getAllReviewsAdmin = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const skip = (page - 1) * limit;
+    const approved = req.query.approved;
+    const search = String(req.query.search || req.query.q || '').trim();
+
+    const where = {
+      ...(approved === 'true' ? { isApproved: true } : {}),
+      ...(approved === 'false' ? { isApproved: false } : {}),
+      ...(search
+        ? {
+            OR: [
+              { comment: { contains: search, mode: 'insensitive' } },
+              { user: { fullName: { contains: search, mode: 'insensitive' } } },
+              { user: { email: { contains: search, mode: 'insensitive' } } },
+              { course: { title: { contains: search, mode: 'insensitive' } } },
+            ],
+          }
+        : {}),
+    };
+
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where,
+        include: {
+          user: { select: { id: true, fullName: true, email: true } },
+          course: { select: { id: true, title: true } },
+          reviewedBy: { select: { id: true, fullName: true, email: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.review.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      data: reviews,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit) || 1,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin: approve/reject review visibility
+ */
+export const moderateReview = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const isApproved = req.body.isApproved === true || req.body.isApproved === 'true';
+
+    const review = await prisma.review.findUnique({ where: { id } });
+    if (!review) {
+      return res.status(404).json({ success: false, message: 'Review not found' });
+    }
+
+    const updated = await prisma.review.update({
+      where: { id },
+      data: {
+        isApproved,
+        reviewedAt: new Date(),
+        reviewedById: req.user.id,
+      },
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+        course: { select: { id: true, title: true } },
+        reviewedBy: { select: { id: true, fullName: true, email: true } },
+      },
+    });
+
+    await updateCourseRating(review.courseId);
+
+    return res.json({
+      success: true,
+      message: `Review ${isApproved ? 'approved' : 'rejected'} successfully`,
+      data: updated,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
