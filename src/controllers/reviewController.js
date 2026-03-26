@@ -367,3 +367,70 @@ export const moderateReview = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Admin: edit review (comment/rating/approval)
+ */
+export const updateReviewAdmin = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { comment, rating, isApproved } = req.body;
+
+    const review = await prisma.review.findUnique({ where: { id } });
+    if (!review) {
+      return res.status(404).json({ success: false, message: 'Review not found' });
+    }
+
+    const data = {};
+    if (comment !== undefined) data.comment = String(comment || '').trim() || null;
+    if (rating !== undefined) {
+      const numericRating = parseInt(rating, 10);
+      if (Number.isNaN(numericRating) || numericRating < 1 || numericRating > 5) {
+        return res.status(400).json({ success: false, message: 'rating must be between 1 and 5' });
+      }
+      data.rating = numericRating;
+    }
+    if (supportsReviewModeration && isApproved !== undefined) {
+      data.isApproved = isApproved === true || isApproved === 'true';
+      data.reviewedAt = new Date();
+      data.reviewedById = req.user.id;
+    }
+
+    const updated = await prisma.review.update({
+      where: { id },
+      data,
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+        course: { select: { id: true, title: true } },
+        ...(supportsReviewModeration
+          ? { reviewedBy: { select: { id: true, fullName: true, email: true } } }
+          : {}),
+      },
+    });
+
+    await updateCourseRating(review.courseId);
+    return res.json({ success: true, message: 'Review updated successfully', data: updated });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin: delete any review by id
+ */
+export const deleteReviewAdmin = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const review = await prisma.review.findUnique({ where: { id } });
+    if (!review) {
+      return res.status(404).json({ success: false, message: 'Review not found' });
+    }
+
+    await prisma.review.delete({ where: { id } });
+    await updateCourseRating(review.courseId);
+
+    return res.json({ success: true, message: 'Review deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};

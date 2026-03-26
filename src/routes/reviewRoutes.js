@@ -6,6 +6,8 @@ import {
   deleteReview,
   getAllReviewsAdmin,
   moderateReview,
+  updateReviewAdmin,
+  deleteReviewAdmin,
 } from '../controllers/reviewController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
@@ -38,6 +40,27 @@ router.patch(
     body('isApproved').isBoolean().withMessage('isApproved must be true or false'),
   ]),
   moderateReview
+);
+
+router.put(
+  '/:id',
+  authenticate,
+  requireAdmin,
+  validate([
+    param('id').isUUID().withMessage('Invalid review ID'),
+    body('rating').optional().isInt({ min: 1, max: 5 }).withMessage('rating must be between 1 and 5'),
+    body('comment').optional().isString(),
+    body('isApproved').optional().isBoolean(),
+  ]),
+  updateReviewAdmin
+);
+
+router.delete(
+  '/:id',
+  authenticate,
+  requireAdmin,
+  validate([param('id').isUUID().withMessage('Invalid review ID')]),
+  deleteReviewAdmin
 );
 
 // Public routes
