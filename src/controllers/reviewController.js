@@ -2,6 +2,9 @@ import { prisma } from '../config/database.js';
 
 import { validationResult } from 'express-validator';
 
+const reviewFieldNames = prisma?._runtimeDataModel?.models?.Review?.fields?.map((f) => f.name) || [];
+const supportsReviewModeration = reviewFieldNames.includes('isApproved');
+
 
 /**
  * Create or update course review
@@ -51,16 +54,24 @@ export const createReview = async (req, res, next) => {
         courseId,
         rating: effectiveRating,
         comment: comment || null,
-        isApproved: false,
-        reviewedAt: null,
-        reviewedById: null,
+        ...(supportsReviewModeration
+          ? {
+              isApproved: false,
+              reviewedAt: null,
+              reviewedById: null,
+            }
+          : {}),
       },
       update: {
         rating: effectiveRating,
         comment: comment || null,
-        isApproved: false,
-        reviewedAt: null,
-        reviewedById: null,
+        ...(supportsReviewModeration
+          ? {
+              isApproved: false,
+              reviewedAt: null,
+              reviewedById: null,
+            }
+          : {}),
       },
       include: {
         user: {
@@ -102,7 +113,7 @@ export const getCourseReviews = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const where = { courseId, isApproved: true };
+    const where = supportsReviewModeration ? { courseId, isApproved: true } : { courseId };
     const [reviews, total] = await Promise.all([
       prisma.review.findMany({
         where,
@@ -239,7 +250,7 @@ export const deleteReview = async (req, res, next) => {
  */
 const updateCourseRating = async (courseId) => {
   const ratingStats = await prisma.review.aggregate({
-    where: { courseId, isApproved: true },
+    where: supportsReviewModeration ? { courseId, isApproved: true } : { courseId },
     _avg: { rating: true },
     _count: { rating: true },
   });
@@ -265,8 +276,8 @@ export const getAllReviewsAdmin = async (req, res, next) => {
     const search = String(req.query.search || req.query.q || '').trim();
 
     const where = {
-      ...(approved === 'true' ? { isApproved: true } : {}),
-      ...(approved === 'false' ? { isApproved: false } : {}),
+      ...(supportsReviewModeration && approved === 'true' ? { isApproved: true } : {}),
+      ...(supportsReviewModeration && approved === 'false' ? { isApproved: false } : {}),
       ...(search
         ? {
             OR: [
@@ -285,7 +296,9 @@ export const getAllReviewsAdmin = async (req, res, next) => {
         include: {
           user: { select: { id: true, fullName: true, email: true } },
           course: { select: { id: true, title: true } },
-          reviewedBy: { select: { id: true, fullName: true, email: true } },
+          ...(supportsReviewModeration
+            ? { reviewedBy: { select: { id: true, fullName: true, email: true } } }
+            : {}),
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -314,6 +327,13 @@ export const getAllReviewsAdmin = async (req, res, next) => {
  */
 export const moderateReview = async (req, res, next) => {
   try {
+    if (!supportsReviewModeration) {
+      return res.status(503).json({
+        success: false,
+        message: 'Review moderation fields are not available in current deployment. Please run migration and redeploy.',
+      });
+    }
+
     const { id } = req.params;
     const isApproved = req.body.isApproved === true || req.body.isApproved === 'true';
 

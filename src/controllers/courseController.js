@@ -3,6 +3,9 @@ import { validationResult } from 'express-validator';
 import { generateSlug } from '../utils/helpers.js';
 import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
 
+const reviewFieldNames = prisma?._runtimeDataModel?.models?.Review?.fields?.map((f) => f.name) || [];
+const supportsReviewModeration = reviewFieldNames.includes('isApproved');
+
 /** Instructor fields safe to expose on public course APIs. Excludes PII and financial data. */
 const INSTRUCTOR_PUBLIC_SELECT = {
   id: true,
@@ -493,7 +496,7 @@ export const getCourseById = async (req, res, next) => {
           },
         },
         reviews: {
-          where: isAdmin ? {} : { isApproved: true },
+          where: isAdmin || !supportsReviewModeration ? {} : { isApproved: true },
           include: {
             user: {
               select: {
