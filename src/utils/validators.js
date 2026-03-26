@@ -119,12 +119,11 @@ export const mobileLoginOrRegisterValidation = [
     .isIn(['phone', 'email'])
     .withMessage('mailIn must be either "phone" or "email"'),
   body('phone')
-    .notEmpty()
-    .withMessage('Phone number is required')
+    .optional({ values: 'falsy' })
     .trim()
     .isLength({ max: 50 })
     .withMessage('Phone max 50 characters')
-    .custom((value, { req }) => {
+    .custom((value) => {
       const digits = String(value).replace(/\D/g, '');
       let normalized = digits;
       if (digits.startsWith('977') && digits.length === 13) normalized = digits.slice(3);
@@ -141,12 +140,26 @@ export const mobileLoginOrRegisterValidation = [
     .isEmail()
     .withMessage('Please provide a valid email address')
     .normalizeEmail(),
+  body().custom((_, { req }) => {
+    const hasPhone = typeof req.body.phone === 'string' && req.body.phone.trim() !== '';
+    const hasEmail = typeof req.body.email === 'string' && req.body.email.trim() !== '';
+    if (!hasPhone && !hasEmail) {
+      throw new Error('Either phone or email is required');
+    }
+    const mailIn = (req.body.mailIn || (hasPhone ? 'phone' : 'email')).toString();
+    if (mailIn === 'phone' && !hasPhone) {
+      throw new Error('Phone is required when mailIn is "phone"');
+    }
+    if (mailIn === 'email' && !hasEmail) {
+      throw new Error('Email is required when mailIn is "email"');
+    }
+    return true;
+  }),
 ];
 export const mobileSendOtpValidation = [
   body('mailIn').optional({ values: 'falsy' }).isIn(['phone', 'email']).withMessage('mailIn must be phone or email'),
   body('phone')
-    .notEmpty()
-    .withMessage('Phone number is required')
+    .optional({ values: 'falsy' })
     .trim()
     .isLength({ max: 50 })
     .withMessage('Phone max 50 characters')
@@ -167,11 +180,25 @@ export const mobileSendOtpValidation = [
     .isEmail()
     .withMessage('Please provide a valid email address')
     .normalizeEmail(),
+  body().custom((_, { req }) => {
+    const hasPhone = typeof req.body.phone === 'string' && req.body.phone.trim() !== '';
+    const hasEmail = typeof req.body.email === 'string' && req.body.email.trim() !== '';
+    if (!hasPhone && !hasEmail) {
+      throw new Error('Either phone or email is required');
+    }
+    const mailIn = (req.body.mailIn || (hasPhone ? 'phone' : 'email')).toString();
+    if (mailIn === 'phone' && !hasPhone) {
+      throw new Error('Phone is required when mailIn is "phone"');
+    }
+    if (mailIn === 'email' && !hasEmail) {
+      throw new Error('Email is required when mailIn is "email"');
+    }
+    return true;
+  }),
 ];
 export const mobileVerifyOtpValidation = [
   body('phone')
-    .notEmpty()
-    .withMessage('Phone is required')
+    .optional({ values: 'falsy' })
     .trim()
     .isLength({ max: 50 })
     .withMessage('Phone max 50 characters')
@@ -186,7 +213,21 @@ export const mobileVerifyOtpValidation = [
       }
       return true;
     }),
+  body('email')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail(),
   body('otp').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits').isNumeric().withMessage('OTP must be numeric'),
+  body().custom((_, { req }) => {
+    const hasPhone = typeof req.body.phone === 'string' && req.body.phone.trim() !== '';
+    const hasEmail = typeof req.body.email === 'string' && req.body.email.trim() !== '';
+    if (!hasPhone && !hasEmail) {
+      throw new Error('Either phone or email is required');
+    }
+    return true;
+  }),
 ];
 
 export const forgotPasswordValidation = [

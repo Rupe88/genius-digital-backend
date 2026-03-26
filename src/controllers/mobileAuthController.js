@@ -54,25 +54,50 @@ export const getOtpStatus = asyncHandler(async (req, res) => {
  * If email is new, creates user and sends OTP.
  */
 export const loginOrRegister = asyncHandler(async (req, res) => {
-  const { phone, fullName, email, mailIn = 'phone' } = req.body;
+  const { phone, fullName, email } = req.body;
   const normalizedPhone = normalizePhone(phone);
   const rawPhone = phone != null ? String(phone).trim() : null;
-  if (!normalizedPhone) {
-    return res.status(400).json({ success: false, message: 'Phone number is required' });
+  const normalizedEmailInput = normalizeEmail(email);
+  const effectiveMailIn = req.body.mailIn || (normalizedPhone ? 'phone' : 'email');
+  if (!normalizedPhone && !normalizedEmailInput) {
+    return res.status(400).json({ success: false, message: 'Either phone or email is required' });
+  }
+  if (effectiveMailIn === 'phone' && !normalizedPhone) {
+    return res.status(400).json({ success: false, message: 'Phone is required when mailIn is "phone"' });
+  }
+  if (effectiveMailIn === 'email' && !normalizedEmailInput) {
+    return res.status(400).json({ success: false, message: 'Email is required when mailIn is "email"' });
   }
 
   const normalizedEmail = getSafeMobileEmail(email, normalizedPhone);
 
-  const existing = await prisma.mobileAppUser.findUnique({
-    where: { phone: normalizedPhone },
-  });
+  const existingByPhone = normalizedPhone
+    ? await prisma.mobileAppUser.findUnique({
+        where: { phone: normalizedPhone },
+      })
+    : null;
 
-  const existingFallback =
-    !existing && rawPhone && rawPhone !== normalizedPhone
+  const existingPhoneFallback =
+    !existingByPhone && rawPhone && normalizedPhone && rawPhone !== normalizedPhone
       ? await prisma.mobileAppUser.findUnique({ where: { phone: rawPhone } })
       : null;
 
-  const existingUser = existing || existingFallback;
+  const existingByEmail = normalizedEmailInput
+    ? await prisma.mobileAppUser.findUnique({ where: { email: normalizedEmailInput } })
+    : null;
+
+  if (
+    existingByPhone &&
+    existingByEmail &&
+    existingByPhone.id !== existingByEmail.id
+  ) {
+    return res.status(409).json({
+      success: false,
+      message: 'Phone and email belong to different accounts. Please use one account.',
+    });
+  }
+
+  const existingUser = existingByPhone || existingPhoneFallback || existingByEmail;
 
   let user;
   let isNewUser = false;
@@ -87,6 +112,9 @@ export const loginOrRegister = asyncHandler(async (req, res) => {
 
     if (normalizedEmail && (!existingUser.email || existingUser.email !== normalizedEmail)) {
       updateData.email = normalizedEmail;
+    }
+    if (normalizedPhone && (!existingUser.phone || existingUser.phone !== normalizedPhone)) {
+      updateData.phone = normalizedPhone;
     }
 
     if (Object.keys(updateData).length > 0) {
@@ -123,7 +151,7 @@ export const loginOrRegister = asyncHandler(async (req, res) => {
   let sentVia = 'phone';
   let message = 'OTP sent successfully.';
 
-  if (mailIn === 'email') {
+  if (effectiveMailIn === 'email') {
     if (!user.email) {
       return res.status(400).json({
         success: false,
@@ -188,24 +216,49 @@ export const loginOrRegister = asyncHandler(async (req, res) => {
  * Supports mailIn: 'email' | 'phone' - defaults to email.
  */
 export const sendOtp = asyncHandler(async (req, res) => {
-  const { phone, mailIn = 'phone', email } = req.body;
+  const { phone, email } = req.body;
   const normalizedPhone = normalizePhone(phone);
   const rawPhone = phone != null ? String(phone).trim() : null;
-  if (!normalizedPhone) {
-    return res.status(400).json({ success: false, message: 'Phone number is required' });
+  const normalizedEmailInput = normalizeEmail(email);
+  const effectiveMailIn = req.body.mailIn || (normalizedPhone ? 'phone' : 'email');
+  if (!normalizedPhone && !normalizedEmailInput) {
+    return res.status(400).json({ success: false, message: 'Either phone or email is required' });
+  }
+  if (effectiveMailIn === 'phone' && !normalizedPhone) {
+    return res.status(400).json({ success: false, message: 'Phone is required when mailIn is "phone"' });
+  }
+  if (effectiveMailIn === 'email' && !normalizedEmailInput) {
+    return res.status(400).json({ success: false, message: 'Email is required when mailIn is "email"' });
   }
 
   const normalizedEmail = getSafeMobileEmail(email, normalizedPhone);
-  const user = await prisma.mobileAppUser.findUnique({
-    where: { phone: normalizedPhone },
-  });
+  const userByPhone = normalizedPhone
+    ? await prisma.mobileAppUser.findUnique({
+        where: { phone: normalizedPhone },
+      })
+    : null;
 
   const userFallback =
-    !user && rawPhone && rawPhone !== normalizedPhone
+    !userByPhone && rawPhone && normalizedPhone && rawPhone !== normalizedPhone
       ? await prisma.mobileAppUser.findUnique({ where: { phone: rawPhone } })
       : null;
 
-  const mobileUser = user || userFallback;
+  const userByEmail = normalizedEmailInput
+    ? await prisma.mobileAppUser.findUnique({ where: { email: normalizedEmailInput } })
+    : null;
+
+  if (
+    userByPhone &&
+    userByEmail &&
+    userByPhone.id !== userByEmail.id
+  ) {
+    return res.status(409).json({
+      success: false,
+      message: 'Phone and email belong to different accounts. Please use one account.',
+    });
+  }
+
+  const mobileUser = userByPhone || userFallback || userByEmail;
 
   if (!mobileUser) {
     return res.status(404).json({ success: false, message: 'User not found' });
@@ -228,7 +281,7 @@ export const sendOtp = asyncHandler(async (req, res) => {
   let sentVia = 'phone';
   let message = 'OTP sent successfully.';
 
-  if (mailIn === 'email') {
+  if (effectiveMailIn === 'email') {
     if (!mobileUser.email) {
       return res.status(400).json({
         success: false,
@@ -288,23 +341,41 @@ export const sendOtp = asyncHandler(async (req, res) => {
  * Allows re-verification even if email is already verified.
  */
 export const verifyOtp = asyncHandler(async (req, res) => {
-  const { phone, otp: otpRaw } = req.body;
+  const { phone, email, otp: otpRaw } = req.body;
   const normalizedPhone = normalizePhone(phone);
   const rawPhone = phone != null ? String(phone).trim() : null;
-  if (!normalizedPhone) {
-    return res.status(400).json({ success: false, message: 'Phone number is required' });
+  const normalizedEmailInput = normalizeEmail(email);
+  if (!normalizedPhone && !normalizedEmailInput) {
+    return res.status(400).json({ success: false, message: 'Either phone or email is required' });
   }
   const otp = String(otpRaw ?? '').trim();
-  const user = await prisma.mobileAppUser.findUnique({
-    where: { phone: normalizedPhone },
-  });
+  const userByPhone = normalizedPhone
+    ? await prisma.mobileAppUser.findUnique({
+        where: { phone: normalizedPhone },
+      })
+    : null;
 
   const userFallback =
-    !user && rawPhone && rawPhone !== normalizedPhone
+    !userByPhone && rawPhone && normalizedPhone && rawPhone !== normalizedPhone
       ? await prisma.mobileAppUser.findUnique({ where: { phone: rawPhone } })
       : null;
 
-  const mobileUser = user || userFallback;
+  const userByEmail = normalizedEmailInput
+    ? await prisma.mobileAppUser.findUnique({ where: { email: normalizedEmailInput } })
+    : null;
+
+  if (
+    userByPhone &&
+    userByEmail &&
+    userByPhone.id !== userByEmail.id
+  ) {
+    return res.status(409).json({
+      success: false,
+      message: 'Phone and email belong to different accounts. Please use one account.',
+    });
+  }
+
+  const mobileUser = userByPhone || userFallback || userByEmail;
 
   if (!mobileUser) {
     return res.status(404).json({ success: false, message: 'User not found' });
