@@ -8,6 +8,47 @@ import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services
 
 const SERIES_MARKER_PREFIX = '[[series:';
 const SERIES_MARKER_REGEX = /\[\[series:([a-f0-9-]{8,})\]\]/i;
+const SERIES_RANGE_MARKER_REGEX = /\[\[series-range:(\d{4}-\d{2}-\d{2})\|(\d{4}-\d{2}-\d{2})\]\]/i;
+
+// Admin selects date/time in Nepal time; server timezone may differ.
+// Nepal has a fixed UTC offset of +05:45 (no DST).
+const KATHMANDU_OFFSET_MINUTES = 5 * 60 + 45;
+const KATHMANDU_OFFSET_MS = KATHMANDU_OFFSET_MINUTES * 60 * 1000;
+
+function parseYMD(dateInput) {
+  const text = String(dateInput || '');
+  const m = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return {
+    year: parseInt(m[1], 10),
+    monthIndex: parseInt(m[2], 10) - 1,
+    day: parseInt(m[3], 10),
+  };
+}
+
+function kathmanduDay(dateObj) {
+  const shifted = new Date(dateObj.getTime() + KATHMANDU_OFFSET_MS);
+  return shifted.getUTCDay();
+}
+
+function kathmanduTimeString(dateObj) {
+  const shifted = new Date(dateObj.getTime() + KATHMANDU_OFFSET_MS);
+  let h = shifted.getUTCHours();
+  const m = shifted.getUTCMinutes();
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  const mm = String(m).padStart(2, '0');
+  return `${String(h).padStart(2, '0')}:${mm} ${suffix}`;
+}
+
+function toKathmanduYMD(dateObj) {
+  const shifted = new Date(dateObj.getTime() + KATHMANDU_OFFSET_MS);
+  const y = shifted.getUTCFullYear();
+  const m = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(shifted.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 const extractSeriesId = (description) => {
   const text = String(description || '');
@@ -15,14 +56,38 @@ const extractSeriesId = (description) => {
   return match?.[1] || null;
 };
 
-const stripSeriesMarker = (description) => {
-  return String(description || '').replace(SERIES_MARKER_REGEX, '').trim();
+const extractSeriesRange = (description) => {
+  const text = String(description || '');
+  const match = text.match(SERIES_RANGE_MARKER_REGEX);
+  if (!match) return null;
+  return { startDate: match[1], endDate: match[2] };
 };
 
-const withSeriesMarker = (description, seriesId) => {
-  const clean = stripSeriesMarker(description);
+const stripSeriesMetadata = (description) => {
+  return String(description || '').replace(SERIES_MARKER_REGEX, '').replace(SERIES_RANGE_MARKER_REGEX, '').trim();
+};
+
+const withSeriesMarker = (description, seriesId, startDate, endDate) => {
+  const clean = stripSeriesMetadata(description);
   if (!seriesId) return clean;
-  return clean ? `${clean}\n${SERIES_MARKER_PREFIX}${seriesId}]]` : `${SERIES_MARKER_PREFIX}${seriesId}]]`;
+  const markers = [`${SERIES_MARKER_PREFIX}${seriesId}]]`];
+  if (startDate && endDate) {
+    markers.push(`[[series-range:${startDate}|${endDate}]]`);
+  }
+  return clean ? `${clean}\n${markers.join('\n')}` : markers.join('\n');
+};
+
+const stripSeriesMetadataForResponse = (liveClass) => {
+  if (!liveClass || typeof liveClass !== 'object') return liveClass;
+  if (typeof liveClass.description === 'string') {
+    liveClass.description = stripSeriesMetadata(liveClass.description);
+  }
+  return liveClass;
+};
+
+const stripSeriesMetadataForResponseList = (liveClasses) => {
+  if (!Array.isArray(liveClasses)) return;
+  liveClasses.forEach((lc) => stripSeriesMetadataForResponse(lc));
 };
 
 async function maskLiveClassCourseThumbnail(liveClass) {
@@ -61,16 +126,33 @@ async function enrichLiveClassesWithAdminNotes(liveClasses) {
 
 function dedupeSeriesRows(liveClasses) {
   if (!Array.isArray(liveClasses) || liveClasses.length === 0) return [];
-  const seen = new Set();
-  const out = [];
+  const grouped = new Map();
+
   for (const lc of liveClasses) {
     const sid = extractSeriesId(lc?.description);
     const key = sid ? `series:${sid}` : `class:${lc.id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(lc);
+    const prev = grouped.get(key);
+    if (!prev) {
+      grouped.set(key, lc);
+      continue;
+    }
+
+    const prevCancelled = prev?.status === 'CANCELLED';
+    const curCancelled = lc?.status === 'CANCELLED';
+    if (prevCancelled && !curCancelled) {
+      grouped.set(key, lc);
+      continue;
+    }
+    if (!prevCancelled && curCancelled) continue;
+
+    const prevTs = new Date(prev?.scheduledAt).getTime();
+    const curTs = new Date(lc?.scheduledAt).getTime();
+    if (!Number.isNaN(curTs) && (Number.isNaN(prevTs) || curTs < prevTs)) {
+      grouped.set(key, lc);
+    }
   }
-  return out;
+
+  return Array.from(grouped.values());
 }
 
 const buildWeeklyScheduleFromSessions = (sessions) => {
@@ -81,13 +163,9 @@ const buildWeeklyScheduleFromSessions = (sessions) => {
     if (session?.status === 'CANCELLED') continue;
     const scheduled = new Date(session.scheduledAt);
     if (Number.isNaN(scheduled.getTime())) continue;
-    const weekday = scheduled.getDay();
+    const weekday = kathmanduDay(scheduled);
     if (weeklySchedule[weekday]) continue;
-    weeklySchedule[weekday] = scheduled.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
+    weeklySchedule[weekday] = kathmanduTimeString(scheduled);
   }
   return weeklySchedule;
 };
@@ -113,12 +191,16 @@ const attachSeriesScheduleMetadata = async (liveClasses) => {
         },
       });
       if (!sessions.length) return;
-      const first = sessions[0].scheduledAt;
-      const last = sessions[sessions.length - 1].scheduledAt;
+
+      const activeSessions = sessions.filter((s) => s.status !== 'CANCELLED');
+      const sessionsForRange = activeSessions.length > 0 ? activeSessions : sessions;
+      const first = sessionsForRange[0].scheduledAt;
+      const last = sessionsForRange[sessionsForRange.length - 1].scheduledAt;
+      const rangeFromMarker = extractSeriesRange(liveClasses.find((lc) => extractSeriesId(lc?.description) === seriesId)?.description);
       seriesMetaMap.set(seriesId, {
-        weeklySchedule: buildWeeklyScheduleFromSessions(sessions),
-        startDate: toDateInputLocal(first),
-        endDate: toDateInputLocal(last),
+        weeklySchedule: buildWeeklyScheduleFromSessions(activeSessions),
+        startDate: rangeFromMarker?.startDate || toDateInputLocal(first),
+        endDate: rangeFromMarker?.endDate || toDateInputLocal(last),
       });
     })
   );
@@ -136,7 +218,7 @@ const attachSeriesScheduleMetadata = async (liveClasses) => {
     }
     const d = new Date(liveClass.scheduledAt);
     if (!Number.isNaN(d.getTime())) {
-      const day = toDateInputLocal(d);
+      const day = toKathmanduYMD(d);
       liveClass.startDate = day;
       liveClass.endDate = day;
     }
@@ -152,31 +234,39 @@ const parseTimeToHoursMinutes = (timeStr) => {
 };
 
 const buildDateWithTime = (dateInput, timeStr) => {
+  // Treat dateInput + timeStr as Kathmandu local time and convert to an instant (UTC stored in DB).
   const t = parseTimeToHoursMinutes(timeStr);
   if (!t) return null;
-  const d = new Date(dateInput);
-  d.setHours(t.hours, t.minutes, 0, 0);
-  return d;
+
+  const ymd = parseYMD(dateInput);
+  if (ymd) {
+    const utcMs = Date.UTC(ymd.year, ymd.monthIndex, ymd.day, t.hours, t.minutes, 0, 0) - KATHMANDU_OFFSET_MS;
+    return new Date(utcMs);
+  }
+
+  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (Number.isNaN(d.getTime())) return null;
+  // Read Kathmandu calendar parts from the shifted date, independent of server timezone.
+  const shifted = new Date(d.getTime() + KATHMANDU_OFFSET_MS);
+  const y = shifted.getUTCFullYear();
+  const monthIndex = shifted.getUTCMonth();
+  const day = shifted.getUTCDate();
+  const utcMs = Date.UTC(y, monthIndex, day, t.hours, t.minutes, 0, 0) - KATHMANDU_OFFSET_MS;
+  return new Date(utcMs);
 };
 
-// Parse YYYY-MM-DD as a *local* date (not UTC midnight)
+// Parse YYYY-MM-DD as a timezone-agnostic calendar date
 const parseDateInputLocal = (dateInput) => {
-  const text = String(dateInput || '');
-  const m = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return new Date(text);
-  const year = parseInt(m[1], 10);
-  const monthIndex = parseInt(m[2], 10) - 1;
-  const day = parseInt(m[3], 10);
-  return new Date(year, monthIndex, day);
+  const ymd = parseYMD(dateInput);
+  if (!ymd) return new Date(String(dateInput || ''));
+  // UTC midnight for the calendar date.
+  return new Date(Date.UTC(ymd.year, ymd.monthIndex, ymd.day, 0, 0, 0, 0));
 };
 
 const toDateInputLocal = (dateObj) => {
   const d = dateObj instanceof Date ? dateObj : new Date(dateObj);
   if (Number.isNaN(d.getTime())) return '';
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return toKathmanduYMD(d);
 };
 
 const toDayKey = (d) => {
@@ -265,6 +355,7 @@ export const getAllLiveClasses = async (req, res, next) => {
 
     await maskLiveClassesCourseThumbnails(liveClasses);
     await enrichLiveClassesWithAdminNotes(liveClasses);
+    stripSeriesMetadataForResponseList(liveClasses);
 
     res.json({
       success: true,
@@ -329,6 +420,7 @@ export const getLiveClassById = async (req, res, next) => {
 
     await maskLiveClassCourseThumbnail(liveClass);
     await enrichLiveClassesWithAdminNotes([liveClass]);
+    stripSeriesMetadataForResponse(liveClass);
 
     res.json({
       success: true,
@@ -469,7 +561,7 @@ export const createLiveClass = async (req, res, next) => {
     const selectedWeekdays =
       Array.isArray(daysOfWeek) && daysOfWeek.length > 0
         ? [...new Set(daysOfWeek.map((v) => parseInt(v, 10)).filter((v) => v >= 0 && v <= 6))]
-        : [parseDateInputLocal(startDate).getDay()];
+        : [parseDateInputLocal(startDate).getUTCDay()];
 
     if (!selectedWeekdays.length) {
       return res.status(400).json({
@@ -491,7 +583,7 @@ export const createLiveClass = async (req, res, next) => {
     const scheduleEntries = [];
     const cursor = new Date(startBoundary);
     while (cursor <= endBoundary) {
-      const weekday = cursor.getDay();
+      const weekday = cursor.getUTCDay();
       if (selectedWeekdays.includes(weekday)) {
         const timeForDay = normalizedDayTimes[weekday] || normalizedDayTimes[String(weekday)] || startTime;
         const scheduledAt = buildDateWithTime(new Date(cursor), timeForDay);
@@ -499,7 +591,7 @@ export const createLiveClass = async (req, res, next) => {
           scheduleEntries.push({ weekday, scheduledAt });
         }
       }
-      cursor.setDate(cursor.getDate() + 1);
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
 
     if (!scheduleEntries.length) {
@@ -510,7 +602,7 @@ export const createLiveClass = async (req, res, next) => {
     }
 
     const seriesId = randomUUID();
-    const descriptionWithSeriesMarker = withSeriesMarker(description, seriesId);
+    const descriptionWithSeriesMarker = withSeriesMarker(description, seriesId, startDate, endDate);
     const createRows = scheduleEntries.map((entry) => ({
       title,
       description: descriptionWithSeriesMarker || null,
@@ -563,6 +655,7 @@ export const createLiveClass = async (req, res, next) => {
 
     await maskLiveClassesCourseThumbnails(created);
     await enrichLiveClassesWithAdminNotes(created);
+    stripSeriesMetadataForResponseList(created);
 
     res.status(201).json({
       success: true,
@@ -659,9 +752,15 @@ export const updateLiveClass = async (req, res, next) => {
 
     // Handle Zoom meeting updates
     const existingSeriesId = extractSeriesId(liveClass.description);
+    const existingSeriesRange = extractSeriesRange(liveClass.description);
     const nextDescription =
       description !== undefined
-        ? withSeriesMarker(description, existingSeriesId)
+        ? withSeriesMarker(
+            description,
+            existingSeriesId,
+            existingSeriesRange?.startDate,
+            existingSeriesRange?.endDate
+          )
         : undefined;
 
     // ===== Recurring series edit (weekly) =====
@@ -728,7 +827,7 @@ export const updateLiveClass = async (req, res, next) => {
       const desiredByDateKey = new Map();
       const desiredCursor = new Date(startBoundary);
       while (desiredCursor <= endBoundary) {
-        const weekday = desiredCursor.getDay();
+        const weekday = desiredCursor.getUTCDay();
         if (selectedWeekdaySet.has(weekday)) {
           const dateKey = toDayKey(desiredCursor);
           const desiredTime = timeForWeekday(weekday);
@@ -737,7 +836,7 @@ export const updateLiveClass = async (req, res, next) => {
             desiredByDateKey.set(dateKey, { dateKey, scheduledAt: dt, weekday });
           }
         }
-        desiredCursor.setDate(desiredCursor.getDate() + 1);
+        desiredCursor.setUTCDate(desiredCursor.getUTCDate() + 1);
       }
 
       if (!desiredByDateKey.size) {
@@ -756,7 +855,13 @@ export const updateLiveClass = async (req, res, next) => {
         existingByDateKey.set(key, list);
       }
 
-      const finalDescription = nextDescription !== undefined ? nextDescription : liveClass.description;
+      const nextSeriesDescription = withSeriesMarker(
+        description !== undefined ? description : liveClass.description,
+        existingSeriesId,
+        startDate,
+        endDate
+      );
+      const finalDescription = nextSeriesDescription;
       const nextMeetingUrl = meetingUrl !== undefined ? meetingUrl : liveClass.meetingUrl;
       const nextMeetingId = meetingId !== undefined ? meetingId : liveClass.meetingId;
       const nextMeetingPassword = meetingPassword !== undefined ? meetingPassword : liveClass.meetingPassword;
@@ -852,6 +957,7 @@ export const updateLiveClass = async (req, res, next) => {
 
       await maskLiveClassCourseThumbnail(updatedRow);
       await enrichLiveClassesWithAdminNotes([updatedRow]);
+      stripSeriesMetadataForResponse(updatedRow);
 
       return res.json({
         success: true,
@@ -1343,6 +1449,7 @@ export const getMyAvailableLiveClasses = async (req, res, next) => {
     await attachSeriesScheduleMetadata(liveClasses);
     await maskLiveClassesCourseThumbnails(liveClasses);
     await enrichLiveClassesWithAdminNotes(liveClasses);
+    stripSeriesMetadataForResponseList(liveClasses);
 
     res.json({
       success: true,
