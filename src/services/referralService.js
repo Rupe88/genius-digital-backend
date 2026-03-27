@@ -1,4 +1,5 @@
 import { prisma } from '../config/database.js';
+import * as auditLogService from './auditLogService.js';
 
 import crypto from 'crypto';
 import { createHash } from 'crypto';
@@ -15,6 +16,17 @@ const generateReferralCode = (userId, courseId) => {
     .toUpperCase();
   return `REF${hash}`;
 };
+
+const REFERRAL_ATTRIBUTION_WINDOW_DAYS = Math.max(
+  1,
+  parseInt(process.env.REFERRAL_ATTRIBUTION_WINDOW_DAYS || '30', 10)
+);
+const PAYOUT_BATCH_TTL_MINUTES = Math.max(
+  5,
+  parseInt(process.env.REFERRAL_PAYOUT_BATCH_TTL_MINUTES || '30', 10)
+);
+
+const hashToken = (token) => createHash('sha256').update(String(token)).digest('hex');
 
 /**
  * Create or get referral link for user/course combination
@@ -183,40 +195,79 @@ const validateClick = async (referralLink, clickData) => {
   };
 };
 
+const isClickWithinAttributionWindow = (clickedAt) => {
+  if (!clickedAt) return false;
+  const maxAgeMs = REFERRAL_ATTRIBUTION_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  return (Date.now() - new Date(clickedAt).getTime()) <= maxAgeMs;
+};
+
+const resolveTrustedConversionClick = async (userId, courseId, clickId = null) => {
+  if (clickId) {
+    const explicitClick = await prisma.referralClick.findUnique({
+      where: { id: clickId },
+      include: { referralLink: true },
+    });
+
+    if (!explicitClick?.referralLink?.isActive) return null;
+    if (!explicitClick.isValid) return null;
+    if (!isClickWithinAttributionWindow(explicitClick.clickedAt)) return null;
+    if (explicitClick.referralLink.courseId !== courseId) return null;
+
+    // If click is tied to a logged-in user, it must match converter.
+    if (explicitClick.clickedById && explicitClick.clickedById !== userId) return null;
+
+    return explicitClick;
+  }
+
+  // Fallback attribution when clickId is unavailable.
+  const click = await prisma.referralClick.findFirst({
+    where: {
+      referralLink: {
+        courseId,
+        isActive: true,
+      },
+      clickedById: userId,
+      isValid: true,
+      clickedAt: {
+        gte: new Date(Date.now() - REFERRAL_ATTRIBUTION_WINDOW_DAYS * 24 * 60 * 60 * 1000),
+      },
+    },
+    include: {
+      referralLink: true,
+    },
+    orderBy: {
+      clickedAt: 'desc',
+    },
+  });
+
+  return click || null;
+};
+
 /**
  * Process referral conversion (when someone enrolls through a referral)
  */
 export const processReferralConversion = async (userId, courseId, enrollmentId, clickId = null) => {
-  // Find the most recent valid click for this user/course combination
-  let click;
-
-  if (clickId) {
-    // If click ID is provided, use it
-    click = await prisma.referralClick.findUnique({
-      where: { id: clickId },
-      include: { referralLink: true },
-    });
-  } else {
-    // Find the most recent valid click for this user/course
-    click = await prisma.referralClick.findFirst({
-      where: {
-        referralLink: {
-          courseId,
-        },
-        clickedById: userId,
-        isValid: true,
-      },
-      include: {
-        referralLink: true,
-      },
-      orderBy: {
-        clickedAt: 'desc',
-      },
-    });
+  const click = await resolveTrustedConversionClick(userId, courseId, clickId);
+  if (!click || !click.referralLink?.isActive) {
+    return null; // No valid referral found
   }
 
-  if (!click || !click.referralLink.isActive) {
-    return null; // No valid referral found
+  // Hard block self-conversion (not just fraud-flag).
+  if (click.referralLink.userId === userId) {
+    await auditLogService.createAuditLog({
+      userId,
+      action: 'REFERRAL_SELF_CONVERSION_BLOCKED',
+      entityType: 'REFERRAL_CONVERSION',
+      entityId: enrollmentId,
+      description: 'Blocked self-conversion attribution',
+      metadata: {
+        clickId: click.id,
+        courseId,
+        referralLinkId: click.referralLink.id,
+      },
+      riskScore: 80,
+    });
+    return null;
   }
 
   // Check if conversion already exists
@@ -231,6 +282,20 @@ export const processReferralConversion = async (userId, courseId, enrollmentId, 
 
   if (existingConversion) {
     return existingConversion; // Already processed
+  }
+
+  // Enforce one referral commission per user+course to prevent replay/abuse.
+  const existingCourseConversion = await prisma.referralConversion.findFirst({
+    where: {
+      convertedById: userId,
+      courseId,
+      isFraudulent: false,
+      status: { not: 'CANCELLED' },
+    },
+    select: { id: true },
+  });
+  if (existingCourseConversion) {
+    return null;
   }
 
   // Get course details for commission calculation
@@ -293,16 +358,28 @@ export const processReferralConversion = async (userId, courseId, enrollmentId, 
 const validateConversion = async (conversion) => {
   const reasons = [];
 
+  const conversionWithRelations = await prisma.referralConversion.findUnique({
+    where: { id: conversion.id },
+    include: {
+      referralLink: {
+        select: { userId: true },
+      },
+      click: {
+        select: { clickedAt: true },
+      },
+    },
+  });
+  if (!conversionWithRelations) {
+    return { valid: false, reason: 'Conversion record missing' };
+  }
+
   // 1. Check if converter is the referrer
-  if (conversion.convertedById === conversion.referralLink.userId) {
+  if (conversionWithRelations.convertedById === conversionWithRelations.referralLink.userId) {
     reasons.push('Self-conversion detected');
   }
 
   // 2. Check conversion time (too quick after click might be suspicious)
-  const click = await prisma.referralClick.findUnique({
-    where: { id: conversion.clickId },
-    select: { clickedAt: true },
-  });
+  const click = conversionWithRelations.click;
 
   if (click) {
     const timeDiff = Date.now() - new Date(click.clickedAt).getTime();
@@ -316,9 +393,9 @@ const validateConversion = async (conversion) => {
   // 3. Check for multiple conversions from same click
   const multipleConversions = await prisma.referralConversion.count({
     where: {
-      clickId: conversion.clickId,
+      clickId: conversionWithRelations.clickId,
       convertedById: {
-        not: conversion.convertedById, // Exclude current conversion
+        not: conversionWithRelations.convertedById, // Exclude current conversion
       },
     },
   });
@@ -355,6 +432,11 @@ export const getReferralStats = async (userId) => {
           createdAt: true,
         },
       },
+      _count: {
+        select: {
+          clicks: true,
+        },
+      },
     },
   });
 
@@ -373,14 +455,14 @@ export const getReferralStats = async (userId) => {
       id: link.id,
       referralCode: link.referralCode,
       course: link.course,
-      clicks: link.totalClicks,
+      clicks: link._count?.clicks ?? 0,
       conversions: link.conversions.length,
       earnings: link.conversions.reduce((sum, conv) => sum + parseFloat(conv.commissionAmount), 0),
       status: link.isActive ? 'ACTIVE' : 'INACTIVE',
       createdAt: link.createdAt,
     };
 
-    stats.totalClicks += link.totalClicks;
+    stats.totalClicks += (link._count?.clicks ?? 0);
     stats.totalConversions += link.conversions.length;
 
     // Calculate earnings by status
@@ -505,5 +587,219 @@ export const generateSharingUrls = async (userId, courseId, baseUrl, courseSlug 
     linkedinUrl: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
     twitterUrl: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`,
     whatsappUrl: `https://wa.me/?text=${encodeURIComponent(`Check out this course: ${shareUrl}`)}`,
+  };
+};
+
+/**
+ * Prepare payout batch (step 1/2): validates conversions and issues a short-lived confirmation token.
+ */
+export const prepareReferralPayoutBatch = async (adminUserId, conversionIds = []) => {
+  if (!Array.isArray(conversionIds) || conversionIds.length === 0) {
+    throw new Error('Conversion IDs array is required');
+  }
+
+  const conversions = await prisma.referralConversion.findMany({
+    where: {
+      id: { in: conversionIds },
+      status: 'PENDING',
+      isFraudulent: false,
+    },
+    select: {
+      id: true,
+      commissionAmount: true,
+      referralLink: { select: { userId: true } },
+    },
+  });
+
+  if (conversions.length === 0) {
+    throw new Error('No valid pending conversions found');
+  }
+
+  const payoutBatchId = crypto.randomUUID();
+  const confirmationToken = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + PAYOUT_BATCH_TTL_MINUTES * 60 * 1000);
+  const totalAmount = conversions.reduce((sum, c) => sum + parseFloat(c.commissionAmount), 0);
+  const affiliatesAffected = new Set(conversions.map((c) => c.referralLink.userId)).size;
+
+  await auditLogService.createAuditLog({
+    userId: adminUserId,
+    action: 'REFERRAL_PAYOUT_PREPARED',
+    entityType: 'REFERRAL_PAYOUT',
+    entityId: payoutBatchId,
+    description: `Prepared referral payout batch for ${conversions.length} conversions`,
+    metadata: {
+      conversionIds: conversions.map((c) => c.id),
+      totalAmount,
+      affiliatesAffected,
+      expiresAt: expiresAt.toISOString(),
+      confirmationTokenHash: hashToken(confirmationToken),
+    },
+    riskScore: 50,
+  });
+
+  return {
+    payoutBatchId,
+    confirmationToken,
+    expiresAt: expiresAt.toISOString(),
+    conversionsCount: conversions.length,
+    affiliatesAffected,
+    totalAmount,
+  };
+};
+
+/**
+ * Confirm payout batch (step 2/2) with idempotency key.
+ */
+export const confirmReferralPayoutBatch = async ({
+  adminUserId,
+  payoutBatchId,
+  confirmationToken,
+  idempotencyKey,
+}) => {
+  if (!idempotencyKey || !String(idempotencyKey).trim()) {
+    throw new Error('Idempotency key is required');
+  }
+
+  const existingIdempotentResult = await prisma.auditLog.findFirst({
+    where: {
+      entityType: 'REFERRAL_PAYOUT_IDEMPOTENCY',
+      entityId: String(idempotencyKey).trim(),
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (existingIdempotentResult?.metadata?.result) {
+    return existingIdempotentResult.metadata.result;
+  }
+
+  const prepared = await prisma.auditLog.findFirst({
+    where: {
+      action: 'REFERRAL_PAYOUT_PREPARED',
+      entityType: 'REFERRAL_PAYOUT',
+      entityId: payoutBatchId,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (!prepared) {
+    throw new Error('Payout batch not found');
+  }
+  if (!prepared.userId) {
+    throw new Error('Payout preparer is invalid');
+  }
+
+  const meta = prepared.metadata || {};
+  const expectedHash = meta.confirmationTokenHash;
+  const expiresAt = meta.expiresAt ? new Date(meta.expiresAt) : null;
+  const conversionIds = Array.isArray(meta.conversionIds) ? meta.conversionIds : [];
+
+  if (!expectedHash || hashToken(confirmationToken) !== expectedHash) {
+    throw new Error('Invalid confirmation token');
+  }
+  if (!expiresAt || Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() < Date.now()) {
+    throw new Error('Payout confirmation token expired');
+  }
+  if (conversionIds.length === 0) {
+    throw new Error('No conversions attached to payout batch');
+  }
+
+  await auditLogService.createAuditLog({
+    userId: adminUserId,
+    action: 'REFERRAL_PAYOUT_CONFIRMED',
+    entityType: 'REFERRAL_PAYOUT',
+    entityId: payoutBatchId,
+    description: 'Referral payout batch confirmed by admin',
+    metadata: {
+      idempotencyKey: String(idempotencyKey).trim(),
+      conversionIds,
+    },
+    riskScore: 65,
+  });
+
+  const result = await markReferralCommissionsAsPaid(conversionIds);
+
+  await auditLogService.createAuditLog({
+    userId: adminUserId,
+    action: 'REFERRAL_PAYOUT_EXECUTED',
+    entityType: 'REFERRAL_PAYOUT',
+    entityId: payoutBatchId,
+    description: `Executed referral payout batch (${result.conversionsUpdated} conversions)`,
+    metadata: {
+      idempotencyKey: String(idempotencyKey).trim(),
+      result,
+    },
+    riskScore: 70,
+  });
+  await auditLogService.createAuditLog({
+    userId: adminUserId,
+    action: 'REFERRAL_PAYOUT_IDEMPOTENT_COMMIT',
+    entityType: 'REFERRAL_PAYOUT_IDEMPOTENCY',
+    entityId: String(idempotencyKey).trim(),
+    description: 'Idempotency checkpoint for referral payout',
+    metadata: {
+      payoutBatchId,
+      result,
+    },
+    riskScore: 30,
+  });
+
+  return result;
+};
+
+/**
+ * Security report for monitoring suspicious activity.
+ */
+export const getReferralSecurityReport = async ({ hours = 24 } = {}) => {
+  const windowStart = new Date(Date.now() - Math.max(1, Number(hours)) * 60 * 60 * 1000);
+
+  const [clicksTotal, invalidClicks, fraudulentConversions, pendingHighRiskLogs] = await Promise.all([
+    prisma.referralClick.count({ where: { clickedAt: { gte: windowStart } } }),
+    prisma.referralClick.count({ where: { clickedAt: { gte: windowStart }, isValid: false } }),
+    prisma.referralConversion.count({ where: { createdAt: { gte: windowStart }, isFraudulent: true } }),
+    prisma.auditLog.count({
+      where: {
+        createdAt: { gte: windowStart },
+        entityType: { in: ['REFERRAL_CONVERSION', 'REFERRAL_PAYOUT'] },
+        flagged: true,
+      },
+    }),
+  ]);
+
+  return {
+    windowHours: Math.max(1, Number(hours)),
+    clicksTotal,
+    invalidClicks,
+    invalidClickRate: clicksTotal > 0 ? Number((invalidClicks / clicksTotal).toFixed(4)) : 0,
+    fraudulentConversions,
+    flaggedReferralAuditEvents: pendingHighRiskLogs,
+  };
+};
+
+/**
+ * Retention maintenance: anonymize old click PII while retaining aggregates.
+ */
+export const applyReferralRetentionPolicy = async ({ retentionDays = 90 } = {}) => {
+  const days = Math.max(30, Number(retentionDays) || 90);
+  const beforeDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const result = await prisma.referralClick.updateMany({
+    where: {
+      clickedAt: { lt: beforeDate },
+      OR: [
+        { ipAddress: { not: null } },
+        { userAgent: { not: null } },
+        { sessionId: { not: null } },
+      ],
+    },
+    data: {
+      ipAddress: null,
+      userAgent: null,
+      sessionId: null,
+      deviceInfo: null,
+    },
+  });
+
+  return {
+    retentionDays: days,
+    anonymizedClicks: result.count,
+    beforeDate: beforeDate.toISOString(),
   };
 };

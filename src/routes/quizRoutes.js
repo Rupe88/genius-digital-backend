@@ -8,6 +8,7 @@ import {
   getMyQuizAttempts,
   getMyQuizAttemptDetails,
   getAdminQuizAttempts,
+  getAdminQuizAttemptDetails,
   createQuiz,
   updateQuiz,
   deleteQuiz,
@@ -47,6 +48,13 @@ router.get(
 );
 
 router.get('/admin/attempts', authenticate, requireAdmin, getAdminQuizAttempts);
+router.get(
+  '/admin/attempts/:attemptId',
+  authenticate,
+  requireAdmin,
+  [param('attemptId').isUUID().withMessage('Invalid attempt ID')],
+  getAdminQuizAttemptDetails
+);
 
 router.patch(
   '/admin/attempts/:id/feedback',

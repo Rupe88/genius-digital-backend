@@ -484,8 +484,11 @@ export const verifyPayment = async (params) => {
           }
         }
 
-        // Calculate affiliate commission if enrollment has affiliate
-        if (enrollment && enrollment.affiliateId) {
+        // Legacy affiliate-earning path:
+        // When referral attribution exists, ReferralConversion is the single source of truth.
+        // Skip AffiliateEarning creation to avoid dual ledgers/double counting.
+        const hasReferralAttribution = !!payment.metadata?.referralClickId;
+        if (enrollment && enrollment.affiliateId && !hasReferralAttribution) {
           try {
             await affiliateService.calculateCommission(
               enrollment.id,
@@ -503,6 +506,18 @@ export const verifyPayment = async (params) => {
               description: `Failed to calculate affiliate commission: ${error.message}`,
             });
           }
+        } else if (enrollment?.affiliateId && hasReferralAttribution) {
+          await auditLogService.createAuditLog({
+            userId: payment.userId,
+            action: 'AFFILIATE_EARNING_SKIPPED_REFERRAL_UNIFIED',
+            entityType: 'PAYMENT',
+            entityId: payment.id,
+            description: 'Skipped legacy AffiliateEarning because referral attribution ledger is used',
+            metadata: {
+              enrollmentId: enrollment.id,
+              referralClickId: payment.metadata?.referralClickId,
+            },
+          });
         }
       }
 

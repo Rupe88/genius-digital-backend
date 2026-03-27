@@ -7,6 +7,8 @@ import * as cardPaymentService from '../services/cardPaymentService.js';
 import * as esewaService from '../services/esewaService.js';
 import { config } from '../config/env.js';
 
+const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /**
  * Initiate payment
  */
@@ -37,10 +39,29 @@ export const initiatePayment = async (req, res, next) => {
 
     let finalAmount = amount;
     let finalCourseId = courseId;
+    const cookieReferralClickId = req.cookies.referral_click_id;
+    const bodyReferralClickId = req.body.referralClickId;
+    let trustedReferralClickId = null;
+    if (typeof cookieReferralClickId === 'string' && UUID_V4_REGEX.test(cookieReferralClickId)) {
+      trustedReferralClickId = cookieReferralClickId;
+    } else if (typeof bodyReferralClickId === 'string' && UUID_V4_REGEX.test(bodyReferralClickId)) {
+      // Allow body-based attribution only when cookie is absent.
+      trustedReferralClickId = bodyReferralClickId;
+    }
+    // If both are present and mismatch, trust cookie value only and drop body value.
+    if (
+      typeof cookieReferralClickId === 'string' &&
+      typeof bodyReferralClickId === 'string' &&
+      cookieReferralClickId !== bodyReferralClickId &&
+      UUID_V4_REGEX.test(cookieReferralClickId)
+    ) {
+      trustedReferralClickId = cookieReferralClickId;
+    }
+
     const metadata = {
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
-      referralClickId: req.body.referralClickId || req.cookies.referral_click_id,
+      referralClickId: trustedReferralClickId,
     };
 
     // If paying for an installment: validate and use installment amount/course

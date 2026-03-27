@@ -1,6 +1,7 @@
 import { prisma } from '../config/database.js';
 import { validationResult } from 'express-validator';
 import * as referralService from '../services/referralService.js';
+import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
 
 import { config } from '../config/env.js';
 
@@ -251,22 +252,70 @@ export const getReferralLinks = async (req, res, next) => {
       prisma.referralLink.count({ where: { userId } }),
     ]);
 
-    // Get earnings for each link
+    // Get accurate metrics and signed thumbnails for each link
     const linksWithEarnings = await Promise.all(
       links.map(async (link) => {
-        const earnings = await prisma.referralConversion.aggregate({
-          where: {
-            referralLinkId: link.id,
-            isFraudulent: false,
-          },
-          _sum: {
-            commissionAmount: true,
-          },
-        });
+        const [earnings, paidEarnings, pendingEarnings, clicksCount, conversionsCount] = await Promise.all([
+          prisma.referralConversion.aggregate({
+            where: {
+              referralLinkId: link.id,
+              isFraudulent: false,
+            },
+            _sum: {
+              commissionAmount: true,
+            },
+          }),
+          prisma.referralConversion.aggregate({
+            where: {
+              referralLinkId: link.id,
+              isFraudulent: false,
+              status: 'PAID',
+            },
+            _sum: {
+              commissionAmount: true,
+            },
+          }),
+          prisma.referralConversion.aggregate({
+            where: {
+              referralLinkId: link.id,
+              isFraudulent: false,
+              status: 'PENDING',
+            },
+            _sum: {
+              commissionAmount: true,
+            },
+          }),
+          prisma.referralClick.count({
+            where: {
+              referralLinkId: link.id,
+            },
+          }),
+          prisma.referralConversion.count({
+            where: {
+              referralLinkId: link.id,
+              isFraudulent: false,
+            },
+          }),
+        ]);
+
+        const course = link.course ? { ...link.course } : null;
+        if (isS3Configured() && course?.thumbnail && isOurS3Url(course.thumbnail)) {
+          try {
+            course.thumbnail = await getSignedUrlForMediaUrl(course.thumbnail, 3600);
+          } catch (err) {
+            console.warn('[referral] Signed thumbnail URL failed:', course.id, err?.message);
+          }
+        }
 
         return {
           ...link,
+          course,
+          // Use real-time values instead of potentially stale counters.
+          totalClicks: clicksCount,
+          totalConversions: conversionsCount,
           totalEarnings: earnings._sum.commissionAmount || 0,
+          paidEarnings: paidEarnings._sum.commissionAmount || 0,
+          pendingEarnings: pendingEarnings._sum.commissionAmount || 0,
         };
       })
     );
@@ -420,6 +469,93 @@ export const markCommissionsAsPaid = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Referral commissions marked as paid successfully',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Step 1/2 payout flow: prepare payout batch and issue confirmation token.
+ */
+export const prepareCommissionPayoutBatch = async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+      });
+    }
+
+    const { conversionIds } = req.body;
+    const result = await referralService.prepareReferralPayoutBatch(req.user.id, conversionIds);
+
+    res.json({
+      success: true,
+      message: 'Payout batch prepared. Confirm payout to mark commissions as paid.',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Step 2/2 payout flow: confirm payout batch (idempotent).
+ */
+export const confirmCommissionPayoutBatch = async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+      });
+    }
+
+    const { payoutBatchId, confirmationToken, idempotencyKey } = req.body;
+    const result = await referralService.confirmReferralPayoutBatch({
+      adminUserId: req.user.id,
+      payoutBatchId,
+      confirmationToken,
+      idempotencyKey,
+    });
+
+    res.json({
+      success: true,
+      message: 'Referral payout batch executed successfully',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin monitoring endpoint for referral security posture.
+ */
+export const getReferralSecurityReport = async (req, res, next) => {
+  try {
+    const hours = parseInt(req.query.hours, 10) || 24;
+    const report = await referralService.getReferralSecurityReport({ hours });
+    res.json({ success: true, data: report });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin maintenance endpoint: anonymize old referral click PII.
+ */
+export const runReferralRetention = async (req, res, next) => {
+  try {
+    const retentionDays = parseInt(req.body.retentionDays, 10) || 90;
+    const result = await referralService.applyReferralRetentionPolicy({ retentionDays });
+    res.json({
+      success: true,
+      message: 'Referral retention policy applied',
       data: result,
     });
   } catch (error) {

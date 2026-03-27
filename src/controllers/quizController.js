@@ -343,6 +343,61 @@ export const getMyQuizAttemptDetails = async (req, res, next) => {
 };
 
 /**
+ * Get full details (question results) for a single quiz attempt (admin)
+ */
+export const getAdminQuizAttemptDetails = async (req, res, next) => {
+  try {
+    const { attemptId } = req.params;
+
+    const attempt = await prisma.quizAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+        quiz: {
+          include: {
+            lesson: {
+              include: {
+                course: {
+                  select: {
+                    id: true,
+                    title: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        message: 'Quiz attempt not found',
+      });
+    }
+
+    const report = await quizService.calculateQuizScore(attempt.quizId, attempt.answers);
+
+    res.json({
+      success: true,
+      data: {
+        attempt,
+        report,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get quiz attempts for admin (all users)
  */
 export const getAdminQuizAttempts = async (req, res, next) => {

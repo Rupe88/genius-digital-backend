@@ -3,10 +3,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { useragentMiddleware } from './middleware/useragent.js';
+import { csrfOriginProtection } from './middleware/csrfProtection.js';
 import { config } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
-// Rate limiting disabled for now (was: generalLimiter)
-// import { generalLimiter } from './middleware/enhancedRateLimit.js';
+import { generalLimiter } from './middleware/enhancedRateLimit.js';
 
 // Import all routes
 import authRoutes from './routes/authRoutes.js';
@@ -119,8 +119,9 @@ app.use(cookieParser());
 // User agent middleware
 app.use(useragentMiddleware);
 
-// Rate limiting disabled for now
-// app.use(generalLimiter);
+// Baseline API hardening
+app.use(generalLimiter);
+app.use(csrfOriginProtection);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
