@@ -1,6 +1,13 @@
 import { prisma } from '../config/database.js';
 import { hashPassword, comparePassword } from '../utils/hashPassword.js';
-import { createOTP, verifyOTP, canResendOTP } from '../services/otpService.js';
+import {
+  createOTP,
+  verifyOTP,
+  canResendOTP,
+  isOtpVerifyBlocked,
+  recordOtpVerifyFailure,
+  clearOtpVerifyFailures,
+} from '../services/otpService.js';
 import { sendOTPEmail, sendWelcomeEmail } from '../services/emailService.js';
 import { sendOTPSms, isSmsConfigured } from '../services/smsService.js';
 import { isEmailConfigured } from '../services/emailService.js';
@@ -468,6 +475,8 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   // Generate and send OTP
   const otp = await createOTP(user.id, OtpType.PASSWORD_RESET);
   await sendOTPEmail(email, otp, 'password_reset');
+  // New code issued — reset failed-guess counter so user has a full attempt budget.
+  await clearOtpVerifyFailures(user.id, OtpType.PASSWORD_RESET);
 
   res.json({
     success: true,
@@ -489,14 +498,25 @@ export const resetPassword = asyncHandler(async (req, res) => {
     });
   }
 
+  if (await isOtpVerifyBlocked(user.id, OtpType.PASSWORD_RESET)) {
+    return res.status(429).json({
+      success: false,
+      message:
+        'Too many incorrect verification attempts. Please wait before trying again, or request a new password reset code.',
+    });
+  }
+
   const verification = await verifyOTP(user.id, otp, OtpType.PASSWORD_RESET);
 
   if (!verification.valid) {
+    await recordOtpVerifyFailure(user.id, OtpType.PASSWORD_RESET);
     return res.status(400).json({
       success: false,
       message: verification.message,
     });
   }
+
+  await clearOtpVerifyFailures(user.id, OtpType.PASSWORD_RESET);
 
   // Hash new password
   const hashedPassword = await hashPassword(newPassword);

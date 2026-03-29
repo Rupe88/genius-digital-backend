@@ -256,8 +256,23 @@ model User {
   referralClicks      ReferralClick[]      @relation("ReferralClicks")
   referralConversions ReferralConversion[] @relation("ReferralConversions")
 
+  otpVerifyFailures OtpVerifyFailure[]
+
   @@index([email])
   @@map("users")
+}
+
+/// Failed OTP verification attempts (e.g. wrong code) — used for brute-force protection.
+model OtpVerifyFailure {
+  id        String   @id @default(uuid())
+  userId    String
+  type      OtpType
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, createdAt])
+  @@map("otp_verify_failures")
 }
 
 model Otp {

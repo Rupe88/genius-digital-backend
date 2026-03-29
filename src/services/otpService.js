@@ -4,6 +4,11 @@ import { OtpType } from '@prisma/client';
 const OTP_EXPIRY_MINUTES = 5;
 const OTP_LENGTH = 6;
 
+/** Max wrong OTP verification attempts per user per window (password reset & similar). */
+const OTP_VERIFY_MAX_FAILURES = 5;
+/** Rolling window for counting failed verification attempts (ms). */
+const OTP_VERIFY_FAILURE_WINDOW_MS = 15 * 60 * 1000;
+
 export const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
@@ -114,5 +119,42 @@ export const cleanupExpiredOTPs = async () => {
   } catch (error) {
     console.error('Error cleaning up expired OTPs:', error);
   }
+};
+
+/**
+ * Whether the user has exceeded failed OTP verification attempts for this type (brute-force guard).
+ */
+export const isOtpVerifyBlocked = async (userId, type) => {
+  const since = new Date(Date.now() - OTP_VERIFY_FAILURE_WINDOW_MS);
+  const count = await prisma.otpVerifyFailure.count({
+    where: {
+      userId,
+      type,
+      createdAt: { gte: since },
+    },
+  });
+  return count >= OTP_VERIFY_MAX_FAILURES;
+};
+
+/** Record a failed OTP verification (wrong code / invalid). */
+export const recordOtpVerifyFailure = async (userId, type) => {
+  await prisma.otpVerifyFailure.create({
+    data: { userId, type },
+  });
+};
+
+/** Clear failure history — call when a new OTP is issued so the user gets a fresh attempt budget. */
+export const clearOtpVerifyFailures = async (userId, type) => {
+  await prisma.otpVerifyFailure.deleteMany({
+    where: { userId, type },
+  });
+};
+
+/** Optional: prune old rows (e.g. cron) to keep table small. */
+export const pruneOldOtpVerifyFailures = async (olderThanMs = 24 * 60 * 60 * 1000) => {
+  const cutoff = new Date(Date.now() - olderThanMs);
+  await prisma.otpVerifyFailure.deleteMany({
+    where: { createdAt: { lt: cutoff } },
+  });
 };
 

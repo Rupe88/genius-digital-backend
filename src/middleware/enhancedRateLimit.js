@@ -64,10 +64,36 @@ export const strictLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+/** Per-IP limit for POST /auth/forgot-password (complements per-user OTP resend caps). */
+export const forgotPasswordIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: {
+    success: false,
+    message: 'Too many password reset requests from this network. Please try again later.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/** Per-IP limit for POST /auth/reset-password (mitigates distributed OTP guessing). */
+export const passwordResetIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: {
+    success: false,
+    message: 'Too many password reset attempts from this network. Please try again later.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export default {
   authLimiter,
   paymentLimiter,
   adminLimiter,
   generalLimiter,
   strictLimiter,
+  forgotPasswordIpLimiter,
+  passwordResetIpLimiter,
 };

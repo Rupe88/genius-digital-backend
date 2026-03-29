@@ -30,6 +30,7 @@ import {
   validate,
 } from '../utils/validators.js';
 import { authenticate } from '../middleware/auth.js';
+import { forgotPasswordIpLimiter, passwordResetIpLimiter } from '../middleware/enhancedRateLimit.js';
 import { body } from 'express-validator';
 
 const router = express.Router();
@@ -43,8 +44,18 @@ router.post('/verify-otp', validate(verifyOtpValidation), verifyOtp);
 router.post('/resend-otp', validate(resendOtpValidation), resendOtp);
 router.post('/login', validate(loginValidation), login);
 router.post('/refresh-token', validate(refreshTokenValidation), refreshToken);
-router.post('/forgot-password', validate(forgotPasswordValidation), forgotPassword);
-router.post('/reset-password', validate(resetPasswordValidation), resetPassword);
+router.post(
+  '/forgot-password',
+  forgotPasswordIpLimiter,
+  validate(forgotPasswordValidation),
+  forgotPassword
+);
+router.post(
+  '/reset-password',
+  passwordResetIpLimiter,
+  validate(resetPasswordValidation),
+  resetPassword
+);
 
 // Protected routes
 router.post('/logout', authenticate, logout);
