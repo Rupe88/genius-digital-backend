@@ -161,6 +161,8 @@ function mimeToExt(mimeType) {
     'application/msword': 'doc',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
     'text/plain': 'txt',
+    'application/vnd.ms-powerpoint': 'ppt',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
   };
   return map[mimeType] || map[mimeType.split(';')[0]] || null;
 }
@@ -168,7 +170,18 @@ function mimeToExt(mimeType) {
 function getContentType(mimeType, key) {
   if (mimeType) return mimeType;
   const ext = key.split('.').pop()?.toLowerCase();
-  const map = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', mp4: 'video/mp4', webm: 'video/webm', pdf: 'application/pdf' };
+  const map = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    pdf: 'application/pdf',
+    ppt: 'application/vnd.ms-powerpoint',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  };
   return map[ext] || 'application/octet-stream';
 }
 

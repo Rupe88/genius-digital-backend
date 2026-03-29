@@ -21,14 +21,20 @@ const fileFilter = (req, file, cb) => {
   const allowedImageTypes = /jpeg|jpg|png|gif|webp/;
   // quicktime = .mov, mpeg = .mpeg/.mpg; x-m4v = .m4v
   const allowedVideoTypes = /mp4|webm|ogg|mov|quicktime|mpeg|x-m4v/;
-  const allowedDocTypes = /pdf|doc|docx|txt/;
+  // Includes Office Open XML presentation (.pptx) and legacy PowerPoint (.ppt)
+  const allowedDocTypes = /pdf|doc|docx|txt|presentationml|ms-powerpoint/;
 
   const mimetype = (file.mimetype || '').toLowerCase();
+  const original = (file.originalname || '').toLowerCase();
+  const docByExtension = /\.(pdf|doc|docx|txt|ppt|pptx)$/i.test(original);
+  const docOctetStream =
+    docByExtension && (mimetype === 'application/octet-stream' || mimetype === 'binary/octet-stream' || !mimetype);
 
   if (
     allowedImageTypes.test(mimetype) ||
     allowedVideoTypes.test(mimetype) ||
-    allowedDocTypes.test(mimetype)
+    allowedDocTypes.test(mimetype) ||
+    docOctetStream
   ) {
     cb(null, true);
   } else {
@@ -436,6 +442,7 @@ export const processDocumentUpload = async (req, res, next) => {
 
     const result = await uploadDocument(req.file.buffer, {
       folder,
+      mimeType: resolveDocumentMimeType(req.file),
     });
 
     req.cloudinary = {
@@ -554,6 +561,22 @@ export const processCourseFiles = async (req, res, next) => {
   }
 };
 
+/** When the client sends octet-stream or empty MIME, infer from filename so S3 keys get a real extension. */
+function resolveDocumentMimeType(file) {
+  const raw = (file?.mimetype || '').trim();
+  if (raw && raw !== 'application/octet-stream' && raw !== 'binary/octet-stream') {
+    return raw;
+  }
+  const name = (file?.originalname || '').toLowerCase();
+  if (name.endsWith('.pptx')) return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+  if (name.endsWith('.ppt')) return 'application/vnd.ms-powerpoint';
+  if (name.endsWith('.pdf')) return 'application/pdf';
+  if (name.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (name.endsWith('.doc')) return 'application/msword';
+  if (name.endsWith('.txt')) return 'text/plain';
+  return raw || 'application/octet-stream';
+}
+
 /**
  * Specific middleware for Lesson uploads (video and attachment)
  */
@@ -591,6 +614,7 @@ export const processLessonFiles = async (req, res, next) => {
       console.log(`Uploading lesson attachment: ${docFile.originalname}`);
       const result = await uploadDocument(docFile.buffer, {
         folder: req.body.folder || 'lms/documents',
+        mimeType: resolveDocumentMimeType(docFile),
       });
       req.cloudinary = {
         ...(req.cloudinary || {}),
