@@ -23,7 +23,35 @@ function normalizeUserQuizAnswer(value) {
 /**
  * Parse correctAnswer from DB: JSON array, plain string, or legacy String(array) → "a,b".
  */
-function parseStoredCorrectAnswer(stored, questionType) {
+function normalizeCommaSpaces(s) {
+  // For option text like "2, 4, 6" vs "2,4,6"
+  return String(s)
+    .trim()
+    .replace(/\s*,\s*/g, ',');
+}
+
+function coerceOptionsToStringArray(options) {
+  if (options === undefined || options === null) return [];
+  if (Array.isArray(options)) return options.map((o) => String(o).trim()).filter(Boolean);
+  if (typeof options === 'string') {
+    const raw = options.trim();
+    if (!raw) return [];
+    // options might be JSON encoded
+    if (raw.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.map((o) => String(o).trim()).filter(Boolean);
+      } catch {
+        // ignore
+      }
+    }
+    // Otherwise treat as single value
+    return [raw];
+  }
+  return [];
+}
+
+function parseStoredCorrectAnswer(stored, questionType, questionOptions = []) {
   if (stored === undefined || stored === null || stored === '') return [];
   const raw = String(stored).trim();
   if (!raw) return [];
@@ -45,6 +73,13 @@ function parseStoredCorrectAnswer(stored, questionType) {
     return [raw].sort();
   }
 
+  // If the stored correctAnswer matches an option (allowing comma-space differences),
+  // treat it as a single option value.
+  const optionsArr = coerceOptionsToStringArray(questionOptions);
+  const rawNorm = normalizeCommaSpaces(raw);
+  const exactOptionMatch = optionsArr.find((o) => normalizeCommaSpaces(o) === rawNorm);
+  if (exactOptionMatch) return [exactOptionMatch].sort();
+
   if (!raw.includes(',')) {
     return [raw].sort();
   }
@@ -64,15 +99,15 @@ function normalizedAnswersMatch(userNorm, correctNorm) {
   return true;
 }
 
-export function quizAnswersMatch(userAnswer, storedCorrect, questionType) {
+export function quizAnswersMatch(userAnswer, storedCorrect, questionType, questionOptions = []) {
   const userNorm = normalizeUserQuizAnswer(userAnswer);
-  const correctNorm = parseStoredCorrectAnswer(storedCorrect, questionType);
+  const correctNorm = parseStoredCorrectAnswer(storedCorrect, questionType, questionOptions);
   return normalizedAnswersMatch(userNorm, correctNorm);
 }
 
 /** Shape correctAnswer for API/UI: string if single, string[] if multiple */
-function correctAnswerForResponse(stored, questionType) {
-  const norm = parseStoredCorrectAnswer(stored, questionType);
+function correctAnswerForResponse(stored, questionType, questionOptions = []) {
+  const norm = parseStoredCorrectAnswer(stored, questionType, questionOptions);
   if (norm.length === 0) return '';
   if (norm.length === 1) return norm[0];
   return norm;
@@ -129,7 +164,7 @@ export const calculateQuizScore = async (quizId, answers) => {
     maxScore += question.points;
     const userAnswer = answers[question.id];
     const qType = question.questionType || 'single_choice';
-    const isCorrect = quizAnswersMatch(userAnswer, question.correctAnswer, qType);
+    const isCorrect = quizAnswersMatch(userAnswer, question.correctAnswer, qType, question.options);
 
     if (isCorrect) {
       totalScore += question.points;
@@ -139,7 +174,7 @@ export const calculateQuizScore = async (quizId, answers) => {
       questionId: question.id,
       question: question.question,
       userAnswer,
-      correctAnswer: correctAnswerForResponse(question.correctAnswer, qType),
+      correctAnswer: correctAnswerForResponse(question.correctAnswer, qType, question.options),
       isCorrect,
       points: isCorrect ? question.points : 0,
     });
