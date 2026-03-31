@@ -438,30 +438,34 @@ export const getAllEnrollments = async (req, res, next) => {
     // Fetch price paid for each enrollment
     const enrollmentsWithPrice = await Promise.all(
       enrollments.map(async (enrollment) => {
-        // Find successful payment for this course and user
-        const payment = await prisma.payment.findFirst({
-          where: {
-            userId: enrollment.userId,
-            courseId: enrollment.courseId,
-            status: 'COMPLETED',
-          },
-          select: {
-            finalAmount: true,
-          },
-        });
+        // Prefer stored enrollment.pricePaid when present (supports partial/cumulative admin grants)
+        let pricePaid: number | null =
+          typeof enrollment.pricePaid === 'number' ? Number(enrollment.pricePaid) : null;
 
-        // When no payment (e.g. admin-granted access), fall back to course price for display
-        const coursePrice = enrollment.course?.price != null
-          ? Number(enrollment.course.price)
-          : 0;
-        const pricePaid = payment
-          ? Number(payment.finalAmount)
-          : coursePrice;
+        if (pricePaid == null) {
+          // Fall back to first successful payment for this course and user
+          const payment = await prisma.payment.findFirst({
+            where: {
+              userId: enrollment.userId,
+              courseId: enrollment.courseId,
+              status: 'COMPLETED',
+            },
+            select: {
+              finalAmount: true,
+            },
+          });
+
+          // When no payment (e.g. admin-granted full access), fall back to course price for display
+          const coursePrice =
+            enrollment.course?.price != null ? Number(enrollment.course.price) : 0;
+
+          pricePaid = payment ? Number(payment.finalAmount) : coursePrice;
+        }
 
         return {
           ...enrollment,
           enrolledAt: enrollment.createdAt,
-          pricePaid,
+          pricePaid: pricePaid ?? 0,
         };
       })
     );
@@ -573,21 +577,28 @@ export const adminGrantPartialAccess = async (req, res, next) => {
       },
     });
 
+    const numericPricePaid = pricePaid ? Number(pricePaid) : 0;
+
     if (enrollment) {
-      // Update existing enrollment
+      // Update existing enrollment – keep cumulative amount paid
+      const previousPaid = typeof enrollment.pricePaid === 'number' ? Number(enrollment.pricePaid) : 0;
+      const updatedTotalPaid = previousPaid + (Number.isFinite(numericPricePaid) ? numericPricePaid : 0);
+
       enrollment = await prisma.enrollment.update({
         where: { id: enrollment.id },
         data: {
           status: 'ACTIVE',
           accessType,
           accessExpiresAt,
-          pricePaid: pricePaid ? parseFloat(pricePaid) : null,
+          pricePaid: updatedTotalPaid || null,
           grantedByAdmin: true,
           adminNotes,
         },
       });
     } else {
       // Create new enrollment
+      const initialPaid = Number.isFinite(numericPricePaid) ? numericPricePaid : 0;
+
       enrollment = await prisma.enrollment.create({
         data: {
           userId,
@@ -595,7 +606,7 @@ export const adminGrantPartialAccess = async (req, res, next) => {
           status: 'ACTIVE',
           accessType,
           accessExpiresAt,
-          pricePaid: pricePaid ? parseFloat(pricePaid) : null,
+          pricePaid: initialPaid || null,
           grantedByAdmin: true,
           adminNotes,
         },
