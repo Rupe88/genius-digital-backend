@@ -439,7 +439,7 @@ export const getAllEnrollments = async (req, res, next) => {
     const enrollmentsWithPrice = await Promise.all(
       enrollments.map(async (enrollment) => {
         // Prefer stored enrollment.pricePaid when present (supports partial/cumulative admin grants)
-        let pricePaid: number | null =
+        let pricePaid =
           typeof enrollment.pricePaid === 'number' ? Number(enrollment.pricePaid) : null;
 
         if (pricePaid == null) {
