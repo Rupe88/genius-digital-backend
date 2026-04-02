@@ -345,6 +345,13 @@ export const deleteCoupon = async (req, res, next) => {
         message: 'Coupon not found',
       });
     }
+    if (error.code === 'P2003') {
+      return res.status(409).json({
+        success: false,
+        message:
+          'Cannot delete this coupon while it is linked to orders or payments. Remove those references first, or set the coupon to inactive instead.',
+      });
+    }
     next(error);
   }
 };

@@ -68,6 +68,7 @@ router.post(
   [
     body('userId').notEmpty().isUUID(),
     body('courseId').notEmpty().isUUID(),
+    body('couponCode').optional().isString().trim(),
   ],
   adminGrantEnrollment
 );
@@ -83,6 +84,7 @@ router.post(
     body('durationDays').isInt({ min: 1, max: 1095 }),
     body('pricePaid').optional().isDecimal(),
     body('adminNotes').optional().isString(),
+    body('couponCode').optional().isString().trim(),
   ],
   adminGrantPartialAccess
 );

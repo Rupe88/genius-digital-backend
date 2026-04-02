@@ -37,7 +37,7 @@ router.get(
   [
     query('status').optional().isIn(['ACTIVE', 'INACTIVE', 'EXPIRED']),
     query('page').optional().isInt({ min: 1 }),
-    query('limit').optional().isInt({ min: 1, max: 100 }),
+    query('limit').optional().isInt({ min: 1, max: 500 }),
   ],
   getAllCoupons
 );

@@ -3,6 +3,10 @@ import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services
 
 import { validationResult } from 'express-validator';
 import * as referralService from '../services/referralService.js';
+import {
+  validateCoupon as validateCouponSvc,
+  applyCoupon as applyCouponSvc,
+} from '../services/couponService.js';
 
 
 /**
@@ -135,7 +139,7 @@ export const adminGrantEnrollment = async (req, res, next) => {
       });
     }
 
-    const { userId, courseId } = req.body;
+    const { userId, courseId, couponCode } = req.body;
 
     // Ensure user exists
     const user = await prisma.user.findUnique({
@@ -185,14 +189,39 @@ export const adminGrantEnrollment = async (req, res, next) => {
       });
     }
 
+    const listPrice = Number(course.price) || 0;
+    let couponId = null;
+    let adminDiscountAmount = null;
+    let netPayableAfterDiscount = null;
+
+    if (couponCode && String(couponCode).trim() && listPrice > 0 && !course.isFree) {
+      const v = await validateCouponSvc(String(couponCode).trim().toUpperCase(), userId, listPrice, courseId, []);
+      if (!v.valid) {
+        return res.status(400).json({
+          success: false,
+          message: v.message,
+        });
+      }
+      couponId = v.coupon.id;
+      adminDiscountAmount = v.discountAmount;
+      netPayableAfterDiscount = v.finalAmount;
+    }
+
     // Create new ACTIVE enrollment granted by admin
     enrollment = await prisma.enrollment.create({
       data: {
         userId,
         courseId,
         status: 'ACTIVE',
+        couponId,
+        adminDiscountAmount,
+        netPayableAfterDiscount,
       },
     });
+
+    if (couponId && adminDiscountAmount != null) {
+      await applyCouponSvc(couponId, userId, null, null, Number(adminDiscountAmount));
+    }
 
     // Update course enrollment count
     await prisma.course.update({
@@ -228,7 +257,7 @@ export const getUserEnrollments = async (req, res, next) => {
       where.status = status;
     }
 
-    const [enrollments, total] = await Promise.all([
+    const [enrollmentsRaw, total] = await Promise.all([
       prisma.enrollment.findMany({
         where,
         include: {
@@ -236,6 +265,12 @@ export const getUserEnrollments = async (req, res, next) => {
             include: {
               instructor: true,
               category: true,
+            },
+          },
+          coupon: {
+            select: {
+              id: true,
+              code: true,
             },
           },
         },
@@ -247,6 +282,55 @@ export const getUserEnrollments = async (req, res, next) => {
       }),
       prisma.enrollment.count({ where }),
     ]);
+
+    const enrollments = await Promise.all(
+      enrollmentsRaw.map(async (enrollment) => {
+        let pricePaid =
+          enrollment.pricePaid != null ? Number(enrollment.pricePaid) : null;
+
+        if (pricePaid == null) {
+          const payment = await prisma.payment.findFirst({
+            where: {
+              userId: enrollment.userId,
+              courseId: enrollment.courseId,
+              status: 'COMPLETED',
+            },
+            select: {
+              finalAmount: true,
+            },
+          });
+
+          const coursePrice =
+            enrollment.course?.price != null ? Number(enrollment.course.price) : 0;
+
+          pricePaid = payment ? Number(payment.finalAmount) : coursePrice;
+        }
+
+        const listPrice =
+          enrollment.course?.price != null ? Number(enrollment.course.price) : 0;
+        const netCap =
+          enrollment.netPayableAfterDiscount != null
+            ? Number(enrollment.netPayableAfterDiscount)
+            : listPrice;
+        const paidNum = pricePaid ?? 0;
+        const remainingBalance = Math.max(0, netCap - paidNum);
+
+        return {
+          ...enrollment,
+          pricePaid: paidNum,
+          listPrice,
+          netPayableAfterDiscount:
+            enrollment.netPayableAfterDiscount != null
+              ? Number(enrollment.netPayableAfterDiscount)
+              : null,
+          adminDiscountAmount:
+            enrollment.adminDiscountAmount != null
+              ? Number(enrollment.adminDiscountAmount)
+              : null,
+          remainingBalance,
+        };
+      })
+    );
 
     // Ensure course thumbnails use signed S3 URLs for reliable loading on frontend
     if (isS3Configured()) {
@@ -425,6 +509,12 @@ export const getAllEnrollments = async (req, res, next) => {
               instructor: true,
             },
           },
+          coupon: {
+            select: {
+              id: true,
+              code: true,
+            },
+          },
         },
         skip,
         take: parseInt(limit),
@@ -440,7 +530,7 @@ export const getAllEnrollments = async (req, res, next) => {
       enrollments.map(async (enrollment) => {
         // Prefer stored enrollment.pricePaid when present (supports partial/cumulative admin grants)
         let pricePaid =
-          typeof enrollment.pricePaid === 'number' ? Number(enrollment.pricePaid) : null;
+          enrollment.pricePaid != null ? Number(enrollment.pricePaid) : null;
 
         if (pricePaid == null) {
           // Fall back to first successful payment for this course and user
@@ -462,10 +552,29 @@ export const getAllEnrollments = async (req, res, next) => {
           pricePaid = payment ? Number(payment.finalAmount) : coursePrice;
         }
 
+        const listPrice =
+          enrollment.course?.price != null ? Number(enrollment.course.price) : 0;
+        const netCap =
+          enrollment.netPayableAfterDiscount != null
+            ? Number(enrollment.netPayableAfterDiscount)
+            : listPrice;
+        const paidNum = pricePaid ?? 0;
+        const remainingBalance = Math.max(0, netCap - paidNum);
+
         return {
           ...enrollment,
           enrolledAt: enrollment.createdAt,
-          pricePaid: pricePaid ?? 0,
+          pricePaid: paidNum,
+          listPrice,
+          netPayableAfterDiscount:
+            enrollment.netPayableAfterDiscount != null
+              ? Number(enrollment.netPayableAfterDiscount)
+              : null,
+          adminDiscountAmount:
+            enrollment.adminDiscountAmount != null
+              ? Number(enrollment.adminDiscountAmount)
+              : null,
+          remainingBalance,
         };
       })
     );
@@ -539,7 +648,7 @@ export const adminGrantPartialAccess = async (req, res, next) => {
       });
     }
 
-    const { userId, courseId, accessType, durationDays, pricePaid, adminNotes } = req.body;
+    const { userId, courseId, accessType, durationDays, pricePaid, adminNotes, couponCode } = req.body;
 
     // Ensure user exists
     const user = await prisma.user.findUnique({
@@ -577,23 +686,71 @@ export const adminGrantPartialAccess = async (req, res, next) => {
       },
     });
 
+    const wasExisting = Boolean(enrollment);
+    const listPrice = Number(course.price) || 0;
+
+    let newCouponId = null;
+    let newDiscount = null;
+    let newNetPayable = null;
+    let recordCouponUsage = false;
+
+    const wantsCoupon =
+      couponCode && String(couponCode).trim() && listPrice > 0 && !course.isFree;
+
+    if (wantsCoupon) {
+      if (enrollment?.couponId) {
+        return res.status(400).json({
+          success: false,
+          message:
+            'This enrollment already has a coupon. Extend access without selecting a coupon, or remove the enrollment first.',
+        });
+      }
+      const v = await validateCouponSvc(
+        String(couponCode).trim().toUpperCase(),
+        userId,
+        listPrice,
+        courseId,
+        []
+      );
+      if (!v.valid) {
+        return res.status(400).json({
+          success: false,
+          message: v.message,
+        });
+      }
+      newCouponId = v.coupon.id;
+      newDiscount = v.discountAmount;
+      newNetPayable = v.finalAmount;
+      recordCouponUsage = true;
+    }
+
     const numericPricePaid = pricePaid ? Number(pricePaid) : 0;
 
     if (enrollment) {
       // Update existing enrollment – keep cumulative amount paid
-      const previousPaid = typeof enrollment.pricePaid === 'number' ? Number(enrollment.pricePaid) : 0;
-      const updatedTotalPaid = previousPaid + (Number.isFinite(numericPricePaid) ? numericPricePaid : 0);
+      const previousPaid =
+        enrollment.pricePaid != null ? Number(enrollment.pricePaid) : 0;
+      const updatedTotalPaid =
+        previousPaid + (Number.isFinite(numericPricePaid) ? numericPricePaid : 0);
+
+      const updateData = {
+        status: 'ACTIVE',
+        accessType,
+        accessExpiresAt,
+        pricePaid: updatedTotalPaid || null,
+        grantedByAdmin: true,
+        adminNotes,
+      };
+
+      if (newCouponId) {
+        updateData.couponId = newCouponId;
+        updateData.adminDiscountAmount = newDiscount;
+        updateData.netPayableAfterDiscount = newNetPayable;
+      }
 
       enrollment = await prisma.enrollment.update({
         where: { id: enrollment.id },
-        data: {
-          status: 'ACTIVE',
-          accessType,
-          accessExpiresAt,
-          pricePaid: updatedTotalPaid || null,
-          grantedByAdmin: true,
-          adminNotes,
-        },
+        data: updateData,
       });
     } else {
       // Create new enrollment
@@ -609,12 +766,18 @@ export const adminGrantPartialAccess = async (req, res, next) => {
           pricePaid: initialPaid || null,
           grantedByAdmin: true,
           adminNotes,
+          couponId: newCouponId,
+          adminDiscountAmount: newDiscount,
+          netPayableAfterDiscount: newNetPayable,
         },
       });
     }
 
-    // Update course enrollment count if this is a new enrollment
-    if (!enrollment.grantedByAdmin || enrollment.createdAt.getTime() === enrollment.updatedAt.getTime()) {
+    if (recordCouponUsage && newCouponId != null && newDiscount != null) {
+      await applyCouponSvc(newCouponId, userId, null, null, Number(newDiscount));
+    }
+
+    if (!wasExisting) {
       await prisma.course.update({
         where: { id: courseId },
         data: {

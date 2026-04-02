@@ -576,6 +576,12 @@ model Enrollment {
   grantedByAdmin  Boolean   @default(false) @map("granted_by_admin") // If this was granted by admin
   adminNotes      String?   @map("admin_notes") @db.Text // Admin notes for partial access
 
+  // Admin-applied coupon (list price unchanged on Course; discount + net payable stored here)
+  couponId                  String?   @map("coupon_id")
+  coupon                    Coupon?     @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  adminDiscountAmount       Decimal?  @map("admin_discount_amount") @db.Decimal(10, 2)
+  netPayableAfterDiscount   Decimal?  @map("net_payable_after_discount") @db.Decimal(10, 2)
+
   affiliateId String?
   affiliate   Affiliate? @relation("AffiliateEnrollments", fields: [affiliateId], references: [userId])
 
@@ -883,9 +889,10 @@ model Coupon {
   applicableCourses  Json?
   applicableProducts Json?
 
-  usages   CouponUsage[]
-  orders   Order[]
-  payments Payment[]
+  usages      CouponUsage[]
+  orders      Order[]
+  payments    Payment[]
+  enrollments Enrollment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
