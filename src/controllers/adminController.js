@@ -171,6 +171,7 @@ export const getAllUsers = asyncHandler(async (req, res) => {
         id: true,
         email: true,
         fullName: true,
+        phone: true,
         role: true,
         isEmailVerified: true,
         isActive: true,
@@ -198,6 +199,244 @@ export const getAllUsers = asyncHandler(async (req, res) => {
       },
     },
   });
+});
+
+const MAX_USERS_ENROLLMENT_EXPORT = 5000;
+
+function csvEscapeCell(val) {
+  const s = val == null ? '' : String(val);
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+function formatMoneyExport(v) {
+  if (v == null || v === '') return '';
+  try {
+    const n = typeof v === 'object' && v !== null && typeof v.toNumber === 'function' ? v.toNumber() : Number(v);
+    if (Number.isNaN(n)) return '';
+    return n.toFixed(2);
+  } catch {
+    return '';
+  }
+}
+
+function formatDateExport(d) {
+  if (!d) return '';
+  try {
+    return new Date(d).toISOString();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Admin CSV: one row per enrollment (user columns repeated), plus users with no enrollments as a single sparse row.
+ * Includes installments, completed payment sums, and balance vs net payable (when net payable is set).
+ */
+export const exportUsersEnrollmentsDetailCsv = asyncHandler(async (req, res) => {
+  const search = (req.query.search || '').trim();
+
+  const baseWhere = {
+    email: {
+      not: {
+        endsWith: SOFT_DELETE_EMAIL_DOMAIN,
+      },
+    },
+    ...(search && {
+      OR: [
+        { email: { contains: search, mode: 'insensitive' } },
+        { fullName: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+      ],
+    }),
+  };
+
+  const total = await prisma.user.count({ where: baseWhere });
+  if (total > MAX_USERS_ENROLLMENT_EXPORT) {
+    return res.status(400).json({
+      success: false,
+      message: `Too many users (${total}) for one export. Narrow search (max ${MAX_USERS_ENROLLMENT_EXPORT} users).`,
+    });
+  }
+
+  const users = await prisma.user.findMany({
+    where: baseWhere,
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      phone: true,
+      role: true,
+      isActive: true,
+      isEmailVerified: true,
+      createdAt: true,
+      enrollments: {
+        include: {
+          course: {
+            select: { id: true, title: true, slug: true, price: true, isFree: true },
+          },
+          coupon: { select: { code: true, description: true } },
+          installments: {
+            orderBy: { installmentNumber: 'asc' },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const userIds = users.map((u) => u.id);
+  const payments =
+    userIds.length > 0
+      ? await prisma.payment.findMany({
+          where: {
+            userId: { in: userIds },
+            courseId: { not: null },
+          },
+          select: {
+            userId: true,
+            courseId: true,
+            status: true,
+            finalAmount: true,
+            discount: true,
+          },
+        })
+      : [];
+
+  const payMap = new Map();
+  for (const p of payments) {
+    const k = `${p.userId}|${p.courseId}`;
+    if (!payMap.has(k)) payMap.set(k, []);
+    payMap.get(k).push(p);
+  }
+
+  const headers = [
+    'user_id',
+    'user_email',
+    'user_full_name',
+    'user_phone',
+    'user_role',
+    'user_active',
+    'user_email_verified',
+    'user_joined_at',
+    'enrollment_id',
+    'course_id',
+    'course_title',
+    'course_slug',
+    'course_list_price',
+    'course_is_free',
+    'enrollment_status',
+    'enrollment_progress_pct',
+    'enrollment_completed_at',
+    'access_type',
+    'access_expires_at',
+    'admin_granted',
+    'admin_notes',
+    'coupon_code_description',
+    'admin_discount_amount',
+    'net_payable_after_discount',
+    'price_paid_on_enrollment',
+    'payments_completed_count',
+    'payments_completed_sum_final',
+    'payments_completed_sum_discount',
+    'installment_count',
+    'installment_schedule_total',
+    'installment_paid_sum',
+    'installment_unpaid_sum',
+    'balance_vs_completed_payments',
+    'installment_details',
+  ];
+
+  const emptyEnrollmentCols = () =>
+    Array.from({ length: headers.length - 8 }, () => '');
+
+  const rows = [];
+
+  for (const u of users) {
+    const base = [
+      u.id,
+      u.email,
+      u.fullName,
+      u.phone ?? '',
+      u.role,
+      u.isActive ? 'Yes' : 'No',
+      u.isEmailVerified ? 'Yes' : 'No',
+      formatDateExport(u.createdAt),
+    ];
+
+    if (!u.enrollments.length) {
+      rows.push([...base, ...emptyEnrollmentCols()]);
+      continue;
+    }
+
+    for (const e of u.enrollments) {
+      const key = `${u.id}|${e.courseId}`;
+      const pList = payMap.get(key) || [];
+      const completed = pList.filter((p) => p.status === 'COMPLETED');
+      const sumFinal = completed.reduce((acc, p) => acc + Number(p.finalAmount), 0);
+      const sumDisc = completed.reduce((acc, p) => acc + Number(p.discount), 0);
+      const inst = e.installments || [];
+      const instTotal = inst.reduce((acc, i) => acc + Number(i.amount), 0);
+      const instPaid = inst.filter((i) => i.status === 'PAID').reduce((acc, i) => acc + Number(i.amount), 0);
+      const instUnpaid = Math.max(0, instTotal - instPaid);
+
+      const netRaw = e.netPayableAfterDiscount;
+      const netNum = netRaw != null ? Number(netRaw) : null;
+      const listPriceNum = e.course.isFree ? 0 : Number(e.course.price);
+      const effectiveNet = netNum != null && !Number.isNaN(netNum) ? netNum : listPriceNum;
+      const balance =
+        !Number.isNaN(effectiveNet) ? (effectiveNet - sumFinal).toFixed(2) : '';
+
+      const couponLabel = e.coupon
+        ? [e.coupon.code, e.coupon.description].filter(Boolean).join(' / ')
+        : '';
+
+      const instDetails = inst
+        .map((i) => {
+          const paid = i.paidAt ? `:paidAt=${formatDateExport(i.paidAt)}` : '';
+          return `#${i.installmentNumber}:${formatMoneyExport(i.amount)}:${i.status}:${formatDateExport(i.dueDate)}${paid}`;
+        })
+        .join(' | ');
+
+      rows.push([
+        ...base,
+        e.id,
+        e.course.id,
+        e.course.title,
+        e.course.slug,
+        formatMoneyExport(e.course.price),
+        e.course.isFree ? 'Yes' : 'No',
+        e.status,
+        String(e.progress ?? 0),
+        formatDateExport(e.completedAt),
+        e.accessType ?? '',
+        formatDateExport(e.accessExpiresAt),
+        e.grantedByAdmin ? 'Yes' : 'No',
+        (e.adminNotes ?? '').replace(/\r?\n/g, ' ').slice(0, 2000),
+        couponLabel,
+        formatMoneyExport(e.adminDiscountAmount),
+        formatMoneyExport(e.netPayableAfterDiscount),
+        formatMoneyExport(e.pricePaid),
+        String(completed.length),
+        sumFinal.toFixed(2),
+        sumDisc.toFixed(2),
+        String(inst.length),
+        instTotal.toFixed(2),
+        instPaid.toFixed(2),
+        instUnpaid.toFixed(2),
+        balance,
+        instDetails,
+      ]);
+    }
+  }
+
+  const csvLines = [headers.map(csvEscapeCell).join(','), ...rows.map((r) => r.map(csvEscapeCell).join(','))];
+  const csv = `\ufeff${csvLines.join('\r\n')}`;
+  const fname = `user-enrollments-detail-${new Date().toISOString().slice(0, 10)}.csv`;
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+  res.send(csv);
 });
 
 /**
