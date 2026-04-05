@@ -258,6 +258,8 @@ model User {
 
   otpVerifyFailures OtpVerifyFailure[]
 
+  limitingBeliefAttempts LimitingBeliefAttempt[] @relation("UserLimitingBeliefAttempts")
+
   @@index([email])
   @@map("users")
 }
@@ -1831,4 +1833,68 @@ model HeroCarouselSlide {
 
   @@index([sortOrder])
   @@map("hero_carousel_slides")
+}
+
+// Limiting Belief Check (admin-managed questionnaire + score bands)
+model LimitingBeliefSection {
+  id        String   @id @default(uuid())
+  title     String   @db.VarChar(255)
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+
+  questions LimitingBeliefQuestion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+  @@map("limiting_belief_sections")
+}
+
+model LimitingBeliefQuestion {
+  id        String   @id @default(uuid())
+  sectionId String
+  section   LimitingBeliefSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  text      String   @db.Text
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sectionId])
+  @@index([sectionId, sortOrder])
+  @@map("limiting_belief_questions")
+}
+
+model LimitingBeliefScoreBand {
+  id          String   @id @default(uuid())
+  minScore    Int
+  maxScore    Int
+  label       String   @db.VarChar(500)
+  description String?  @db.Text
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+  @@map("limiting_belief_score_bands")
+}
+
+model LimitingBeliefAttempt {
+  id          String @id @default(uuid())
+  userId      String
+  user        User   @relation("UserLimitingBeliefAttempts", fields: [userId], references: [id], onDelete: Cascade)
+  totalScore  Int
+  maxScore    Int
+  bandLabel   String? @db.VarChar(500)
+  answersJson Json // { [questionId: string]: number 1-5 }
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("limiting_belief_attempts")
 }

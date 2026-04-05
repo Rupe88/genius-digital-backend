@@ -1,6 +1,7 @@
 import { prisma } from '../config/database.js';
 import { validationResult } from 'express-validator';
 import { generateSlug } from '../utils/helpers.js';
+import { normalizeThumbnailUrl } from '../utils/thumbnailUrl.js';
 import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
 
 const reviewFieldNames = prisma?._runtimeDataModel?.models?.Review?.fields?.map((f) => f.name) || [];
@@ -758,6 +759,9 @@ export const createCourse = async (req, res, next) => {
       parsedSkills = null;
     }
 
+    const thumbFromBody =
+      thumbnail && String(thumbnail).trim() ? normalizeThumbnailUrl(String(thumbnail).trim()) : null;
+
     // Create course with transaction
     const course = await prisma.$transaction(async (tx) => {
       const createdCourse = await tx.course.create({
@@ -766,7 +770,7 @@ export const createCourse = async (req, res, next) => {
           slug: finalSlug,
           description,
           shortDescription,
-          thumbnail: req.cloudinary?.url ?? thumbnail ?? null,
+          thumbnail: req.cloudinary?.url ?? thumbFromBody ?? null,
           price: price ? parseFloat(price) : 0,
           originalPrice: originalPrice ? parseFloat(originalPrice) : null,
           isFree: isFree === true || isFree === 'true',
@@ -942,8 +946,8 @@ export const updateCourse = async (req, res, next) => {
 
     if (description !== undefined) updateData.description = description;
     if (shortDescription !== undefined) updateData.shortDescription = shortDescription;
-    if (req.cloudinary?.url || thumbnail) {
-      updateData.thumbnail = req.cloudinary?.url || thumbnail;
+    if (req.cloudinary?.url || (thumbnail != null && String(thumbnail).trim())) {
+      updateData.thumbnail = req.cloudinary?.url ?? normalizeThumbnailUrl(String(thumbnail).trim());
     }
     if (price !== undefined) updateData.price = parseFloat(price);
     if (isFree !== undefined) updateData.isFree = isFree === true || isFree === 'true';

@@ -317,8 +317,14 @@ export const courseValidation = [
   body('thumbnail')
     .custom((value, { req }) => {
       if (req.files?.thumbnail?.length) return true;
-      if (typeof value === 'string' && value.trim() && /^https?:\/\//i.test(value)) return true;
-      throw new Error('Thumbnail is required: upload an image or provide a valid URL');
+      if (value == null || value === '') return true;
+      if (typeof value === 'string') {
+        const v = value.trim();
+        if (!v) return true;
+        if (/^https?:\/\//i.test(v) || /^\//.test(v)) return true;
+        throw new Error('Thumbnail must be a valid URL or media path when provided');
+      }
+      return true;
     }),
   body('price')
     .optional({ checkFalsy: true })

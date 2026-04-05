@@ -325,6 +325,103 @@ async function main() {
   }
   console.log(`✅ ${faqs.length} FAQs seeded`);
 
+  // Limiting Belief Check (dynamic questionnaire) — seed once if empty
+  const lbSectionCount = await prisma.limitingBeliefSection.count().catch(() => -1);
+  if (lbSectionCount === 0) {
+    console.log('🧠 Seeding Limiting Belief sections, questions, and score bands...');
+    const bands = [
+      { minScore: 0, maxScore: 49, label: 'Low Limiting Belief ✅', description: null, sortOrder: 0, isActive: true },
+      { minScore: 50, maxScore: 74, label: 'Awareness Stage 🔄', description: null, sortOrder: 1, isActive: true },
+      { minScore: 75, maxScore: 99, label: 'Moderate Limitation ⚠️', description: null, sortOrder: 2, isActive: true },
+      { minScore: 100, maxScore: 125, label: 'Strong Limiting Belief System 🚨', description: null, sortOrder: 3, isActive: true },
+    ];
+    await prisma.limitingBeliefScoreBand.createMany({ data: bands });
+
+    const sectionDefs = [
+      {
+        title: 'SECTION A – Self-Limitation Belief',
+        sortOrder: 0,
+        questions: [
+          'म आफूलाई अरूभन्दा कम capable मान्छु',
+          'म ठूलो success achieve गर्न सक्दिन जस्तो लाग्छ',
+          'म आफ्नो decision मा doubt गर्छु',
+          'म आफ्नो potential fully use गर्न सक्दिन',
+          'म challenge बाट avoid गर्छु',
+        ],
+      },
+      {
+        title: 'SECTION B – Fear-Based Belief',
+        sortOrder: 1,
+        questions: [
+          'म failure को डरले action लिन ढिलो गर्छु',
+          'म risk लिन डराउँछु',
+          'म अरूको judgement बाट डराउँछु',
+          'म गल्ती हुनबाट बच्न धेरै सोचिरहन्छु',
+          'म नयाँ opportunity लिन hesitate गर्छु',
+        ],
+      },
+      {
+        title: 'SECTION C – Money Limiting Belief',
+        sortOrder: 2,
+        questions: [
+          'पैसा कमाउन धेरै गाह्रो हुन्छ भन्ने लाग्छ',
+          'म ठूलो income deserve गर्दिन भन्ने लाग्छ',
+          'पैसा कमाउँदा risk धेरै हुन्छ भन्ने लाग्छ',
+          'म financial growth मा limited छु भन्ने लाग्छ',
+          'म पैसा manage गर्न सक्दिन',
+        ],
+      },
+      {
+        title: 'SECTION D – Growth Limiting Belief',
+        sortOrder: 3,
+        questions: [
+          'म change गर्न गाह्रो हुन्छ भन्ने लाग्छ',
+          'म नयाँ skill सिक्न सक्दिन भन्ने लाग्छ',
+          'म comfort zone बाट बाहिर जान सक्दिन',
+          'म slow learner हुँ भन्ने लाग्छ',
+          'म life मा धेरै improve गर्न सक्दिन',
+        ],
+      },
+      {
+        title: 'SECTION E – Action Limiting Belief',
+        sortOrder: 4,
+        questions: [
+          'म काम सुरु गर्न ढिलो गर्छु',
+          'म consistent रहन सक्दिन',
+          'म discipline maintain गर्न सक्दिन',
+          'म काम पूरा गर्न गाह्रो हुन्छ',
+          'म motivation बिना action लिन सक्दिन',
+        ],
+      },
+    ];
+
+    for (let si = 0; si < sectionDefs.length; si++) {
+      const def = sectionDefs[si];
+      const section = await prisma.limitingBeliefSection.create({
+        data: {
+          title: def.title,
+          sortOrder: def.sortOrder,
+          isActive: true,
+        },
+      });
+      for (let qi = 0; qi < def.questions.length; qi++) {
+        await prisma.limitingBeliefQuestion.create({
+          data: {
+            sectionId: section.id,
+            text: def.questions[qi],
+            sortOrder: qi,
+            isActive: true,
+          },
+        });
+      }
+    }
+    console.log('✅ Limiting Belief questionnaire seeded (25 questions, 5 sections, 4 score bands)');
+  } else if (lbSectionCount > 0) {
+    console.log('⏭️  Limiting Belief data already present, skipping seed');
+  } else {
+    console.log('⏭️  Limiting Belief tables not available yet (run migrations), skipping seed');
+  }
+
   console.log('\n✨ Seed completed successfully! ✨');
   console.log(`🔑 Admin Login: ${adminEmail}`);
   console.log(`🔑 Password: ${adminPassword}`);

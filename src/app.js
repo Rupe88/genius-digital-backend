@@ -54,6 +54,7 @@ import mediaRoutes from './routes/mediaRoutes.js';
 import wishlistRoutes from './routes/wishlistRoutes.js';
 import numerologyLeadRoutes from './routes/numerologyLeadRoutes.js';
 import compassLeadRoutes from './routes/compassLeadRoutes.js';
+import limitingBeliefRoutes from './routes/limitingBeliefRoutes.js';
 
 const app = express();
 
@@ -73,8 +74,8 @@ const allowedOrigins = new Set([
   'https://www.sanskarvastu.com',
   'http://localhost:3000',
   'http://localhost:3001',
-  'sanskaracademy.net',
-'www.sanskaracademy.net'
+  'https://sanskaracademy.net',
+  'https://www.sanskaracademy.net',
 ]);
 function isOriginAllowed(origin) {
   if (!origin) return true;
@@ -182,6 +183,7 @@ const apiRoutes = [
   ['wishlist', wishlistRoutes],
   ['numerology-leads', numerologyLeadRoutes],
   ['compass-leads', compassLeadRoutes],
+  ['limiting-belief', limitingBeliefRoutes],
 ];
 apiRoutes.forEach(([path, router]) => {
   app.use(`${API_BASE}/${path}`, router);

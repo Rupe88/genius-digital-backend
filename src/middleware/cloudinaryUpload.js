@@ -13,6 +13,28 @@ const videoMaxBytes = (config.upload?.videoMaxMb ?? 3072) * 1024 * 1024;
 const documentMaxBytes = (config.upload?.documentMaxMb ?? 50) * 1024 * 1024;
 const multerFileSizeLimit = Math.max(imageMaxBytes, videoMaxBytes, documentMaxBytes);
 
+function storageErrorResponse(err) {
+  const name = err?.name || '';
+  const msg = typeof err?.message === 'string' ? err.message : '';
+  if (name === 'ServiceUnavailable' || msg.includes('temporary failure of the server')) {
+    return {
+      status: 503,
+      message:
+        'Image/video storage is temporarily unavailable. Save the course without uploads and add a thumbnail or promo video from the edit page later.',
+    };
+  }
+  if (err?.code === 'ECONNRESET' || msg.includes('socket hang up')) {
+    return {
+      status: 503,
+      message: 'Upload was interrupted. Try a smaller file or retry in a few minutes.',
+    };
+  }
+  if (msg.includes('S3 is not configured')) {
+    return { status: 503, message: 'File storage is not configured on the server.' };
+  }
+  return { status: 400, message: msg || 'File upload failed' };
+}
+
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
 
@@ -499,9 +521,18 @@ export const processCourseFiles = async (req, res, next) => {
           return res.status(400).json({ success: false, message: `Thumbnail exceeds ${config.upload?.imageMaxMb ?? 10}MB limit` });
         }
         console.log('[Course upload] Uploading thumbnail to S3, size:', file.buffer.length);
-        const result = await uploadImage(file.buffer, { folder: req.body.folder || 'lms/images', mimeType: file.mimetype });
-        req.cloudinary.url = result.secure_url;
-        req.cloudinary.publicId = result.public_id;
+        try {
+          const result = await uploadImage(file.buffer, {
+            folder: req.body.folder || 'lms/images',
+            mimeType: file.mimetype,
+          });
+          req.cloudinary.url = result.secure_url;
+          req.cloudinary.publicId = result.public_id;
+        } catch (thumbErr) {
+          console.error('[Course upload] Thumbnail S3 error:', thumbErr?.message || thumbErr);
+          const { status, message } = storageErrorResponse(thumbErr);
+          return res.status(status).json({ success: false, message });
+        }
       }
     }
 
@@ -529,7 +560,8 @@ export const processCourseFiles = async (req, res, next) => {
               if (url) urls.push(url);
             } catch (err) {
               console.error('[Course upload] Video upload failed:', err?.message);
-              return res.status(400).json({ success: false, message: err?.message || 'Video upload failed' });
+              const { status, message } = storageErrorResponse(err);
+              return res.status(status).json({ success: false, message });
             }
           }
         } else if (slot?.type === 'url' && typeof slot.url === 'string' && slot.url.trim()) {
@@ -549,7 +581,8 @@ export const processCourseFiles = async (req, res, next) => {
           req.cloudinary.videoUrl = url;
           req.cloudinary.promoVideos = url ? [url] : [];
         } catch (err) {
-          return res.status(400).json({ success: false, message: err?.message || 'Video upload failed' });
+          const { status, message } = storageErrorResponse(err);
+          return res.status(status).json({ success: false, message });
         }
       }
     }
@@ -557,7 +590,8 @@ export const processCourseFiles = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('[Course upload] S3 upload error:', error);
-    next(error);
+    const { status, message } = storageErrorResponse(error);
+    return res.status(status).json({ success: false, message });
   }
 };
 
