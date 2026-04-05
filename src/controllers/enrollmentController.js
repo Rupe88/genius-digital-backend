@@ -962,3 +962,254 @@ const getAccessStatus = (enrollment) => {
     accessType
   };
 };
+
+// --- Admin: full enrollment CSV (same filters as enrollment list) ---
+
+const SOFT_DELETE_EMAIL_DOMAIN_EXPORT = '@deleted.local';
+const MAX_ENROLLMENT_ROWS_EXPORT = 15000;
+
+function csvEscapeEnrollmentExport(val) {
+  const s = val == null ? '' : String(val);
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+function formatMoneyEnrollmentExport(v) {
+  if (v == null || v === '') return '';
+  try {
+    const n = typeof v === 'object' && v !== null && typeof v.toNumber === 'function' ? v.toNumber() : Number(v);
+    if (Number.isNaN(n)) return '';
+    return n.toFixed(2);
+  } catch {
+    return '';
+  }
+}
+
+function formatDateEnrollmentExport(d) {
+  if (!d) return '';
+  try {
+    return new Date(d).toISOString();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Admin CSV export for enrollments page: respects status, courseId, search (student + course title + phone).
+ */
+export const exportEnrollmentsDetailCsv = async (req, res, next) => {
+  try {
+    const { status, courseId } = req.query;
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+
+    const andClauses = [{ user: { email: { not: { endsWith: SOFT_DELETE_EMAIL_DOMAIN_EXPORT } } } }];
+
+    if (status) andClauses.push({ status });
+    if (courseId) andClauses.push({ courseId });
+
+    if (search) {
+      andClauses.push({
+        OR: [
+          { user: { fullName: { contains: search, mode: 'insensitive' } } },
+          { user: { email: { contains: search, mode: 'insensitive' } } },
+          { user: { phone: { contains: search, mode: 'insensitive' } } },
+          { course: { title: { contains: search, mode: 'insensitive' } } },
+        ],
+      });
+    }
+
+    const where = { AND: andClauses };
+
+    const total = await prisma.enrollment.count({ where });
+    if (total > MAX_ENROLLMENT_ROWS_EXPORT) {
+      return res.status(400).json({
+        success: false,
+        message: `Too many enrollments (${total}). Refine status, course, or search (max ${MAX_ENROLLMENT_ROWS_EXPORT} rows).`,
+      });
+    }
+
+    const enrollments = await prisma.enrollment.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            phone: true,
+            role: true,
+            isActive: true,
+            isEmailVerified: true,
+            createdAt: true,
+          },
+        },
+        course: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            price: true,
+            isFree: true,
+            instructor: { select: { name: true } },
+          },
+        },
+        coupon: { select: { code: true, description: true } },
+        installments: { orderBy: { installmentNumber: 'asc' } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const userIds = [...new Set(enrollments.map((e) => e.userId))];
+    const payments =
+      userIds.length > 0
+        ? await prisma.payment.findMany({
+            where: {
+              userId: { in: userIds },
+              courseId: { not: null },
+            },
+            select: {
+              userId: true,
+              courseId: true,
+              status: true,
+              finalAmount: true,
+              discount: true,
+            },
+          })
+        : [];
+
+    const payMap = new Map();
+    for (const p of payments) {
+      const k = `${p.userId}|${p.courseId}`;
+      if (!payMap.has(k)) payMap.set(k, []);
+      payMap.get(k).push(p);
+    }
+
+    const headers = [
+      'login_email_username',
+      'user_id',
+      'user_full_name',
+      'user_phone',
+      'user_role',
+      'user_active',
+      'user_email_verified',
+      'user_account_created_at',
+      'enrollment_id',
+      'enrolled_at',
+      'course_id',
+      'course_title',
+      'course_slug',
+      'course_instructor_name',
+      'course_list_price',
+      'course_is_free',
+      'enrollment_status',
+      'enrollment_progress_pct',
+      'enrollment_completed_at',
+      'access_type',
+      'access_expires_at',
+      'access_status_summary',
+      'admin_granted',
+      'admin_notes',
+      'coupon_code_description',
+      'admin_discount_amount',
+      'net_payable_total_due',
+      'price_paid_recorded_on_enrollment',
+      'payments_completed_count',
+      'payments_completed_sum_final',
+      'payments_completed_sum_discount',
+      'installment_count',
+      'installment_schedule_total',
+      'installment_paid_sum',
+      'installment_remaining_unpaid',
+      'remaining_balance_after_completed_payments',
+      'installment_details',
+    ];
+
+    const rows = enrollments.map((e) => {
+      const u = e.user;
+      const key = `${u.id}|${e.courseId}`;
+      const pList = payMap.get(key) || [];
+      const completed = pList.filter((p) => p.status === 'COMPLETED');
+      const sumFinal = completed.reduce((acc, p) => acc + Number(p.finalAmount), 0);
+      const sumDisc = completed.reduce((acc, p) => acc + Number(p.discount), 0);
+      const inst = e.installments || [];
+      const instTotal = inst.reduce((acc, i) => acc + Number(i.amount), 0);
+      const instPaid = inst.filter((i) => i.status === 'PAID').reduce((acc, i) => acc + Number(i.amount), 0);
+      const instUnpaid = Math.max(0, instTotal - instPaid);
+
+      const netRaw = e.netPayableAfterDiscount;
+      const netNum = netRaw != null ? Number(netRaw) : null;
+      const listPriceNum = e.course.isFree ? 0 : Number(e.course.price);
+      const effectiveNet = netNum != null && !Number.isNaN(netNum) ? netNum : listPriceNum;
+      const balance = !Number.isNaN(effectiveNet) ? (effectiveNet - sumFinal).toFixed(2) : '';
+
+      const couponLabel = e.coupon
+        ? [e.coupon.code, e.coupon.description].filter(Boolean).join(' / ')
+        : '';
+
+      const instDetails = inst
+        .map((i) => {
+          const paid = i.paidAt ? `:paidAt=${formatDateEnrollmentExport(i.paidAt)}` : '';
+          return `#${i.installmentNumber}:${formatMoneyEnrollmentExport(i.amount)}:${i.status}:${formatDateEnrollmentExport(i.dueDate)}${paid}`;
+        })
+        .join(' | ');
+
+      const accessInfo = getAccessStatus(e);
+      const accessSummary = [
+        accessInfo.accessStatus,
+        accessInfo.daysRemaining != null ? `days_remaining:${accessInfo.daysRemaining}` : '',
+        accessInfo.warningLevel ? `warning:${accessInfo.warningLevel}` : '',
+      ]
+        .filter(Boolean)
+        .join(' | ');
+
+      return [
+        u.email,
+        u.id,
+        u.fullName,
+        u.phone ?? '',
+        u.role,
+        u.isActive ? 'Yes' : 'No',
+        u.isEmailVerified ? 'Yes' : 'No',
+        formatDateEnrollmentExport(u.createdAt),
+        e.id,
+        formatDateEnrollmentExport(e.createdAt),
+        e.course.id,
+        e.course.title,
+        e.course.slug,
+        e.course.instructor?.name ?? '',
+        formatMoneyEnrollmentExport(e.course.price),
+        e.course.isFree ? 'Yes' : 'No',
+        e.status,
+        String(e.progress ?? 0),
+        formatDateEnrollmentExport(e.completedAt),
+        e.accessType ?? '',
+        formatDateEnrollmentExport(e.accessExpiresAt),
+        accessSummary,
+        e.grantedByAdmin ? 'Yes' : 'No',
+        (e.adminNotes ?? '').replace(/\r?\n/g, ' ').slice(0, 2000),
+        couponLabel,
+        formatMoneyEnrollmentExport(e.adminDiscountAmount),
+        formatMoneyEnrollmentExport(e.netPayableAfterDiscount),
+        formatMoneyEnrollmentExport(e.pricePaid),
+        String(completed.length),
+        sumFinal.toFixed(2),
+        sumDisc.toFixed(2),
+        String(inst.length),
+        instTotal.toFixed(2),
+        instPaid.toFixed(2),
+        instUnpaid.toFixed(2),
+        balance,
+        instDetails,
+      ];
+    });
+
+    const csvLines = [headers.map(csvEscapeEnrollmentExport).join(','), ...rows.map((r) => r.map(csvEscapeEnrollmentExport).join(','))];
+    const csv = `\ufeff${csvLines.join('\r\n')}`;
+    const fname = `enrollments-detail-${new Date().toISOString().slice(0, 10)}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+    res.send(csv);
+  } catch (error) {
+    next(error);
+  }
+};

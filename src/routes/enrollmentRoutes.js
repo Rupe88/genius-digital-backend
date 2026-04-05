@@ -10,10 +10,12 @@ import {
   adminGrantPartialAccess,
   extendAccess,
   checkAccessExpiry,
+  exportEnrollmentsDetailCsv,
 } from '../controllers/enrollmentController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
 import { body, param, query } from 'express-validator';
+import { validate } from '../utils/validators.js';
 
 const router = express.Router();
 
@@ -37,6 +39,18 @@ router.get(
     query('limit').optional().isInt({ min: 1, max: 100 }),
   ],
   getUserEnrollments
+);
+
+router.get(
+  '/admin/export-detail',
+  authenticate,
+  requireAdmin,
+  validate([
+    query('status').optional().isIn(['PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED', 'EXPIRED']),
+    query('courseId').optional({ checkFalsy: true }).isUUID().withMessage('courseId must be a valid UUID'),
+    query('search').optional().trim().isLength({ max: 255 }),
+  ]),
+  exportEnrollmentsDetailCsv
 );
 
 router.get(
