@@ -82,6 +82,8 @@ function isOriginAllowed(origin) {
   if (config.nodeEnv === 'development') return true;
   if (allowedOrigins.has(origin)) return true;
   if (origin.endsWith('.vercel.app')) return true;
+  // DigitalOcean App Platform default URLs (until custom domain is attached)
+  if (origin.endsWith('.ondigitalocean.app')) return true;
   return false;
 }
 app.use(

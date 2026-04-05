@@ -73,6 +73,7 @@ export const errorHandler = (err, req, res, next) => {
     (config.nodeEnv === 'development' ||
       (Array.isArray(config.corsOrigins) && config.corsOrigins.includes(origin)) ||
       origin.endsWith('.vercel.app') ||
+      origin.endsWith('.ondigitalocean.app') ||
       origin === 'https://sanskaracademy.net' ||
       origin === 'https://www.sanskaracademy.net' ||
       origin === 'https://sanskarvastu.com' ||
@@ -92,6 +93,7 @@ export const notFoundHandler = (req, res, next) => {
     (config.nodeEnv === 'development' ||
       (Array.isArray(config.corsOrigins) && config.corsOrigins.includes(origin)) ||
       origin.endsWith('.vercel.app') ||
+      origin.endsWith('.ondigitalocean.app') ||
       origin === 'https://sanskaracademy.net' ||
       origin === 'https://www.sanskaracademy.net' ||
       origin === 'https://sanskarvastu.com' ||
