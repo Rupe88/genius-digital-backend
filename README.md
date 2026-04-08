@@ -91,3 +91,4 @@ See `DEPLOYMENT_CHECKLIST.md` and `DIGITAL-OCEAN-DEPLOYMENT-GUIDE.md` for deploy
 - The backend uses `FRONTEND_URL` environment variable to configure CORS and generate redirect URLs
 - All frontend code should be in the separate `vaastu` frontend repository
 - This backend serves only as an API server
+# genius-lms-backend
