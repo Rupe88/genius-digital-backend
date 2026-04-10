@@ -1,5 +1,5 @@
 import { prisma } from '../config/database.js';
-import { uploadImage, uploadVideo } from '../services/s3Service.js';
+import { uploadImage, uploadVideo } from '../services/storageService.js';
 
 /**
  * Public: Get all carousel slides for home page (ordered)

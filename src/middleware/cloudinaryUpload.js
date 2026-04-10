@@ -1,10 +1,10 @@
 /**
- * Multipart upload middleware. Course/lesson thumbnails and videos use S3 only (s3Service).
+ * Multipart upload middleware. Course/lesson thumbnails and videos use Supabase Storage.
  * req.cloudinary is the conventional name for upload results (url, videoUrl, etc.).
  */
 import multer from 'multer';
 import { config } from '../config/env.js';
-import { uploadImage, uploadVideo, uploadDocument } from '../services/s3Service.js';
+import { uploadImage, uploadVideo, uploadDocument } from '../services/storageService.js';
 import { optimizeVideoBuffer } from '../services/videoOptimizationService.js';
 
 // Upload limits from config (bytes). Use max of all so multer accepts any allowed type up to video limit.
@@ -29,8 +29,15 @@ function storageErrorResponse(err) {
       message: 'Upload was interrupted. Try a smaller file or retry in a few minutes.',
     };
   }
-  if (msg.includes('S3 is not configured')) {
+  if (msg.includes('Supabase Storage is not configured')) {
     return { status: 503, message: 'File storage is not configured on the server.' };
+  }
+  if (msg.toLowerCase().includes('bucket not found')) {
+    return {
+      status: 503,
+      message:
+        'Supabase storage bucket is missing. Set SUPABASE_STORAGE_BUCKET correctly or create it in Supabase Storage.',
+    };
   }
   return { status: 400, message: msg || 'File upload failed' };
 }
@@ -150,7 +157,7 @@ export const processImageUpload = async (req, res, next) => {
     const folder = req.body.folder || 'lms/images';
     const transformation = req.body.transformation || {};
 
-    console.log(`Uploading image to S3 folder: ${folder}, size: ${req.file.buffer.length} bytes, type: ${req.file.mimetype}`);
+    console.log(`Uploading image to storage folder: ${folder}, size: ${req.file.buffer.length} bytes, type: ${req.file.mimetype}`);
 
     // Add timeout to prevent hanging (30 seconds)
     const uploadPromise = uploadImage(req.file.buffer, {
@@ -186,8 +193,8 @@ export const processImageUpload = async (req, res, next) => {
     let errorMessage = 'Image upload failed';
     let statusCode = 400;
 
-    if (error.message?.includes('S3 is not configured')) {
-      errorMessage = 'Storage is not configured. Please set S3_ACCESS_KEY and S3_SECRET_KEY in .env';
+    if (error.message?.includes('Supabase Storage is not configured')) {
+      errorMessage = 'Storage is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env';
       statusCode = 500;
     } else if (error.message?.includes('timed out')) {
       errorMessage = 'Image upload timed out. Please try again with a smaller file.';
@@ -314,7 +321,7 @@ export const processGalleryFiles = async (req, res, next) => {
       }
 
       const videoTimeoutMs = config.upload?.videoUploadTimeoutMs ?? 600000;
-      console.log('[Gallery upload] Uploading video to S3, size:', file.buffer.length, 'bytes');
+      console.log('[Gallery upload] Uploading video to storage, size:', file.buffer.length, 'bytes');
 
       const uploadPromise = uploadVideo(file.buffer, {
         folder: folderVideos,
@@ -387,7 +394,7 @@ export const processVideoUpload = async (req, res, next) => {
       }
     }
 
-    console.log(`Uploading video to S3 folder: ${folder}, size: ${videoBuffer.length} bytes, timeout: ${timeoutMs / 1000}s`);
+    console.log(`Uploading video to storage folder: ${folder}, size: ${videoBuffer.length} bytes, timeout: ${timeoutMs / 1000}s`);
 
     const uploadPromise = uploadVideo(videoBuffer, {
       folder,
@@ -460,7 +467,7 @@ export const processDocumentUpload = async (req, res, next) => {
 
     const folder = req.body.folder || 'lms/documents';
 
-    console.log(`Uploading document to S3 folder: ${folder}, size: ${req.file.buffer.length} bytes`);
+    console.log(`Uploading document to storage folder: ${folder}, size: ${req.file.buffer.length} bytes`);
 
     const result = await uploadDocument(req.file.buffer, {
       folder,
@@ -485,7 +492,7 @@ export const processDocumentUpload = async (req, res, next) => {
 const MAX_PROMO_VIDEOS = 5;
 
 /**
- * Upload a single video buffer to S3 (used for course promo videos).
+ * Upload a single video buffer to storage (used for course promo videos).
  * Skips FFmpeg optimization so the request returns quickly; large files would otherwise
  * block for 5+ minutes at 99% while the server runs optimization.
  */
@@ -496,7 +503,7 @@ async function uploadOneCourseVideo(file, reqBodyFolder) {
   }
   const videoBuffer = file.buffer;
   const videoTimeoutMs = config.upload?.videoUploadTimeoutMs ?? 600000;
-  console.log('[Course upload] Uploading video to S3, size:', videoBuffer.length, 'bytes (optimization skipped for faster response)');
+  console.log('[Course upload] Uploading video to storage, size:', videoBuffer.length, 'bytes (optimization skipped for faster response)');
   const uploadPromise = uploadVideo(videoBuffer, { folder: reqBodyFolder || 'lms/videos', mimeType: file.mimetype });
   const timeoutPromise = new Promise((_, reject) =>
     setTimeout(() => reject(new Error(`Video upload timed out after ${videoTimeoutMs / 1000}s`)), videoTimeoutMs)
@@ -507,7 +514,7 @@ async function uploadOneCourseVideo(file, reqBodyFolder) {
 
 /**
  * Course create/update: thumbnail (image) + optional 1–5 promo videos (URLs and/or file uploads).
- * Uses S3 only. Expects req.files.thumbnail[0] and/or req.files.video[] (up to 5).
+ * Expects req.files.thumbnail[0] and/or req.files.video[] (up to 5).
  * When body.promoVideoSlots is present (JSON array of { type: 'url', url } | { type: 'file' }), builds req.cloudinary.promoVideos and sets videoUrl = first.
  */
 export const processCourseFiles = async (req, res, next) => {
@@ -520,7 +527,7 @@ export const processCourseFiles = async (req, res, next) => {
         if (file.buffer.length > imageMaxBytes) {
           return res.status(400).json({ success: false, message: `Thumbnail exceeds ${config.upload?.imageMaxMb ?? 10}MB limit` });
         }
-        console.log('[Course upload] Uploading thumbnail to S3, size:', file.buffer.length);
+        console.log('[Course upload] Uploading thumbnail to storage, size:', file.buffer.length);
         try {
           const result = await uploadImage(file.buffer, {
             folder: req.body.folder || 'lms/images',
@@ -529,7 +536,7 @@ export const processCourseFiles = async (req, res, next) => {
           req.cloudinary.url = result.secure_url;
           req.cloudinary.publicId = result.public_id;
         } catch (thumbErr) {
-          console.error('[Course upload] Thumbnail S3 error:', thumbErr?.message || thumbErr);
+          console.error('[Course upload] Thumbnail upload error:', thumbErr?.message || thumbErr);
           const { status, message } = storageErrorResponse(thumbErr);
           return res.status(status).json({ success: false, message });
         }
@@ -589,13 +596,13 @@ export const processCourseFiles = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error('[Course upload] S3 upload error:', error);
+    console.error('[Course upload] Storage upload error:', error);
     const { status, message } = storageErrorResponse(error);
     return res.status(status).json({ success: false, message });
   }
 };
 
-/** When the client sends octet-stream or empty MIME, infer from filename so S3 keys get a real extension. */
+/** When the client sends octet-stream or empty MIME, infer from filename so object keys get a real extension. */
 function resolveDocumentMimeType(file) {
   const raw = (file?.mimetype || '').trim();
   if (raw && raw !== 'application/octet-stream' && raw !== 'binary/octet-stream') {

@@ -1,13 +1,15 @@
 import { prisma } from '../config/database.js';
-import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
+import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/storageService.js';
 import { validationResult } from 'express-validator';
 import * as paymentService from '../services/paymentService.js';
 import * as installmentService from '../services/installmentService.js';
 import * as cardPaymentService from '../services/cardPaymentService.js';
-import * as esewaService from '../services/esewaService.js';
 import { config } from '../config/env.js';
 
 const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isMissingManualProofColumnError = (error) =>
+  String(error?.message || '').includes('payments.proofImageUrl') ||
+  String(error?.message || '').includes('payments.proofSubmittedAt');
 
 /**
  * Initiate payment
@@ -170,89 +172,14 @@ export const verifyPayment = async (req, res, next) => {
 };
 
 /**
- * Public: Verify payment from success page (eSewa redirect).
- * No auth required – we verify using eSewa callback signature.
+ * Legacy callback endpoint (no eSewa). Use manual QR flow or card verify.
  */
 export const verifyPaymentCallback = async (req, res, next) => {
   try {
-    const { transactionId, paymentMethod = 'ESEWA', verificationData = {} } = req.body;
-
-    const tid = transactionId || verificationData.transaction_uuid;
-    if (!tid) {
-      return res.status(400).json({
-        success: false,
-        message: 'Missing transaction ID',
-      });
-    }
-
-    if (paymentMethod === 'ESEWA') {
-      const isValid = esewaService.verifyEsewaCallback(verificationData);
-      if (!isValid) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid eSewa signature',
-        });
-      }
-    }
-
-    const result = await paymentService.verifyPayment({
-      transactionId: tid,
-      paymentMethod,
-      verificationData,
-    });
-    if (result.success) {
-      return res.json({
-        success: true,
-        data: result.payment,
-      });
-    }
     return res.status(400).json({
       success: false,
-      message: result.message || 'Payment verification failed',
+      message: 'eSewa is disabled. Use manual QR payment or contact support.',
     });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * eSewa webhook/callback handler
- */
-export const esewaWebhook = async (req, res, next) => {
-  try {
-    const callbackData = req.body;
-
-    // Verify signature
-    const isValid = esewaService.verifyEsewaCallback(callbackData);
-
-    if (!isValid) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid eSewa signature',
-      });
-    }
-
-    const { transaction_uuid, total_amount, status } = callbackData;
-
-    // Verify payment
-    const result = await paymentService.verifyPayment({
-      transactionId: transaction_uuid,
-      paymentMethod: 'ESEWA',
-      verificationData: callbackData,
-    });
-
-    if (result.success) {
-      // Return success response to eSewa
-      res.status(200).json({
-        success: true,
-        message: 'Payment verified successfully',
-      });
-    } else {
-      res.status(400).json({
-        success: false,
-        message: 'Payment verification failed',
-      });
-    }
   } catch (error) {
     next(error);
   }
@@ -332,38 +259,94 @@ export const getPayment = async (req, res, next) => {
 export const getUserPayments = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { PrismaClient } = await import('@prisma/client');
 
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-
-    const [payments, total] = await Promise.all([
-      prisma.payment.findMany({
-        where: { userId },
-        include: {
-          course: {
-            select: {
-              id: true,
-              title: true,
-              thumbnail: true,
+    let payments = [];
+    let total = 0;
+    try {
+      [payments, total] = await Promise.all([
+        prisma.payment.findMany({
+          where: { userId },
+          include: {
+            course: {
+              select: {
+                id: true,
+                title: true,
+                thumbnail: true,
+              },
+            },
+            order: {
+              select: {
+                id: true,
+                orderNumber: true,
+              },
             },
           },
-          order: {
-            select: {
-              id: true,
-              orderNumber: true,
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.payment.count({
+          where: { userId },
+        }),
+      ]);
+    } catch (queryError) {
+      if (!isMissingManualProofColumnError(queryError)) {
+        throw queryError;
+      }
+      // Temporary compatibility for DBs that have not applied manual-QR proof columns yet.
+      [payments, total] = await Promise.all([
+        prisma.payment.findMany({
+          where: { userId },
+          select: {
+            id: true,
+            userId: true,
+            courseId: true,
+            orderId: true,
+            amount: true,
+            discount: true,
+            finalAmount: true,
+            currency: true,
+            paymentMethod: true,
+            esewaRefId: true,
+            esewaProductId: true,
+            mobileBankName: true,
+            mobileBankRef: true,
+            cardLastFour: true,
+            cardType: true,
+            cardholderName: true,
+            transactionId: true,
+            status: true,
+            couponId: true,
+            retryCount: true,
+            processingTime: true,
+            gatewayResponseTime: true,
+            metadata: true,
+            createdAt: true,
+            updatedAt: true,
+            course: {
+              select: {
+                id: true,
+                title: true,
+                thumbnail: true,
+              },
+            },
+            order: {
+              select: {
+                id: true,
+                orderNumber: true,
+              },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      prisma.payment.count({
-        where: { userId },
-      }),
-    ]);
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.payment.count({ where: { userId } }),
+      ]);
+    }
 
     // Ensure course thumbnails use signed S3 URLs so they load correctly in dashboard/payment history
     if (isS3Configured()) {
@@ -470,16 +453,13 @@ export const getAvailableGateways = async (req, res, next) => {
   try {
     const gateways = cardPaymentService.getAvailableGateways();
 
-    // Add eSewa if configured
-    if (config.esewa.merchantId && config.esewa.secretKey) {
-      gateways.push({
-        id: 'esewa',
-        name: 'eSewa',
-        supportsCards: false,
-        supportsMobile: true,
-        currencies: ['NPR'],
-      });
-    }
+    gateways.push({
+      id: 'manual_qr',
+      name: 'QR / Bank transfer (manual)',
+      supportsCards: false,
+      supportsMobile: true,
+      currencies: ['NPR'],
+    });
 
     // Add mobile banking if enabled
     if (config.mobileBankingEnabled) {
@@ -525,7 +505,10 @@ export const getAllPaymentsAdmin = async (req, res, next) => {
       ];
     }
 
-    const [payments, total] = await Promise.all([
+    let payments = [];
+    let total = 0;
+
+    [payments, total] = await Promise.all([
       prisma.payment.findMany({
         where,
         include: {
@@ -556,6 +539,28 @@ export const getAllPaymentsAdmin = async (req, res, next) => {
       prisma.payment.count({ where }),
     ]);
 
+    // Ensure manual proof URLs are directly usable in admin review table.
+    if (isS3Configured()) {
+      await Promise.all(
+        payments.map(async (payment) => {
+          if (payment.proofImageUrl && isOurS3Url(payment.proofImageUrl)) {
+            try {
+              payment.proofImageUrl = await getSignedUrlForMediaUrl(payment.proofImageUrl, 3600);
+            } catch (err) {
+              console.warn('[payments-admin] Signed proof URL failed:', payment.id, err?.message);
+            }
+          }
+        })
+      );
+    }
+
+    // Prioritize manual QR items that are pending and already have proof submitted.
+    payments.sort((a, b) => {
+      const aPriority = a.paymentMethod === 'MANUAL_QR' && a.status === 'PENDING' && a.proofImageUrl ? 1 : 0;
+      const bPriority = b.paymentMethod === 'MANUAL_QR' && b.status === 'PENDING' && b.proofImageUrl ? 1 : 0;
+      return bPriority - aPriority;
+    });
+
     res.json({
       success: true,
       data: payments,
@@ -566,6 +571,92 @@ export const getAllPaymentsAdmin = async (req, res, next) => {
         pages: Math.ceil(total / limit) || 1,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** User: submit payment proof screenshot (MANUAL_QR). */
+export const submitManualPaymentProof = async (req, res, next) => {
+  try {
+    const { paymentId } = req.body;
+    if (!paymentId || !req.file?.buffer) {
+      return res.status(400).json({
+        success: false,
+        message: 'paymentId and proof image are required',
+      });
+    }
+    const result = await paymentService.submitPaymentProof(
+      paymentId,
+      req.user.id,
+      req.file.buffer,
+      req.file.mimetype
+    );
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Admin: get manual payment QR settings */
+export const getManualPaymentSettings = async (req, res, next) => {
+  try {
+    const settings = await paymentService.getManualPaymentSettings();
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Admin: update instructions / QR URL (JSON) */
+export const updateManualPaymentSettings = async (req, res, next) => {
+  try {
+    const { qrImageUrl, instructions } = req.body;
+    const settings = await paymentService.updateManualPaymentSettings({ qrImageUrl, instructions });
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Admin: upload QR image file → stored URL saved to settings */
+export const uploadManualPaymentQr = async (req, res, next) => {
+  try {
+    if (!req.file?.buffer) {
+      return res.status(400).json({ success: false, message: 'Image file is required' });
+    }
+    const { uploadImage } = await import('../services/storageService.js');
+    const result = await uploadImage(req.file.buffer, {
+      folder: 'lms/manual-payment',
+      mimeType: req.file.mimetype || 'image/png',
+    });
+    const settings = await paymentService.updateManualPaymentSettings({
+      qrImageUrl: result.secure_url,
+    });
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Admin: approve manual payment */
+export const approveManualPayment = async (req, res, next) => {
+  try {
+    const { paymentId } = req.params;
+    const result = await paymentService.approveManualPayment(paymentId, req.user.id);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Admin: reject manual payment */
+export const rejectManualPayment = async (req, res, next) => {
+  try {
+    const { paymentId } = req.params;
+    const { reason } = req.body;
+    const result = await paymentService.rejectManualPayment(paymentId, req.user.id, reason);
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }

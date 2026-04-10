@@ -11,8 +11,8 @@ async function main() {
 
   // 1. ADMIN USER
   // We force update the password to ensure the user can log in after seeding
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@sanskaracademy.com';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@123';
+  const adminEmail = process.env.ADMIN_EMAIL || 'geniusdigi@lms.com';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'Geniusdigi@123!';
 
   console.log(`🔐 Setting up admin: ${adminEmail}`);
   const hashedPassword = await bcrypt.hash(adminPassword, 10);

@@ -7,7 +7,7 @@ export const errorHandler = (err, req, res, next) => {
   const errName = err.name || '';
   const errMsg = typeof err.message === 'string' ? err.message : '';
 
-  // S3 / S3-compatible storage (AWS SDK v3)
+  // Supabase Storage / network
   if (
     errName === 'ServiceUnavailable' ||
     errMsg.includes('temporary failure of the server') ||
@@ -20,7 +20,7 @@ export const errorHandler = (err, req, res, next) => {
     statusCode = 503;
     message =
       'Upload to storage was interrupted. Try a smaller file, check your connection, or add media later from course edit.';
-  } else if (errMsg.includes('S3 is not configured')) {
+  } else if (errMsg.includes('Supabase Storage is not configured')) {
     statusCode = 503;
     message = 'File storage is not configured on the server.';
   }

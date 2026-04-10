@@ -54,36 +54,22 @@ export const config = {
     imageMaxMb: Number(process.env.UPLOAD_IMAGE_MAX_MB) || 10,
     videoMaxMb: Number(process.env.UPLOAD_VIDEO_MAX_MB) || 3072, // 3GB default (videos over 1GB supported)
     documentMaxMb: Number(process.env.UPLOAD_DOCUMENT_MAX_MB) || 50,
-    videoUploadTimeoutMs: Number(process.env.UPLOAD_VIDEO_TIMEOUT_MS) || 600000, // 10 min for S3 upload step
+    videoUploadTimeoutMs: Number(process.env.UPLOAD_VIDEO_TIMEOUT_MS) || 600000, // 10 min for storage upload step
     // Video optimization options
     videoOptimizationEnabled: process.env.VIDEO_OPTIMIZATION_ENABLED !== 'false', // Default: true
     videoOptimizationTimeoutMs: Number(process.env.VIDEO_OPTIMIZATION_TIMEOUT_MS) || 300000, // 5 min default
   },
 
-  // S3-compatible storage (Kailesh Cloud / DataHub S3) - images, videos, documents
-  // Production: set S3_ACCESS_KEY, S3_SECRET_KEY, S3_BUCKET (and optionally S3_ENDPOINT, S3_REGION, S3_PUBLIC_URL)
-  s3: (() => {
+  // Supabase Storage — thumbnails, videos, documents (service role on server only)
+  supabase: (() => {
     const trimSecret = (s) => (typeof s === 'string' ? s.replace(/\r\n|\r|\n/g, '').trim() : s || null);
-    const endpointRaw = process.env.S3_ENDPOINT?.trim() || 'https://s3-np1.datahub.com.np';
-    const endpoint = endpointRaw.startsWith('http') ? endpointRaw : `https://${endpointRaw}`;
+    const url = process.env.SUPABASE_URL?.trim() || null;
     return {
-      endpoint: endpoint.replace(/\/$/, ''),
-      region: process.env.S3_REGION?.trim() || 'us-east-1',
-      bucket: process.env.S3_BUCKET?.trim() || 'vaastu-lms',
-      accessKey: trimSecret(process.env.S3_ACCESS_KEY) || null,
-      secretKey: trimSecret(process.env.S3_SECRET_KEY) || null,
-      publicUrl: process.env.S3_PUBLIC_URL?.trim() || null,
+      url: url ? url.replace(/\/$/, '') : null,
+      serviceRoleKey: trimSecret(process.env.SUPABASE_SERVICE_ROLE_KEY) || null,
+      storageBucket: process.env.SUPABASE_STORAGE_BUCKET?.trim() || 'lms-media',
     };
   })(),
-
-  // Payment Gateways
-  esewa: {
-    merchantId: process.env.ESEWA_MERCHANT_ID || 'EPAYTEST',
-    secretKey: process.env.ESEWA_SECRET_KEY || '8gBm/:&EnhH.1/q',
-    environment: process.env.ESEWA_ENVIRONMENT || 'sandbox',
-  },
-
-  esewaProductCode: process.env.ESEWA_PRODUCT_CODE || 'EPAYTEST',
 
   // Card Payments - Khalti (Recommended for Nepal - Supports Visa/Mastercard)
   khalti: {

@@ -1,8 +1,23 @@
 import { prisma } from '../config/database.js';
 import { validationResult } from 'express-validator';
 import { generateSlug } from '../utils/helpers.js';
-import { isS3Configured, isOurS3Url } from '../services/s3Service.js';
+import { isS3Configured, isOurS3Url } from '../services/storageService.js';
 import { serializeQuizCorrectAnswer } from '../services/quizService.js';
+
+async function canManageCourse(req, courseId) {
+  if (req.user?.role === 'ADMIN') return true;
+  if (req.user?.role !== 'INSTRUCTOR') return false;
+  const instructor = await prisma.instructor.findFirst({
+    where: { email: { equals: req.user.email, mode: 'insensitive' } },
+    select: { id: true },
+  });
+  if (!instructor) return false;
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    select: { instructorId: true },
+  });
+  return !!course && course.instructorId === instructor.id;
+}
 
 
 /**
@@ -60,10 +75,20 @@ export const getCourseLessons = async (req, res, next) => {
       });
     }
 
+    const allowed = await canManageCourse(req, courseId);
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can modify lessons only for your assigned courses',
+      });
+    }
+
     const isEnrolled = !!(userId && course.enrollments && course.enrollments.length > 0);
-    const isInstructor = !!(userId && course.instructor?.id === userId);
-    // Assuming you have a way to check for admin, if not, we'll stick to instructor for now
-    const hasFullAccess = isInstructor;
+    const isInstructorOwner =
+      req.user?.role === 'INSTRUCTOR' &&
+      !!course.instructor?.email &&
+      String(course.instructor.email).toLowerCase() === String(req.user?.email || '').toLowerCase();
+    const hasFullAccess = isInstructorOwner || req.user?.role === 'ADMIN';
 
     // Helper to process a single lesson
     const processLesson = (lesson, chapterIsPreview = false) => {
@@ -152,7 +177,14 @@ export const getLessonById = async (req, res, next) => {
     // Check access
     if (userId) {
       const isEnrolled = lesson.course.enrollments && lesson.course.enrollments.length > 0;
-      if (!isEnrolled && !lesson.isPreview) {
+      const isInstructorOwner =
+        req.user?.role === 'INSTRUCTOR' &&
+        !!lesson.course?.instructorId &&
+        (await prisma.instructor.findFirst({
+          where: { id: lesson.course.instructorId, email: { equals: req.user.email, mode: 'insensitive' } },
+          select: { id: true },
+        }));
+      if (!isEnrolled && !lesson.isPreview && !isInstructorOwner && req.user?.role !== 'ADMIN') {
         return res.status(403).json({
           success: false,
           message: 'You must be enrolled in this course to access this lesson',
@@ -404,6 +436,14 @@ export const updateLesson = async (req, res, next) => {
       });
     }
 
+    const allowed = await canManageCourse(req, existingLesson.courseId);
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can modify lessons only for your assigned courses',
+      });
+    }
+
     // Handle slug: if name changed and slug not provided, auto-generate
     let finalSlug = slug;
     if (!finalSlug && title && title !== existingLesson.title) {
@@ -580,6 +620,26 @@ export const updateLesson = async (req, res, next) => {
 export const deleteLesson = async (req, res, next) => {
   try {
     const { id } = req.params;
+
+    const existingLesson = await prisma.lesson.findUnique({
+      where: { id },
+      select: { id: true, courseId: true },
+    });
+
+    if (!existingLesson) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lesson not found',
+      });
+    }
+
+    const allowed = await canManageCourse(req, existingLesson.courseId);
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can modify lessons only for your assigned courses',
+      });
+    }
 
     await prisma.lesson.delete({
       where: { id },

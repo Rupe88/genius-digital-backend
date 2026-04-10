@@ -19,7 +19,7 @@ export const updatePaymentPreference = async (req, res, next) => {
     const { preferredPaymentMethod } = req.body;
     const userId = req.user.id;
 
-    const validMethods = ['ESEWA', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD'];
+    const validMethods = ['MANUAL_QR', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD'];
     if (!validMethods.includes(preferredPaymentMethod)) {
       return res.status(400).json({
         success: false,

@@ -10,9 +10,10 @@ import {
   markAttendance,
   getMyLiveClasses,
   getMyAvailableLiveClasses,
+  getMyManagedLiveClasses,
 } from '../controllers/liveClassController.js';
 import { authenticate } from '../middleware/auth.js';
-import { requireAdmin } from '../middleware/role.js';
+import { requireInstructorOrAdmin } from '../middleware/role.js';
 import { body, param, query } from 'express-validator';
 import { validate } from '../utils/validators.js';
 
@@ -57,6 +58,19 @@ router.use(authenticate);
 
 // Get user's live classes
 router.get('/me/enrollments', getMyLiveClasses);
+router.get(
+  '/me/manage',
+  requireInstructorOrAdmin,
+  validate([
+    query('status').optional().isIn(['SCHEDULED', 'LIVE', 'COMPLETED', 'CANCELLED']),
+    query('courseId').optional().isUUID(),
+    query('search').optional().isString().trim(),
+    query('q').optional().isString().trim(),
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 100 }),
+  ]),
+  getMyManagedLiveClasses
+);
 
 // Enroll in live class
 router.post(
@@ -75,13 +89,13 @@ router.post(
   markAttendance
 );
 
-// Admin routes
+// Admin/Instructor routes (ownership checks in controller)
 router.post(
   '/',
-  requireAdmin,
+  requireInstructorOrAdmin,
   validate([
     body('title').notEmpty().trim().withMessage('Title is required'),
-    body('instructorId').isUUID().withMessage('Valid instructor ID is required'),
+    body('instructorId').optional({ checkFalsy: true }).isUUID().withMessage('Valid instructor ID is required'),
     body('recurrenceType').isIn(['WEEKLY']).withMessage('Only weekly recurrence is supported'),
     body('startDate')
       .notEmpty()
@@ -130,7 +144,7 @@ router.post(
 
 router.put(
   '/:id',
-  requireAdmin,
+  requireInstructorOrAdmin,
   validate([
     param('id').isUUID(),
     body('title').optional().notEmpty().trim(),
@@ -180,7 +194,7 @@ router.put(
 
 router.post(
   '/series/:seriesId/cancel',
-  requireAdmin,
+  requireInstructorOrAdmin,
   validate([
     param('seriesId').isString().trim().notEmpty(),
   ]),
@@ -189,7 +203,7 @@ router.post(
 
 router.delete(
   '/:id',
-  requireAdmin,
+  requireInstructorOrAdmin,
   validate([param('id').isUUID()]),
   deleteLiveClass
 );

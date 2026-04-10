@@ -18,7 +18,7 @@ router.get(
   [
     query('startDate').optional().isISO8601(),
     query('endDate').optional().isISO8601(),
-    query('paymentMethod').optional().isIn(['ESEWA', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD']),
+    query('paymentMethod').optional().isIn(['MANUAL_QR', 'ESEWA', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD', 'OTHER']),
   ],
   getPaymentAnalytics
 );

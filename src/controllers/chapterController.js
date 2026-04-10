@@ -3,6 +3,21 @@ import { prisma } from '../config/database.js';
 import { validationResult } from 'express-validator';
 import { generateSlug, generateUniqueSlug } from '../utils/helpers.js';
 
+async function canManageCourse(req, courseId) {
+  if (req.user?.role === 'ADMIN') return true;
+  if (req.user?.role !== 'INSTRUCTOR') return false;
+  const instructor = await prisma.instructor.findFirst({
+    where: { email: { equals: req.user.email, mode: 'insensitive' } },
+    select: { id: true },
+  });
+  if (!instructor) return false;
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    select: { instructorId: true },
+  });
+  return !!course && course.instructorId === instructor.id;
+}
+
 
 /**
  * Get all chapters for a course
@@ -110,6 +125,14 @@ export const createChapter = async (req, res, next) => {
       });
     }
 
+    const allowed = await canManageCourse(req, courseId);
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can modify chapters only for your assigned courses',
+      });
+    }
+
     // Auto-generate slug if not provided
     let finalSlug = slug;
     if (!finalSlug && title) {
@@ -194,6 +217,14 @@ export const updateChapter = async (req, res, next) => {
       });
     }
 
+    const allowed = await canManageCourse(req, existingChapter.courseId);
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can modify chapters only for your assigned courses',
+      });
+    }
+
     // Handle slug update
     let finalSlug = slug || existingChapter.slug;
     if (slug && slug !== existingChapter.slug) {
@@ -271,6 +302,14 @@ export const deleteChapter = async (req, res, next) => {
       });
     }
 
+    const allowed = await canManageCourse(req, chapter.courseId);
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can modify chapters only for your assigned courses',
+      });
+    }
+
     // Prevent deletion if chapter has lessons
     if (chapter._count.lessons > 0) {
       return res.status(400).json({
@@ -319,6 +358,14 @@ export const reorderChapters = async (req, res, next) => {
       });
     }
 
+    const allowed = await canManageCourse(req, chapter.courseId);
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can modify chapters only for your assigned courses',
+      });
+    }
+
     const updatedChapter = await prisma.chapter.update({
       where: { id },
       data: { order: parseInt(order) },
@@ -351,6 +398,14 @@ export const toggleLock = async (req, res, next) => {
       return res.status(404).json({
         success: false,
         message: 'Chapter not found',
+      });
+    }
+
+    const allowed = await canManageCourse(req, chapter.courseId);
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can modify chapters only for your assigned courses',
       });
     }
 
@@ -390,6 +445,14 @@ export const togglePreview = async (req, res, next) => {
       return res.status(404).json({
         success: false,
         message: 'Chapter not found',
+      });
+    }
+
+    const allowed = await canManageCourse(req, chapter.courseId);
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can modify chapters only for your assigned courses',
       });
     }
 

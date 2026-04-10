@@ -1,6 +1,20 @@
 import { prisma } from '../config/database.js';
 import { validationResult } from 'express-validator';
 import { generateSlug } from '../utils/helpers.js';
+import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl, resolveStorageUrl } from '../services/storageService.js';
+
+const maskInstructorImage = async (instructor) => {
+  if (!instructor?.image) return instructor;
+  instructor.image = resolveStorageUrl(instructor.image);
+  if (isS3Configured() && isOurS3Url(instructor.image)) {
+    try {
+      instructor.image = await getSignedUrlForMediaUrl(instructor.image, 3600);
+    } catch (err) {
+      console.warn('[instructor] Signed image URL failed:', instructor.id, err?.message);
+    }
+  }
+  return instructor;
+};
 
 /**
  * Get all instructors
@@ -41,9 +55,82 @@ export const getAllInstructors = async (req, res, next) => {
       order: parseInt(instructor.order) || 0,
     }));
 
+    await Promise.all(processedInstructors.map((instructor) => maskInstructorImage(instructor)));
+
     res.json({
       success: true,
       data: processedInstructors,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get courses assigned to logged-in instructor
+ */
+export const getMyInstructorCourses = async (req, res, next) => {
+  try {
+    const email = String(req.user?.email || '').trim();
+    const fullName = String(req.user?.fullName || '').trim();
+
+    const instructor = await prisma.instructor.findFirst({
+      where: {
+        OR: [
+          ...(email ? [{ email: { equals: email, mode: 'insensitive' } }] : []),
+          ...(fullName ? [{ name: { equals: fullName, mode: 'insensitive' } }] : []),
+        ],
+      },
+      select: { id: true, name: true, email: true },
+    });
+
+    if (!instructor) {
+      return res.json({
+        success: true,
+        data: [],
+      });
+    }
+
+    const courses = await prisma.course.findMany({
+      where: { instructorId: instructor.id },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        thumbnail: true,
+        status: true,
+        _count: {
+          select: {
+            chapters: true,
+            lessons: true,
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (isS3Configured()) {
+      await Promise.all(
+        courses.map(async (course) => {
+          if (course.thumbnail) {
+            course.thumbnail = resolveStorageUrl(course.thumbnail);
+          }
+          if (course.thumbnail && isOurS3Url(course.thumbnail)) {
+            try {
+              course.thumbnail = await getSignedUrlForMediaUrl(course.thumbnail, 3600);
+            } catch (err) {
+              console.warn('[instructor] Signed thumbnail URL failed:', course.id, err?.message);
+            }
+          }
+        })
+      );
+    }
+
+    res.json({
+      success: true,
+      data: courses,
     });
   } catch (error) {
     next(error);
@@ -98,6 +185,8 @@ export const getInstructorById = async (req, res, next) => {
       pendingEarnings: instructor.pendingEarnings ? parseFloat(instructor.pendingEarnings) : 0,
       order: parseInt(instructor.order) || 0,
     };
+
+    await maskInstructorImage(processedInstructor);
 
     res.json({
       success: true,
@@ -187,6 +276,8 @@ export const createInstructor = async (req, res, next) => {
         panNumber: panNumber || null,
       },
     });
+
+    await maskInstructorImage(instructor);
 
     res.status(201).json({
       success: true,
@@ -312,6 +403,8 @@ export const updateInstructor = async (req, res, next) => {
       where: { id },
       data: updateData,
     });
+
+    await maskInstructorImage(instructor);
 
     res.json({
       success: true,

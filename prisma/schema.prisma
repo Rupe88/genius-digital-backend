@@ -109,7 +109,8 @@ enum OrderStatus {
 }
 
 enum PaymentMethod {
-  ESEWA
+  ESEWA // legacy — no longer offered in app
+  MANUAL_QR
   MOBILE_BANKING
   VISA_CARD
   MASTERCARD
@@ -1380,6 +1381,16 @@ model Certificate {
   @@map("certificates")
 }
 
+// Single-row config: QR image for manual bank/wallet payments (admin-maintained)
+model ManualPaymentSettings {
+  id           String   @id @default("default")
+  qrImageUrl   String?  @db.Text
+  instructions String?  @db.Text
+  updatedAt    DateTime @updatedAt
+
+  @@map("manual_payment_settings")
+}
+
 // Payments/Transactions
 model Payment {
   id       String  @id @default(uuid())
@@ -1399,6 +1410,9 @@ model Payment {
 
   esewaRefId     String? @db.VarChar(255)
   esewaProductId String? @db.VarChar(255)
+
+  proofImageUrl    String?   @db.Text
+  proofSubmittedAt DateTime?
 
   mobileBankName String? @db.VarChar(100)
   mobileBankRef  String? @db.VarChar(255)

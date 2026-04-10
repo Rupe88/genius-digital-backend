@@ -74,31 +74,17 @@ services:
   - key: GOOGLE_CLIENT_SECRET
     type: SECRET
     value: "${GOOGLE_CLIENT_SECRET}"
-  # S3-compatible storage (Kailesh Cloud) - Images, Videos, Documents
-  - key: S3_ENDPOINT
-    value: "https://s3-np1.datahub.com.np"
-  - key: S3_REGION
-    value: "us-east-1"
-  - key: S3_BUCKET
-    value: "vaastu-lms"
-  - key: S3_ACCESS_KEY
+  # Supabase Storage — same project as Postgres; create bucket + policies in Supabase Dashboard
+  - key: SUPABASE_URL
+    value: "${SUPABASE_URL}"
+  - key: SUPABASE_SERVICE_ROLE_KEY
     type: SECRET
-    value: "${S3_ACCESS_KEY}"
-  - key: S3_SECRET_KEY
-    type: SECRET
-    value: "${S3_SECRET_KEY}"
-  # Return signed S3 URLs for playback so videos play when backend cannot stream from S3 (e.g. App Platform)
+    value: "${SUPABASE_SERVICE_ROLE_KEY}"
+  - key: SUPABASE_STORAGE_BUCKET
+    value: "lms-media"
+  # Return signed storage URLs for playback when backend cannot stream (e.g. App Platform)
   - key: USE_SIGNED_VIDEO_URL
     value: "true"
-  # Payment Gateway
-  - key: ESEWA_MERCHANT_ID
-    type: SECRET
-    value: "${ESEWA_MERCHANT_ID}"
-  - key: ESEWA_SECRET_KEY
-    type: SECRET
-    value: "${ESEWA_SECRET_KEY}"
-  - key: ESEWA_ENVIRONMENT
-    value: sandbox
   # Sparrow SMS Configuration (Nepal) - Optional; when set, OTP can be sent via SMS
   - key: SPARROW_SMS_TOKEN
     type: SECRET

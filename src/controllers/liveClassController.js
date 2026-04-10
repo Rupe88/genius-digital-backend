@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 
 import { validationResult } from 'express-validator';
 import * as zoomService from '../services/zoomService.js';
-import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
+import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/storageService.js';
 
 const SERIES_MARKER_PREFIX = '[[series:';
 const SERIES_MARKER_REGEX = /\[\[series:([a-f0-9-]{8,})\]\]/i;
@@ -280,6 +280,26 @@ const isUnknownAdminNotesArgError = (error) => {
   return msg.includes('Unknown argument `adminNotes`');
 };
 
+const getRequestInstructorProfile = async (req) => {
+  if (req.user?.role !== 'INSTRUCTOR') return null;
+  const email = String(req.user?.email || '').trim();
+  if (!email) return null;
+  return prisma.instructor.findFirst({
+    where: { email: { equals: email, mode: 'insensitive' } },
+    select: { id: true, email: true, name: true },
+  });
+};
+
+const ensureInstructorCanManageCourse = async (courseId, instructorId) => {
+  if (!courseId) return true;
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    select: { id: true, instructorId: true },
+  });
+  if (!course) return false;
+  return course.instructorId === instructorId;
+};
+
 /**
  * Get all live classes with filtering
  */
@@ -353,6 +373,88 @@ export const getAllLiveClasses = async (req, res, next) => {
 
     await attachSeriesScheduleMetadata(liveClasses);
 
+    await maskLiveClassesCourseThumbnails(liveClasses);
+    await enrichLiveClassesWithAdminNotes(liveClasses);
+    stripSeriesMetadataForResponseList(liveClasses);
+
+    res.json({
+      success: true,
+      data: liveClasses,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit)) || 1,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get live classes managed by current user.
+ * - Admin: all live classes
+ * - Instructor: only classes assigned to that instructor profile
+ */
+export const getMyManagedLiveClasses = async (req, res, next) => {
+  try {
+    const { status, courseId, search, q, page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const where = {};
+
+    if (status) where.status = status;
+    if (courseId) where.courseId = courseId;
+
+    const searchTerm = (search || q || '').trim();
+    if (searchTerm) {
+      where.OR = [
+        { title: { contains: searchTerm, mode: 'insensitive' } },
+        { description: { contains: searchTerm, mode: 'insensitive' } },
+      ];
+    }
+
+    if (req.user?.role === 'INSTRUCTOR') {
+      const instructor = await getRequestInstructorProfile(req);
+      if (!instructor) {
+        return res.status(403).json({
+          success: false,
+          message: 'Instructor profile not found for current user',
+        });
+      }
+      where.instructorId = instructor.id;
+    }
+
+    const [rows, total] = await Promise.all([
+      prisma.liveClass.findMany({
+        where,
+        include: {
+          instructor: true,
+          course: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              thumbnail: true,
+            },
+          },
+          _count: {
+            select: {
+              enrollments: true,
+            },
+          },
+        },
+        skip,
+        take: parseInt(limit),
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      prisma.liveClass.count({ where }),
+    ]);
+
+    const liveClasses = dedupeSeriesRows(rows);
+    await attachSeriesScheduleMetadata(liveClasses);
     await maskLiveClassesCourseThumbnails(liveClasses);
     await enrichLiveClassesWithAdminNotes(liveClasses);
     stripSeriesMetadataForResponseList(liveClasses);
@@ -459,9 +561,37 @@ export const createLiveClass = async (req, res, next) => {
       dayTimes,
     } = req.body;
 
+    const requestInstructor = await getRequestInstructorProfile(req);
+    const effectiveInstructorId =
+      req.user?.role === 'INSTRUCTOR' ? requestInstructor?.id : instructorId;
+    const effectiveAdminNotes =
+      req.user?.role === 'ADMIN' ? adminNotes : undefined;
+
+    if (req.user?.role === 'INSTRUCTOR') {
+      if (!requestInstructor?.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Instructor profile not found for current user',
+        });
+      }
+      if (instructorId && instructorId !== requestInstructor.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only create live classes for your own instructor profile',
+        });
+      }
+    }
+
+    if (!effectiveInstructorId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid instructor ID is required',
+      });
+    }
+
     // Validate instructor exists
     const instructor = await prisma.instructor.findUnique({
-      where: { id: instructorId },
+      where: { id: effectiveInstructorId },
     });
 
     if (!instructor) {
@@ -473,14 +603,17 @@ export const createLiveClass = async (req, res, next) => {
 
     // Validate course if provided
     if (courseId) {
-      const course = await prisma.course.findUnique({
-        where: { id: courseId },
-      });
-
-      if (!course) {
+      const allowed = await ensureInstructorCanManageCourse(
+        courseId,
+        effectiveInstructorId
+      );
+      if (!allowed) {
         return res.status(404).json({
           success: false,
-          message: 'Course not found',
+          message:
+            req.user?.role === 'INSTRUCTOR'
+              ? 'Course not found or not assigned to you'
+              : 'Course not found',
         });
       }
     }
@@ -606,9 +739,11 @@ export const createLiveClass = async (req, res, next) => {
     const createRows = scheduleEntries.map((entry) => ({
       title,
       description: descriptionWithSeriesMarker || null,
-      ...(adminNotes !== undefined ? { adminNotes: adminNotes || null } : {}),
+      ...(effectiveAdminNotes !== undefined
+        ? { adminNotes: effectiveAdminNotes || null }
+        : {}),
       courseId: courseId || null,
-      instructorId,
+      instructorId: effectiveInstructorId,
       scheduledAt: entry.scheduledAt,
       duration: durationMins,
       meetingUrl: finalMeetingUrl,
@@ -720,6 +855,33 @@ export const updateLiveClass = async (req, res, next) => {
       });
     }
 
+    const requestInstructor = await getRequestInstructorProfile(req);
+    const effectiveInstructorId =
+      req.user?.role === 'INSTRUCTOR' ? requestInstructor?.id : instructorId;
+    const effectiveAdminNotes =
+      req.user?.role === 'ADMIN' ? adminNotes : undefined;
+
+    if (req.user?.role === 'INSTRUCTOR') {
+      if (!requestInstructor?.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Instructor profile not found for current user',
+        });
+      }
+      if (liveClass.instructorId !== requestInstructor.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only manage your own live classes',
+        });
+      }
+      if (instructorId && instructorId !== requestInstructor.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'You cannot reassign live classes to another instructor',
+        });
+      }
+    }
+
     // Validate instructor if updating
     if (instructorId) {
       const instructor = await prisma.instructor.findUnique({
@@ -737,14 +899,17 @@ export const updateLiveClass = async (req, res, next) => {
     // Validate course if updating
     if (courseId !== undefined) {
       if (courseId) {
-        const course = await prisma.course.findUnique({
-          where: { id: courseId },
-        });
-
-        if (!course) {
+        const allowed = await ensureInstructorCanManageCourse(
+          courseId,
+          req.user?.role === 'INSTRUCTOR' ? requestInstructor.id : (effectiveInstructorId || liveClass.instructorId)
+        );
+        if (!allowed) {
           return res.status(404).json({
             success: false,
-            message: 'Course not found',
+            message:
+              req.user?.role === 'INSTRUCTOR'
+                ? 'Course not found or not assigned to you'
+                : 'Course not found',
           });
         }
       }
@@ -871,9 +1036,11 @@ export const updateLiveClass = async (req, res, next) => {
       const commonUpdates = {
         ...(title && { title }),
         ...(finalDescription !== undefined && { description: finalDescription }),
-        ...(adminNotes !== undefined && { adminNotes }),
+        ...(effectiveAdminNotes !== undefined && { adminNotes: effectiveAdminNotes }),
         ...(courseId !== undefined && { courseId: courseId || null }),
-        ...(instructorId && { instructorId }),
+        ...((effectiveInstructorId || instructorId) && {
+          instructorId: effectiveInstructorId || instructorId,
+        }),
         ...(duration !== undefined && { duration: nextDuration }),
         ...(recordingUrl !== undefined && { recordingUrl }),
         ...(status && { status }),
@@ -914,9 +1081,11 @@ export const updateLiveClass = async (req, res, next) => {
               data: {
                 title: title || liveClass.title,
                 description: finalDescription || null,
-                ...(adminNotes !== undefined ? { adminNotes: adminNotes || null } : {}),
+                ...(effectiveAdminNotes !== undefined
+                  ? { adminNotes: effectiveAdminNotes || null }
+                  : {}),
                 courseId: courseId !== undefined ? (courseId || null) : liveClass.courseId,
-                instructorId: instructorId || liveClass.instructorId,
+                instructorId: effectiveInstructorId || instructorId || liveClass.instructorId,
                 scheduledAt: desired.scheduledAt,
                 duration: nextDuration,
                 meetingUrl: nextMeetingUrl,
@@ -969,9 +1138,11 @@ export const updateLiveClass = async (req, res, next) => {
     let updateData = {
       ...(title && { title }),
       ...(nextDescription !== undefined && { description: nextDescription }),
-      ...(adminNotes !== undefined && { adminNotes }),
+      ...(effectiveAdminNotes !== undefined && { adminNotes: effectiveAdminNotes }),
       ...(courseId !== undefined && { courseId: courseId || null }),
-      ...(instructorId && { instructorId }),
+      ...((effectiveInstructorId || instructorId) && {
+        instructorId: effectiveInstructorId || instructorId,
+      }),
       ...(scheduledAt && { scheduledAt: new Date(scheduledAt) }),
       ...(duration !== undefined && { duration: parseInt(duration) }),
       ...(recordingUrl !== undefined && { recordingUrl }),
@@ -1095,9 +1266,35 @@ export const cancelLiveClassSeries = async (req, res, next) => {
     const { seriesId } = req.params;
     const marker = `${SERIES_MARKER_PREFIX}${seriesId}]]`;
 
+    if (req.user?.role === 'INSTRUCTOR') {
+      const requestInstructor = await getRequestInstructorProfile(req);
+      if (!requestInstructor?.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Instructor profile not found for current user',
+        });
+      }
+      const ownsAny = await prisma.liveClass.findFirst({
+        where: {
+          description: { contains: marker },
+          instructorId: requestInstructor.id,
+        },
+        select: { id: true },
+      });
+      if (!ownsAny) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only cancel your own live class series',
+        });
+      }
+    }
+
     const affected = await prisma.liveClass.updateMany({
       where: {
         description: { contains: marker },
+        ...(req.user?.role === 'INSTRUCTOR'
+          ? { instructorId: (await getRequestInstructorProfile(req))?.id || '__invalid__' }
+          : {}),
         status: { in: ['SCHEDULED', 'LIVE'] },
       },
       data: {
@@ -1141,6 +1338,22 @@ export const deleteLiveClass = async (req, res, next) => {
         success: false,
         message: 'Live class not found',
       });
+    }
+
+    if (req.user?.role === 'INSTRUCTOR') {
+      const requestInstructor = await getRequestInstructorProfile(req);
+      if (!requestInstructor?.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Instructor profile not found for current user',
+        });
+      }
+      if (liveClass.instructorId !== requestInstructor.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only delete your own live classes',
+        });
+      }
     }
 
     const seriesId = extractSeriesId(liveClass.description);

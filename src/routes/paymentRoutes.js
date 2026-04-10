@@ -3,7 +3,6 @@ import {
   initiatePayment,
   verifyPayment,
   verifyPaymentCallback,
-  esewaWebhook,
   khaltiWebhook,
   getPayment,
   getUserPayments,
@@ -11,7 +10,14 @@ import {
   getAvailableGateways,
   retryPayment,
   getAllPaymentsAdmin,
+  submitManualPaymentProof,
+  getManualPaymentSettings,
+  updateManualPaymentSettings,
+  uploadManualPaymentQr,
+  approveManualPayment,
+  rejectManualPayment,
 } from '../controllers/paymentController.js';
+import { singleUpload } from '../middleware/cloudinaryUpload.js';
 import {
   getPaymentAnalytics,
   getPaymentTrends,
@@ -24,10 +30,9 @@ import { body, param, query } from 'express-validator';
 const router = express.Router();
 
 // Public routes (webhooks don't require auth but need signature verification)
-router.post('/webhook/esewa', esewaWebhook);
 router.post('/webhook/khalti', khaltiWebhook);
 
-// Public: verify payment from success page (eSewa redirect; no auth, verified by signature)
+// Public: legacy verify callback (manual QR does not use this)
 router.post('/verify-callback', verifyPaymentCallback);
 
 // Public route - Get available payment gateways
@@ -43,7 +48,7 @@ router.post(
       .isFloat({ min: 0.01 })
       .withMessage('Amount must be greater than 0'),
     body('paymentMethod')
-      .isIn(['ESEWA', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD'])
+      .isIn(['MANUAL_QR', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD'])
       .withMessage('Invalid payment method'),
     body('courseId')
       .optional()
@@ -99,10 +104,55 @@ router.post(
       .withMessage('Transaction ID is required if payment ID is not provided'),
     body('paymentMethod')
       .optional()
-      .isIn(['ESEWA', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD'])
+      .isIn(['MANUAL_QR', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD'])
       .withMessage('Invalid payment method'),
   ],
   verifyPayment
+);
+
+router.post(
+  '/submit-proof',
+  authenticate,
+  singleUpload('proof'),
+  submitManualPaymentProof
+);
+
+router.get(
+  '/admin/manual-payment-settings',
+  authenticate,
+  requireAdmin,
+  getManualPaymentSettings
+);
+
+router.put(
+  '/admin/manual-payment-settings',
+  authenticate,
+  requireAdmin,
+  updateManualPaymentSettings
+);
+
+router.post(
+  '/admin/manual-payment-settings/qr',
+  authenticate,
+  requireAdmin,
+  singleUpload('file'),
+  uploadManualPaymentQr
+);
+
+router.post(
+  '/admin/:paymentId/approve-manual',
+  authenticate,
+  requireAdmin,
+  [param('paymentId').isUUID().withMessage('Invalid payment ID')],
+  approveManualPayment
+);
+
+router.post(
+  '/admin/:paymentId/reject-manual',
+  authenticate,
+  requireAdmin,
+  [param('paymentId').isUUID().withMessage('Invalid payment ID')],
+  rejectManualPayment
 );
 
 router.get(
@@ -169,7 +219,7 @@ router.get(
   [
     query('startDate').optional().isISO8601().withMessage('Invalid start date format'),
     query('endDate').optional().isISO8601().withMessage('Invalid end date format'),
-    query('paymentMethod').optional().isIn(['ESEWA', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD']),
+    query('paymentMethod').optional().isIn(['MANUAL_QR', 'ESEWA', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD', 'OTHER']),
   ],
   getPaymentAnalytics
 );
@@ -202,7 +252,7 @@ router.post(
     param('paymentId').isUUID().withMessage('Invalid payment ID format'),
     body('paymentMethod')
       .optional()
-      .isIn(['ESEWA', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD']),
+      .isIn(['MANUAL_QR', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD']),
   ],
   retryPayment
 );

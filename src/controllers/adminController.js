@@ -4,6 +4,7 @@ import * as financeService from '../services/financeService.js';
 import * as instructorEarningService from '../services/instructorEarningService.js';
 import * as expenseService from '../services/expenseService.js';
 import { hashPassword } from '../utils/hashPassword.js';
+import { generateSlug } from '../utils/helpers.js';
 
 const SOFT_DELETE_EMAIL_DOMAIN = '@deleted.local';
 
@@ -187,10 +188,39 @@ export const getAllUsers = asyncHandler(async (req, res) => {
     prisma.user.count({ where }),
   ]);
 
+  const emails = users
+    .map((u) => u.email?.trim().toLowerCase())
+    .filter(Boolean);
+
+  const instructorRows = emails.length
+    ? await prisma.instructor.findMany({
+      where: {
+        OR: emails.map((email) => ({
+          email: { equals: email, mode: 'insensitive' },
+        })),
+      },
+      select: { email: true },
+    })
+    : [];
+
+  const instructorEmailSet = new Set(
+    instructorRows
+      .map((i) => i.email?.trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  const usersWithDisplayRole = users.map((u) => ({
+    ...u,
+    role:
+      u.role === 'ADMIN'
+        ? 'ADMIN'
+        : (instructorEmailSet.has((u.email || '').trim().toLowerCase()) ? 'INSTRUCTOR' : u.role),
+  }));
+
   res.json({
     success: true,
     data: {
-      users,
+      users: usersWithDisplayRole,
       pagination: {
         page,
         limit,
@@ -445,9 +475,10 @@ export const exportUsersEnrollmentsDetailCsv = asyncHandler(async (req, res) => 
  */
 export const adminCreateUser = asyncHandler(async (req, res) => {
   const { email, password, fullName, phone, role } = req.body;
+  const normalizedEmail = String(email || '').trim().toLowerCase();
 
   const existing = await prisma.user.findUnique({
-    where: { email },
+    where: { email: normalizedEmail },
     select: { id: true },
   });
 
@@ -460,14 +491,16 @@ export const adminCreateUser = asyncHandler(async (req, res) => {
 
   const hashedPassword = await hashPassword(password);
 
+  const normalizedRequestedRole = String(role || 'STUDENT').toUpperCase();
+  const shouldCreateInstructorProfile = normalizedRequestedRole === 'INSTRUCTOR';
+
   const user = await prisma.user.create({
     data: {
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       fullName,
       phone: phone || null,
-      // Default role is USER; only allow explicit AFFILIATE from this endpoint
-      ...(role === 'AFFILIATE' ? { role: 'AFFILIATE' } : {}),
+      ...(normalizedRequestedRole === 'ADMIN' ? { role: 'ADMIN' } : {}),
       isEmailVerified: true,
       isActive: true,
     },
@@ -483,11 +516,42 @@ export const adminCreateUser = asyncHandler(async (req, res) => {
     },
   });
 
+  if (shouldCreateInstructorProfile) {
+    const existingInstructorByEmail = await prisma.instructor.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+      select: { id: true },
+    });
+
+    if (!existingInstructorByEmail) {
+      const baseSlug = generateSlug(fullName || normalizedEmail.split('@')[0] || 'instructor');
+      let slug = baseSlug || `instructor-${Date.now()}`;
+      let suffix = 1;
+
+      while (await prisma.instructor.findUnique({ where: { slug }, select: { id: true } })) {
+        slug = `${baseSlug}-${suffix++}`;
+      }
+
+      await prisma.instructor.create({
+        data: {
+          name: fullName,
+          slug,
+          email: normalizedEmail,
+          phone: phone || null,
+        },
+      });
+    }
+  }
+
+  const responseUser = {
+    ...user,
+    role: shouldCreateInstructorProfile ? 'INSTRUCTOR' : user.role,
+  };
+
   res.status(201).json({
     success: true,
     message: 'User created successfully',
     data: {
-      user,
+      user: responseUser,
     },
   });
 });

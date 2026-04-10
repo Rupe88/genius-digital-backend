@@ -24,6 +24,15 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 import { config } from '../config/env.js';
 import crypto from 'crypto';
 
+async function toDisplayRole(user) {
+  if (!user || user.role === 'ADMIN') return user?.role;
+  const instructor = await prisma.instructor.findFirst({
+    where: { email: { equals: user.email, mode: 'insensitive' } },
+    select: { id: true },
+  });
+  return instructor ? 'INSTRUCTOR' : user.role;
+}
+
 /** Public: return whether email/SMS OTP services are configured */
 export const getOtpOptions = asyncHandler((req, res) => {
   res.json({
@@ -246,6 +255,8 @@ export const verifyOtp = asyncHandler(async (req, res) => {
     console.error('Failed to send welcome email:', error);
   }
 
+  const displayRole = await toDisplayRole(updatedUser);
+
   res.json({
     success: true,
     message: 'Email verified successfully',
@@ -254,7 +265,7 @@ export const verifyOtp = asyncHandler(async (req, res) => {
         id: updatedUser.id,
         email: updatedUser.email,
         fullName: updatedUser.fullName,
-        role: updatedUser.role,
+        role: displayRole,
         isEmailVerified: updatedUser.isEmailVerified,
       },
       accessToken,
@@ -351,6 +362,8 @@ export const login = asyncHandler(async (req, res) => {
     });
   }
 
+  const displayRole = await toDisplayRole(user);
+
   // Generate tokens
   const accessToken = generateAccessToken({ userId: user.id, role: user.role });
   const refreshToken = generateRefreshToken({ userId: user.id });
@@ -366,7 +379,7 @@ export const login = asyncHandler(async (req, res) => {
         id: user.id,
         email: user.email,
         fullName: user.fullName,
-        role: user.role,
+        role: displayRole,
         isEmailVerified: user.isEmailVerified,
       },
       accessToken,

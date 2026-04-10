@@ -15,7 +15,7 @@ This is the **backend-only** repository for the Vaastu LMS platform. It provides
 - **Database:** PostgreSQL (via Prisma ORM)
 - **Authentication:** JWT tokens
 - **File Storage:** Cloudinary
-- **Payment:** Razorpay, eSewa, Mobile Banking
+- **Payment:** Manual QR (admin QR + proof + approval), Khalti, cards/banking where configured
 
 ## Project Structure
 

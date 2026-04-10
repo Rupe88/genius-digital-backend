@@ -2,12 +2,13 @@ import express from 'express';
 import {
   getAllInstructors,
   getInstructorById,
+  getMyInstructorCourses,
   createInstructor,
   updateInstructor,
   deleteInstructor,
 } from '../controllers/instructorController.js';
 import { authenticate } from '../middleware/auth.js';
-import { requireAdmin } from '../middleware/role.js';
+import { requireAdmin, requireInstructorOrAdmin } from '../middleware/role.js';
 import { singleUpload, processImageUpload } from '../middleware/cloudinaryUpload.js';
 import { body, param, query } from 'express-validator';
 
@@ -20,6 +21,13 @@ router.get(
     query('featured').optional().isBoolean(),
   ],
   getAllInstructors
+);
+
+router.get(
+  '/my/courses',
+  authenticate,
+  requireInstructorOrAdmin,
+  getMyInstructorCourses
 );
 
 router.get(

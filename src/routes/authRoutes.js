@@ -77,7 +77,7 @@ router.put(
   authenticate,
   validate([
     body('preferredPaymentMethod')
-      .isIn(['ESEWA', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD'])
+      .isIn(['MANUAL_QR', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD'])
       .withMessage('Invalid payment method'),
   ]),
   updatePaymentPreference

@@ -7,7 +7,7 @@ import {
   deleteLesson,
 } from '../controllers/lessonController.js';
 import { authenticate } from '../middleware/auth.js';
-import { requireAdmin } from '../middleware/role.js';
+import { requireInstructorOrAdmin } from '../middleware/role.js';
 import { fieldsUpload, processLessonFiles } from '../middleware/cloudinaryUpload.js';
 import { body, param } from 'express-validator';
 
@@ -22,7 +22,7 @@ router.get('/:id', authenticate, [param('id').isUUID()], getLessonById);
 router.post(
   '/',
   authenticate,
-  requireAdmin,
+  requireInstructorOrAdmin,
   fieldsUpload([
     { name: 'video', maxCount: 1 },
     { name: 'attachment', maxCount: 1 },
@@ -50,7 +50,7 @@ router.post(
 router.put(
   '/:id',
   authenticate,
-  requireAdmin,
+  requireInstructorOrAdmin,
   fieldsUpload([
     { name: 'video', maxCount: 1 },
     { name: 'attachment', maxCount: 1 },
@@ -78,7 +78,7 @@ router.put(
 router.delete(
   '/:id',
   authenticate,
-  requireAdmin,
+  requireInstructorOrAdmin,
   [param('id').isUUID()],
   deleteLesson
 );

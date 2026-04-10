@@ -2,7 +2,7 @@ import { prisma } from '../config/database.js';
 import { validationResult } from 'express-validator';
 import { generateSlug } from '../utils/helpers.js';
 import { normalizeThumbnailUrl } from '../utils/thumbnailUrl.js';
-import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
+import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl, resolveStorageUrl } from '../services/storageService.js';
 
 const reviewFieldNames = prisma?._runtimeDataModel?.models?.Review?.fields?.map((f) => f.name) || [];
 const supportsReviewModeration = reviewFieldNames.includes('isApproved');
@@ -23,9 +23,26 @@ const INSTRUCTOR_PUBLIC_SELECT = {
   updatedAt: true,
 };
 
+async function canManageCourse(req, courseId) {
+  if (req.user?.role === 'ADMIN') return true;
+  if (req.user?.role !== 'INSTRUCTOR') return false;
+  const instructor = await prisma.instructor.findFirst({
+    where: { email: { equals: req.user.email, mode: 'insensitive' } },
+    select: { id: true },
+  });
+  if (!instructor) return false;
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    select: { instructorId: true },
+  });
+  return !!course && course.instructorId === instructor.id;
+}
+
 /** Replace S3 thumbnail with signed S3 URL so browser loads image directly from S3 (no backend proxy). Mutates course(s). */
 async function maskCourseThumbnail(req, course) {
-  if (!isS3Configured() || !course?.thumbnail || !isOurS3Url(course.thumbnail)) return;
+  if (!course?.thumbnail) return;
+  course.thumbnail = resolveStorageUrl(course.thumbnail);
+  if (!isS3Configured() || !isOurS3Url(course.thumbnail)) return;
   try {
     course.thumbnail = await getSignedUrlForMediaUrl(course.thumbnail, 3600);
   } catch (err) {
@@ -542,6 +559,7 @@ export const getCourseById = async (req, res, next) => {
 
     // Check enrollment if user is logged in
     let enrollment = null;
+    let isInstructorOwner = false;
     if (req.user) {
       enrollment = await prisma.enrollment.findUnique({
         where: {
@@ -557,10 +575,17 @@ export const getCourseById = async (req, res, next) => {
           completedAt: true,
         },
       });
+      if (req.user.role === 'INSTRUCTOR') {
+        const instructor = await prisma.instructor.findFirst({
+          where: { email: { equals: req.user.email, mode: 'insensitive' } },
+          select: { id: true },
+        });
+        isInstructorOwner = !!instructor && course.instructorId === instructor.id;
+      }
     }
 
     // Non-admin users can access non-public statuses only when they are enrolled.
-    if (!isAdmin && !visibleStatuses.includes(course.status) && !enrollment) {
+    if (!isAdmin && !visibleStatuses.includes(course.status) && !enrollment && !isInstructorOwner) {
       return res.status(404).json({
         success: false,
         message: 'Course not found',
@@ -710,13 +735,17 @@ export const createCourse = async (req, res, next) => {
     }
 
     // Validate instructor exists if provided
-    if (instructorId) {
-      const instructor = await prisma.instructor.findUnique({
-        where: { id: instructorId },
+    if (!instructorId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Instructor assignment is required',
       });
-      if (!instructor) {
-        throw new Error('Instructor not found');
-      }
+    }
+    const instructor = await prisma.instructor.findUnique({
+      where: { id: instructorId },
+    });
+    if (!instructor) {
+      throw new Error('Instructor not found');
     }
 
     // Validate category if provided
@@ -907,6 +936,20 @@ export const updateCourse = async (req, res, next) => {
       return res.status(404).json({
         success: false,
         message: 'Course not found',
+      });
+    }
+
+    const allowed = await canManageCourse(req, id);
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can edit only courses assigned to you',
+      });
+    }
+    if (req.user?.role === 'INSTRUCTOR' && instructorId && instructorId !== existingCourse.instructorId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Instructors cannot reassign course instructor',
       });
     }
 

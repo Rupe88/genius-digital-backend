@@ -1,7 +1,9 @@
 import { prisma } from '../config/database.js';
 
 import { validateCoupon, applyCoupon } from './couponService.js';
-import * as esewaService from './esewaService.js';
+import { uploadImage } from './storageService.js';
+import { resolveStorageUrl } from './storageService.js';
+import { getSignedUrlForMediaUrl } from './storageService.js';
 import * as mobileBankingService from './mobileBankingService.js';
 import * as cardPaymentService from './cardPaymentService.js';
 import * as fraudDetectionService from './fraudDetectionService.js';
@@ -51,7 +53,7 @@ export const initiatePayment = async (params) => {
   }
 
   // Validate payment method
-  const validMethods = ['ESEWA', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD'];
+  const validMethods = ['MANUAL_QR', 'MOBILE_BANKING', 'VISA_CARD', 'MASTERCARD'];
   if (!validMethods.includes(paymentMethod)) {
     throw new Error('Invalid payment method');
   }
@@ -165,21 +167,23 @@ export const initiatePayment = async (params) => {
 
   try {
     switch (finalPaymentMethod) {
-      case 'ESEWA':
-        const esewaUrl = esewaService.generateEsewaPaymentUrl({
-          amount: finalAmount.toString(),
-          transactionId,
-          productName,
-          successUrl: successUrl || `${config.frontendUrl}/payment/success`,
-          failureUrl: failureUrl || `${config.frontendUrl}/payment/failure`,
+      case 'MANUAL_QR': {
+        const settings = await prisma.manualPaymentSettings.findUnique({
+          where: { id: 'default' },
         });
+        if (!settings?.qrImageUrl) {
+          throw new Error(
+            'Manual payment QR is not configured yet. Ask an administrator to upload a QR code in Admin → Manual payment.'
+          );
+        }
         paymentDetails = {
-          paymentUrl: esewaUrl.url,
-          formData: esewaUrl.formData,
-          method: 'ESEWA',
+          method: 'MANUAL_QR',
           transactionId,
+          qrImageUrl: await getSignedUrlForMediaUrl(resolveStorageUrl(settings.qrImageUrl), 3600),
+          instructions: settings.instructions || '',
         };
         break;
+      }
 
       case 'MOBILE_BANKING':
         const mobileBanking = mobileBankingService.createMobileBankingPayment({
@@ -295,6 +299,136 @@ export const initiatePayment = async (params) => {
 };
 
 /**
+ * Shared completion path after payment is marked COMPLETED (gateway or manual approval).
+ */
+async function executePostCompletionSteps(payment) {
+  if (payment.couponId) {
+    await applyCoupon(
+      payment.couponId,
+      payment.userId,
+      payment.orderId,
+      payment.id,
+      payment.discount
+    );
+  }
+
+  if (payment.metadata?.installmentId) {
+    await prisma.courseInstallment.update({
+      where: { id: payment.metadata.installmentId },
+      data: {
+        status: 'PAID',
+        paymentId: payment.id,
+        paidAt: new Date(),
+      },
+    });
+    return {
+      success: true,
+      payment: await prisma.payment.findUnique({
+        where: { id: payment.id },
+        include: { course: true, order: true },
+      }),
+    };
+  }
+
+  if (payment.courseId) {
+    const enrollment = await enrollUserInCourse(
+      payment.userId,
+      payment.courseId,
+      payment.finalAmount,
+      payment.metadata?.referralClickId
+    );
+
+    const course = await prisma.course.findUnique({
+      where: { id: payment.courseId },
+      select: {
+        id: true,
+        instructorId: true,
+        title: true,
+      },
+    });
+
+    if (course && course.instructorId) {
+      try {
+        await instructorEarningService.calculateCommission(
+          course.instructorId,
+          payment.courseId,
+          payment.id,
+          enrollment.id,
+          payment.finalAmount
+        );
+      } catch (error) {
+        console.error('Instructor commission calculation failed:', error);
+        await auditLogService.createAuditLog({
+          userId: payment.userId,
+          action: 'INSTRUCTOR_COMMISSION_ERROR',
+          entityType: 'PAYMENT',
+          entityId: payment.id,
+          description: `Failed to calculate instructor commission: ${error.message}`,
+        });
+      }
+    }
+
+    const hasReferralAttribution = !!payment.metadata?.referralClickId;
+    if (enrollment && enrollment.affiliateId && !hasReferralAttribution) {
+      try {
+        await affiliateService.calculateCommission(
+          enrollment.id,
+          payment.courseId,
+          payment.finalAmount
+        );
+      } catch (error) {
+        console.error('Affiliate commission calculation failed:', error);
+        await auditLogService.createAuditLog({
+          userId: payment.userId,
+          action: 'AFFILIATE_COMMISSION_ERROR',
+          entityType: 'PAYMENT',
+          entityId: payment.id,
+          description: `Failed to calculate affiliate commission: ${error.message}`,
+        });
+      }
+    } else if (enrollment?.affiliateId && hasReferralAttribution) {
+      await auditLogService.createAuditLog({
+        userId: payment.userId,
+        action: 'AFFILIATE_EARNING_SKIPPED_REFERRAL_UNIFIED',
+        entityType: 'PAYMENT',
+        entityId: payment.id,
+        description: 'Skipped legacy AffiliateEarning because referral attribution ledger is used',
+        metadata: {
+          enrollmentId: enrollment.id,
+          referralClickId: payment.metadata?.referralClickId,
+        },
+      });
+    }
+  }
+
+  if (payment.orderId) {
+    try {
+      await confirmOrderPayment(payment.orderId);
+    } catch (error) {
+      console.error('Order confirmation failed:', error);
+      await auditLogService.createAuditLog({
+        userId: payment.userId,
+        action: 'ORDER_CONFIRMATION_ERROR',
+        entityType: 'PAYMENT',
+        entityId: payment.id,
+        description: `Failed to confirm order after payment: ${error.message}`,
+      });
+    }
+  }
+
+  return {
+    success: true,
+    payment: await prisma.payment.findUnique({
+      where: { id: payment.id },
+      include: {
+        course: true,
+        order: true,
+      },
+    }),
+  };
+}
+
+/**
  * Verify payment
  * @param {Object} params - Verification parameters
  * @returns {Promise<Object>} Verification result
@@ -338,20 +472,8 @@ export const verifyPayment = async (params) => {
 
   try {
     switch (paymentMethod || payment.paymentMethod) {
-      case 'ESEWA':
-        // Verify eSewa callback or transaction
-        if (verificationData.signature) {
-          // Verify callback signature
-          const isValid = esewaService.verifyEsewaCallback(verificationData);
-          if (!isValid) {
-            throw new Error('Invalid eSewa signature');
-          }
-        }
-        verificationResult = await esewaService.verifyEsewaPayment(
-          payment.finalAmount,
-          transactionId || payment.transactionId
-        );
-        break;
+      case 'MANUAL_QR':
+        throw new Error('Manual QR payments are confirmed by an administrator after you submit proof.');
 
       case 'MOBILE_BANKING':
         verificationResult = await mobileBankingService.verifyMobileBankingPayment(
@@ -403,151 +525,13 @@ export const verifyPayment = async (params) => {
             verifiedAt: new Date().toISOString(),
           },
           // Update method-specific fields
-          ...(paymentMethod === 'ESEWA' && {
-            esewaRefId: verificationResult.transactionId || payment.transactionId,
-          }),
           ...(paymentMethod === 'MOBILE_BANKING' && {
             mobileBankRef: verificationResult.referenceNumber,
           }),
         },
       });
 
-      // Apply coupon if applicable
-      if (payment.couponId) {
-        await applyCoupon(
-          payment.couponId,
-          payment.userId,
-          payment.orderId,
-          payment.id,
-          payment.discount
-        );
-      }
-
-      // If this payment was for an installment (EMI), mark installment PAID and skip enrollment
-      if (payment.metadata?.installmentId) {
-        await prisma.courseInstallment.update({
-          where: { id: payment.metadata.installmentId },
-          data: {
-            status: 'PAID',
-            paymentId: payment.id,
-            paidAt: new Date(),
-          },
-        });
-        return {
-          success: true,
-          payment: await prisma.payment.findUnique({
-            where: { id: payment.id },
-            include: { course: true, order: true },
-          }),
-        };
-      }
-
-      // Auto-enroll in course if payment is for a course (only if not already enrolled)
-      if (payment.courseId) {
-        const enrollment = await enrollUserInCourse(
-          payment.userId,
-          payment.courseId,
-          payment.finalAmount,
-          payment.metadata?.referralClickId
-        );
-
-        // Get course to find instructor
-        const course = await prisma.course.findUnique({
-          where: { id: payment.courseId },
-          select: {
-            id: true,
-            instructorId: true,
-            title: true,
-          },
-        });
-
-        // Calculate instructor commission
-        if (course && course.instructorId) {
-          try {
-            await instructorEarningService.calculateCommission(
-              course.instructorId,
-              payment.courseId,
-              payment.id,
-              enrollment.id,
-              payment.finalAmount
-            );
-          } catch (error) {
-            // Log error but don't fail payment
-            console.error('Instructor commission calculation failed:', error);
-            await auditLogService.createAuditLog({
-              userId: payment.userId,
-              action: 'INSTRUCTOR_COMMISSION_ERROR',
-              entityType: 'PAYMENT',
-              entityId: payment.id,
-              description: `Failed to calculate instructor commission: ${error.message}`,
-            });
-          }
-        }
-
-        // Legacy affiliate-earning path:
-        // When referral attribution exists, ReferralConversion is the single source of truth.
-        // Skip AffiliateEarning creation to avoid dual ledgers/double counting.
-        const hasReferralAttribution = !!payment.metadata?.referralClickId;
-        if (enrollment && enrollment.affiliateId && !hasReferralAttribution) {
-          try {
-            await affiliateService.calculateCommission(
-              enrollment.id,
-              payment.courseId,
-              payment.finalAmount
-            );
-          } catch (error) {
-            // Log error but don't fail payment
-            console.error('Affiliate commission calculation failed:', error);
-            await auditLogService.createAuditLog({
-              userId: payment.userId,
-              action: 'AFFILIATE_COMMISSION_ERROR',
-              entityType: 'PAYMENT',
-              entityId: payment.id,
-              description: `Failed to calculate affiliate commission: ${error.message}`,
-            });
-          }
-        } else if (enrollment?.affiliateId && hasReferralAttribution) {
-          await auditLogService.createAuditLog({
-            userId: payment.userId,
-            action: 'AFFILIATE_EARNING_SKIPPED_REFERRAL_UNIFIED',
-            entityType: 'PAYMENT',
-            entityId: payment.id,
-            description: 'Skipped legacy AffiliateEarning because referral attribution ledger is used',
-            metadata: {
-              enrollmentId: enrollment.id,
-              referralClickId: payment.metadata?.referralClickId,
-            },
-          });
-        }
-      }
-
-      // Handle order payment confirmation
-      if (payment.orderId) {
-        try {
-          await confirmOrderPayment(payment.orderId);
-        } catch (error) {
-          console.error('Order confirmation failed:', error);
-          // Log but don't fail payment - admin can manually confirm
-          await auditLogService.createAuditLog({
-            userId: payment.userId,
-            action: 'ORDER_CONFIRMATION_ERROR',
-            entityType: 'PAYMENT',
-            entityId: payment.id,
-            description: `Failed to confirm order after payment: ${error.message}`,
-          });
-        }
-      }
-
-      return {
-        success: true,
-        payment: await prisma.payment.findUnique({
-          where: { id: payment.id },
-          include: {
-            course: true,
-            order: true,
-          },
-        }),
-      };
+      return await executePostCompletionSteps(payment);
     } else {
       // Update payment status to failed
       await prisma.payment.update({
@@ -785,11 +769,13 @@ export const retryPayment = async (paymentId, paymentMethod = null) => {
     },
   });
 
-  // Initiate new payment with same details
+  const resolvedMethod = paymentMethod || payment.paymentMethod;
+  const mappedMethod = resolvedMethod === 'ESEWA' ? 'MANUAL_QR' : resolvedMethod;
+
   const newPayment = await initiatePayment({
     userId: payment.userId,
     amount: payment.amount.toString(),
-    paymentMethod: paymentMethod || payment.paymentMethod,
+    paymentMethod: mappedMethod,
     courseId: payment.courseId,
     orderId: payment.orderId,
     productName: payment.metadata?.productName || 'Course/Product Payment',
@@ -802,12 +788,153 @@ export const retryPayment = async (paymentId, paymentMethod = null) => {
   };
 };
 
+/**
+ * User submits payment screenshot after paying via QR (MANUAL_QR).
+ */
+export const submitPaymentProof = async (paymentId, userId, buffer, mimeType) => {
+  const payment = await prisma.payment.findFirst({
+    where: { id: paymentId, userId },
+  });
+  if (!payment) {
+    throw new Error('Payment not found');
+  }
+  if (payment.paymentMethod !== 'MANUAL_QR') {
+    throw new Error('This payment does not require proof upload');
+  }
+  if (payment.status !== 'PENDING') {
+    throw new Error('Payment is not awaiting proof');
+  }
+  const result = await uploadImage(buffer, {
+    folder: 'lms/payment-proofs',
+    mimeType: mimeType || 'image/jpeg',
+  });
+  await prisma.payment.update({
+    where: { id: paymentId },
+    data: {
+      proofImageUrl: result.secure_url,
+      proofSubmittedAt: new Date(),
+    },
+  });
+  return { proofImageUrl: result.secure_url };
+};
+
+/**
+ * Admin approves a manual QR payment after reviewing proof.
+ */
+export const approveManualPayment = async (paymentId, adminUserId) => {
+  const payment = await prisma.payment.findFirst({
+    where: { id: paymentId },
+    include: { course: true, order: true, coupon: true },
+  });
+  if (!payment) {
+    throw new Error('Payment not found');
+  }
+  if (payment.paymentMethod !== 'MANUAL_QR') {
+    throw new Error('Not a manual QR payment');
+  }
+  if (payment.status !== 'PENDING') {
+    throw new Error('Payment is not pending');
+  }
+  if (!payment.proofImageUrl) {
+    throw new Error('No payment proof submitted yet');
+  }
+
+  await prisma.payment.update({
+    where: { id: paymentId },
+    data: {
+      status: 'COMPLETED',
+      metadata: {
+        ...(payment.metadata || {}),
+        manualApproval: {
+          at: new Date().toISOString(),
+          approvedBy: adminUserId,
+        },
+      },
+    },
+  });
+
+  return executePostCompletionSteps(payment);
+};
+
+export const rejectManualPayment = async (paymentId, adminUserId, reason = '') => {
+  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+  if (!payment) {
+    throw new Error('Payment not found');
+  }
+  if (payment.paymentMethod !== 'MANUAL_QR' || payment.status !== 'PENDING') {
+    throw new Error('Invalid payment to reject');
+  }
+  await prisma.payment.update({
+    where: { id: paymentId },
+    data: {
+      status: 'FAILED',
+      metadata: {
+        ...(payment.metadata || {}),
+        manualRejection: {
+          at: new Date().toISOString(),
+          rejectedBy: adminUserId,
+          reason: reason || 'Rejected by admin',
+        },
+      },
+    },
+  });
+  return { success: true };
+};
+
+export const getManualPaymentSettings = async () => {
+  let row = await prisma.manualPaymentSettings.findUnique({ where: { id: 'default' } });
+  if (!row) {
+    row = await prisma.manualPaymentSettings.create({
+      data: { id: 'default' },
+    });
+  }
+  const resolvedQrImageUrl = row.qrImageUrl ? resolveStorageUrl(row.qrImageUrl) : null;
+  const signedQrImageUrl = resolvedQrImageUrl
+    ? await getSignedUrlForMediaUrl(resolvedQrImageUrl, 3600)
+    : null;
+
+  return {
+    ...row,
+    qrImageUrl: signedQrImageUrl,
+  };
+};
+
+export const updateManualPaymentSettings = async ({ qrImageUrl, instructions }) => {
+  const updated = await prisma.manualPaymentSettings.upsert({
+    where: { id: 'default' },
+    create: {
+      id: 'default',
+      qrImageUrl: qrImageUrl ?? null,
+      instructions: instructions ?? null,
+    },
+    update: {
+      ...(qrImageUrl !== undefined && { qrImageUrl }),
+      ...(instructions !== undefined && { instructions }),
+    },
+  });
+
+  const resolvedQrImageUrl = updated.qrImageUrl ? resolveStorageUrl(updated.qrImageUrl) : null;
+  const signedQrImageUrl = resolvedQrImageUrl
+    ? await getSignedUrlForMediaUrl(resolvedQrImageUrl, 3600)
+    : null;
+
+  return {
+    ...updated,
+    qrImageUrl: signedQrImageUrl,
+  };
+};
+
 export default {
   initiatePayment,
   verifyPayment,
   getPaymentById,
   processRefund,
   retryPayment,
+  submitPaymentProof,
+  approveManualPayment,
+  rejectManualPayment,
+  getManualPaymentSettings,
+  updateManualPaymentSettings,
 };
 
 

@@ -10,7 +10,7 @@ import {
   togglePreview,
 } from '../controllers/chapterController.js';
 import { authenticate } from '../middleware/auth.js';
-import { requireAdmin } from '../middleware/role.js';
+import { requireInstructorOrAdmin } from '../middleware/role.js';
 import { body, param } from 'express-validator';
 
 const router = express.Router();
@@ -31,7 +31,7 @@ router.get(
 router.post(
   '/',
   authenticate,
-  requireAdmin,
+  requireInstructorOrAdmin,
   [
     body('courseId').notEmpty().isUUID().withMessage('Course ID is required'),
     body('title').notEmpty().trim().isLength({ min: 1, max: 255 }).withMessage('Title is required (max 255 characters)'),
@@ -47,7 +47,7 @@ router.post(
 router.put(
   '/:id',
   authenticate,
-  requireAdmin,
+  requireInstructorOrAdmin,
   [
     param('id').isUUID().withMessage('Invalid chapter ID'),
     body('title').optional().trim().isLength({ min: 1, max: 255 }),
@@ -63,7 +63,7 @@ router.put(
 router.delete(
   '/:id',
   authenticate,
-  requireAdmin,
+  requireInstructorOrAdmin,
   [param('id').isUUID().withMessage('Invalid chapter ID')],
   deleteChapter
 );
@@ -71,7 +71,7 @@ router.delete(
 router.post(
   '/:id/reorder',
   authenticate,
-  requireAdmin,
+  requireInstructorOrAdmin,
   [
     param('id').isUUID().withMessage('Invalid chapter ID'),
     body('order').notEmpty().isInt({ min: 0 }).withMessage('Order is required and must be a positive integer'),
@@ -82,7 +82,7 @@ router.post(
 router.post(
   '/:id/toggle-lock',
   authenticate,
-  requireAdmin,
+  requireInstructorOrAdmin,
   [
     param('id').isUUID().withMessage('Invalid chapter ID'),
     body('isLocked').optional().isBoolean(),
@@ -93,7 +93,7 @@ router.post(
 router.post(
   '/:id/toggle-preview',
   authenticate,
-  requireAdmin,
+  requireInstructorOrAdmin,
   [
     param('id').isUUID().withMessage('Invalid chapter ID'),
     body('isPreview').optional().isBoolean(),

@@ -2,6 +2,17 @@ import { verifyAccessToken, verifyMobileToken } from '../services/tokenService.j
 import { prisma } from '../config/database.js';
 import { asyncHandler } from './errorHandler.js';
 
+const applyInstructorDisplayRole = async (user) => {
+  if (!user || user.role === 'ADMIN') return user;
+  const normalizedEmail = (user.email || '').trim();
+  if (!normalizedEmail) return user;
+  const instructor = await prisma.instructor.findFirst({
+    where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+    select: { id: true },
+  });
+  return instructor ? { ...user, role: 'INSTRUCTOR' } : user;
+};
+
 export const authenticate = asyncHandler(async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -46,7 +57,7 @@ export const authenticate = asyncHandler(async (req, res, next) => {
       });
     }
 
-    req.user = user;
+    req.user = await applyInstructorDisplayRole(user);
     next();
   } catch (error) {
     return res.status(401).json({
@@ -79,7 +90,7 @@ export const optionalAuthenticate = async (req, res, next) => {
     });
 
     if (user && user.isActive) {
-      req.user = user;
+      req.user = await applyInstructorDisplayRole(user);
     }
     next();
   } catch (error) {

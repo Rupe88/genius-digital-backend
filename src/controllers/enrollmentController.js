@@ -1,5 +1,5 @@
 import { prisma } from '../config/database.js';
-import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/s3Service.js';
+import { isS3Configured, isOurS3Url, getSignedUrlForMediaUrl } from '../services/storageService.js';
 
 import { validationResult } from 'express-validator';
 import * as referralService from '../services/referralService.js';

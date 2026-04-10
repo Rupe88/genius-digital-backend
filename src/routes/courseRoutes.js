@@ -12,7 +12,7 @@ import {
   deleteCourse,
 } from '../controllers/courseController.js';
 import { authenticate, optionalAuthenticate } from '../middleware/auth.js';
-import { requireAdmin } from '../middleware/role.js';
+import { requireAdmin, requireInstructorOrAdmin } from '../middleware/role.js';
 import { fieldsUpload, processCourseFiles, singleUpload, processDocumentUpload } from '../middleware/cloudinaryUpload.js';
 import { courseValidation, courseFilterValidation } from '../utils/validators.js';
 import { param, query, body } from 'express-validator';
@@ -47,7 +47,7 @@ router.post(
 router.put(
   '/:id',
   authenticate,
-  requireAdmin,
+  requireInstructorOrAdmin,
   fieldsUpload([{ name: 'thumbnail', maxCount: 1 }, { name: 'video', maxCount: 5 }]),
   processCourseFiles,
   [param('id').isUUID(), ...courseValidation],

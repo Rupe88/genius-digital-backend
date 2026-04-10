@@ -1,6 +1,6 @@
 /**
- * Secure video streaming: token-based access so S3 URLs are never exposed.
- * Only authorized users (enrolled or preview) get a short-lived stream URL.
+ * Secure video streaming: token-based access so storage URLs are not used blindly.
+ * Only authorized users (enrolled or preview) get a short-lived stream or signed URL.
  */
 
 import { prisma } from '../config/database.js';
@@ -14,7 +14,7 @@ import {
   getObjectStream,
   getObjectContentLength,
   getSignedUrlForMediaUrl,
-} from '../services/s3Service.js';
+} from '../services/storageService.js';
 
 const API_BASE = process.env.API_BASE_PATH !== undefined ? process.env.API_BASE_PATH : '/api';
 
@@ -24,7 +24,7 @@ const FIRST_CHUNK_BYTES = 10 * 1024 * 1024; // 10MB
 /**
  * GET /api/media/video-token?lessonId=xxx | ?courseId=xxx&type=promo
  * Returns backend stream URL so video is served in chunks (play after first chunk, not full download).
- * Set USE_SIGNED_VIDEO_URL=true to return signed S3 URL instead (when server cannot reach S3).
+ * Set USE_SIGNED_VIDEO_URL=true to return a signed Supabase Storage URL instead of the stream path.
  * Lesson: login required. Promo: no login required.
  */
 export const getVideoToken = async (req, res, next) => {
@@ -67,8 +67,8 @@ export const getVideoToken = async (req, res, next) => {
         return res.status(404).json({ success: false, message: 'No video for this lesson' });
       }
 
-      // Prefer direct signed S3 URL when possible for smoother playback.
-      // Falls back to internal streaming endpoint if S3 is unavailable or signing fails.
+      // Prefer direct signed storage URL when possible for smoother playback.
+      // Falls back to internal streaming endpoint if signing fails.
       if (isS3Configured() && isOurS3Url(lesson.videoUrl)) {
         try {
           const signedUrl = await getSignedUrlForMediaUrl(lesson.videoUrl, 3600);
@@ -97,7 +97,7 @@ export const getVideoToken = async (req, res, next) => {
         return res.status(404).json({ success: false, message: 'No preview video for this course' });
       }
 
-      // Prefer direct signed S3 URL for promo previews as well.
+      // Prefer direct signed storage URL for promo previews as well.
       if (isS3Configured() && isOurS3Url(course.videoUrl)) {
         try {
           const signedUrl = await getSignedUrlForMediaUrl(course.videoUrl, 3600);
@@ -122,7 +122,7 @@ export const getVideoToken = async (req, res, next) => {
 };
 
 /**
- * Internal helper to stream an S3 object to the response with proper range support.
+ * Internal helper to stream a storage object to the response with proper range support.
  * Follows standard HTTP range request behavior for video players.
  */
 async function streamS3Object(req, res, key) {
@@ -226,7 +226,7 @@ async function streamS3Object(req, res, key) {
 
   } catch (err) {
     const code = err?.name || err?.code || 'Unknown';
-    console.error(`[stream] S3 error for ${key}:`, code, err.message);
+    console.error(`[stream] Storage error for ${key}:`, code, err.message);
     if (!res.headersSent) {
       if (code === 'NoSuchKey' || code === '404') {
         return res.status(404).json({ success: false, message: 'Video file not found' });
@@ -320,9 +320,8 @@ export const streamCoursePromo = async (req, res, next) => {
 };
 
 /**
- * GET /api/media/image?token=JWT | ?url=ENCODED_S3_URL
- * Since S3 images are now public, redirect directly to S3 URL instead of proxying.
- * This improves performance by serving images directly from S3.
+ * GET /api/media/image?token=JWT | ?url=ENCODED_STORAGE_URL
+ * For our storage URLs, redirect to the public object URL.
  */
 export const streamImage = async (req, res, next) => {
   try {
@@ -369,14 +368,11 @@ export const streamImage = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Image not found' });
     }
 
-    // For S3 URLs, ensure they're public by not adding any signed params
-    // Just redirect to the public URL
     if (isOurS3Url(redirectUrl)) {
-      // S3 images are public - redirect directly
       return res.redirect(302, redirectUrl);
     }
 
-    // For non-S3 URLs, also redirect
+    // External URLs
     return res.redirect(302, redirectUrl);
   } catch (error) {
     next(error);
