@@ -1,6 +1,8 @@
-# Deploying genius-lms-backend (DigitalOcean Droplet + api.geniusdigi.com)
+# Deploying genius-digital-backend (DigitalOcean Droplet + api.geniusdigi.com)
 
 Target: **Ubuntu 24.04** droplet, **Docker**, **Nginx**, **Let’s Encrypt**, **GitHub Actions** SSH deploy.
+
+Repository: **`Rupe88/genius-digital-backend`**
 
 ## Security first
 
@@ -30,20 +32,21 @@ Optional: run the helper script from this repo (after you clone it), or install 
 bash deploy/setup-server-ubuntu.sh
 ```
 
-Create app directory and clone **with a deploy key** (recommended for private repos):
+Create app directory and clone. If **Deploy keys are disabled** by your org, use **HTTPS + Personal Access Token** (fine-grained: Contents read on this repo only):
 
 ```bash
-mkdir -p /opt/genius-lms-backend
-cd /opt/genius-lms-backend
-git clone https://github.com/Digital-Pathshala/genius-lms-backend.git .
-# Or use SSH URL after adding a deploy key to the repo (Settings → Deploy keys).
+mkdir -p /opt/genius-digital-backend
+cd /opt/genius-digital-backend
+git clone https://github.com/Rupe88/genius-digital-backend.git .
 ```
+
+When prompted, use your GitHub username and a **PAT** as the password. Or use SSH if your org allows deploy keys / your user key.
 
 Copy production env (from `.env.production.example` on your machine):
 
 ```bash
-nano /opt/genius-lms-backend/.env
-chmod 600 /opt/genius-lms-backend/.env
+nano /opt/genius-digital-backend/.env
+chmod 600 /opt/genius-digital-backend/.env
 ```
 
 Required adjustments for production:
@@ -70,7 +73,7 @@ sudo certbot --nginx -d api.geniusdigi.com
 Start the API (first deploy can be manual before CI exists):
 
 ```bash
-cd /opt/genius-lms-backend
+cd /opt/genius-digital-backend
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
@@ -85,18 +88,13 @@ In the repo: **Settings → Secrets and variables → Actions**, add:
 | `DEPLOY_HOST`    | `64.227.182.187`                                     |
 | `DEPLOY_USER`    | `root` or your sudo user                             |
 | `DEPLOY_SSH_KEY` | Private key (PEM) whose **public** key is in `~/.ssh/authorized_keys` on the droplet |
+
 The workflow runs on **push to `main`** and executes:
 
-- `git fetch` / `reset` to `origin/main` in `/opt/genius-lms-backend`
+- `git fetch` / `reset` to `origin/main` in `/opt/genius-digital-backend`
 - `docker compose -f docker-compose.prod.yml up -d --build`
 
-Ensure the droplet can `git fetch` from GitHub. For a **private** repo, clone with SSH and add a **read-only deploy key** to the repo:
-
-```bash
-git clone git@github.com:Digital-Pathshala/genius-lms-backend.git /opt/genius-lms-backend
-```
-
-(Generate a key on the server, add the public key under **Settings → Deploy keys** on the repo.)
+The droplet must be able to `git fetch` the repo (PAT in `git credential`, deploy key, or SSH key — whatever matches your org policy).
 
 ## 5. Firewall
 

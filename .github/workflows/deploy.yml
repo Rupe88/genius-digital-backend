@@ -48,7 +48,7 @@ jobs:
     if: >
       github.ref == 'refs/heads/main' &&
       github.event_name == 'push' &&
-      github.repository == 'Digital-Pathshala/genius-lms-backend'
+      github.repository == 'Rupe88/genius-digital-backend'
 
     steps:
       - name: Deploy to DigitalOcean droplet
@@ -61,7 +61,7 @@ jobs:
           script_stop: true
           script: |
             set -euxo pipefail
-            cd /opt/genius-lms-backend
+            cd /opt/genius-digital-backend
             git fetch origin main
             git reset --hard origin/main
             docker compose -f docker-compose.prod.yml up -d --build --remove-orphans

@@ -23,7 +23,7 @@ ufw allow 'Nginx Full'
 ufw --force enable || true
 
 echo "Done. Next:"
-echo "  1) mkdir -p /opt/genius-lms-backend && clone repo + copy .env"
+echo "  1) mkdir -p /opt/genius-digital-backend && clone repo + copy .env"
 echo "  2) Copy deploy/nginx/api.geniusdigi.com.conf → /etc/nginx/sites-available/ and enable site"
 echo "  3) certbot --nginx -d api.geniusdigi.com"
 echo "  4) Add GitHub deploy key + DEPLOY_* secrets"

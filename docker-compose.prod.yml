@@ -7,7 +7,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: genius-lms-backend:latest
+    image: genius-digital-backend:latest
     env_file: .env
     environment:
       NODE_ENV: production

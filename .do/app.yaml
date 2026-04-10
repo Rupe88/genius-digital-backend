@@ -6,7 +6,7 @@ services:
 - name: api
   source_dir: /
   github:
-    repo: Digital-Pathshala/genius-lms-backend
+    repo: Rupe88/genius-digital-backend
     branch: main
     deploy_on_push: true
   run_command: npm run start
