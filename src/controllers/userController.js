@@ -4,7 +4,7 @@ import { validationResult } from 'express-validator';
 
 
 /**
- * Update user's preferred payment method
+ * Update user's preferred payment 
  */
 export const updatePaymentPreference = async (req, res, next) => {
   try {
