@@ -7,6 +7,7 @@ import { hashPassword } from '../utils/hashPassword.js';
 import { generateSlug } from '../utils/helpers.js';
 
 const SOFT_DELETE_EMAIL_DOMAIN = '@deleted.local';
+//soft del
 
 const isSoftDeletedEmail = (email) =>
   typeof email === 'string' &&
